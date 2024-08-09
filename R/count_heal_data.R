@@ -1,9 +1,3 @@
-library(data.table)
-library(withr)
-library(Rsubread)
-library(Rgff)
-library(doParallel,quietly = T)
-
 parse_counts_bins <- function(feature_count_list, gc_df, map_df, sample_names, bin_size){
 
   counts_df <- as.data.table(feature_count_list$counts)
@@ -62,9 +56,6 @@ parse_counts_genes <- function(gene_counts_list, sample_names){
 #'
 #' @return A list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
 #' @export
-#'
-#' @examples
-#' counts <- count_heal_data(input_dir = in_dir, n_cores = 30, bin_size=10000, paired_end = TRUE, full_output = FALSE)
 count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_output=FALSE){
 
   prog_dir <- list.files(path=input_dir, pattern = "progenitor", full.names = TRUE)
@@ -73,7 +64,7 @@ count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_out
   progenitors <- list.files(path=prog_dir)
 
 
-  counts <- foreach(prog=progenitors) %do% {
+  counts <- foreach::foreach(prog=progenitors) %do% {
 
     # get paths ----------------
 
@@ -186,3 +177,6 @@ count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_out
   return(counts)
 
 }
+
+
+utils::globalVariables(c("prog", "chr","start","end","GeneID","gc_content","mappability"))
