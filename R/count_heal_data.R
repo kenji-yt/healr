@@ -46,7 +46,7 @@ parse_counts_genes <- function(gene_counts_list, sample_names){
 
 }
 
-#' Counts reads and combines results with GC and mappability information
+#' Counts reads and combines results with GC and mappability information.
 #'
 #' @param input_dir A healr input directory (see details).
 #' @param n_cores Number of cores to use with featureCounts ('1' by default)
@@ -72,7 +72,7 @@ count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_out
 
     current_prog_dir <- list.files(path = prog_dir, pattern = prog, full.names = TRUE)
 
-    gc_path   <- list.files(path = current_prog_dir, pattern = "nucleotide.bed$", full.names = TRUE)
+    gc_path   <- list.files(path = current_prog_dir, pattern = "gc.bed$", full.names = TRUE)
     map_path  <- list.files(path = current_prog_dir, pattern = "mappability.bed$", full.names = TRUE)
     bins_path <- list.files(path = current_prog_dir, pattern = "bins.bed$", full.names = TRUE)
 

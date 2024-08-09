@@ -1,10 +1,10 @@
-#' Filter bins based on average per base mappability and GC content (optional)
+#' Filter bins based on average per base mappability and GC content (optional).
 #'
 #' @param counts_list Output list from count_heal_data()
-#' @param mappability_threshold Threshold average per bin mappability value below which bins are ignored ('0.9' by defaults).
+#' @param mappability_threshold Threshold average per bin mappability value below which bins are ignored ('0.9' by default).
 #' @param GC_quantile Bins with GC content below first and above last quantiles are ignored. Set to 'FALSE' for no filtering (100 by default).
 #'
-#' @return
+#' @return A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
 #' @export
 filter_bins <- function(counts_list, mappability_threshold=0.9, GC_quantile=100){
 
@@ -39,7 +39,7 @@ filter_bins <- function(counts_list, mappability_threshold=0.9, GC_quantile=100)
 
 
     filtered_df <- prog$bins[which_keep,]
-    # Note: any full featureCounts results discarded at this stage.
+
     return(list(bins=filtered_df, genes=prog$genes))
 
   }

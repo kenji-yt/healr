@@ -2,7 +2,7 @@
 % Please edit documentation in R/count_heal_data.R
 \name{count_heal_data}
 \alias{count_heal_data}
-\title{Counts reads and combines results with GC and mappability information}
+\title{Counts reads and combines results with GC and mappability information.}
 \usage{
 count_heal_data(
   input_dir,
@@ -27,9 +27,5 @@ count_heal_data(
 A list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
 }
 \description{
-Counts reads and combines results with GC and mappability information
-}
-\examples{
-
-count_heal_data(input_dir = "/input/dir/", n_cores = 30, bin_size=5000, paired_end = TRUE)
+Counts reads and combines results with GC and mappability information.
 }
