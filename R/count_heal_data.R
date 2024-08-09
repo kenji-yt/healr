@@ -52,7 +52,20 @@ parse_counts_genes <- function(gene_counts_list, sample_names){
 
 }
 
-count_heal_data <- function(input_dir, n_cores=FALSE, bin_size, paired_end, full_output=FALSE){
+#' Counts reads and combines results with GC and mappability information
+#'
+#' @param input_dir A healr input directory (see details).
+#' @param n_cores Number of cores to use with featureCounts ('1' by default)
+#' @param bin_size Bin size.
+#' @param paired_end Logical: Is the data paired end.
+#' @param full_output Logical: Do you want to also get the full featureCounts output ('FALSE' by default)
+#'
+#' @return A list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
+#' @export
+#'
+#' @examples
+#' counts <- count_heal_data(input_dir = in_dir, n_cores = 30, bin_size=10000, paired_end = TRUE, full_output = FALSE)
+count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_output=FALSE){
 
   prog_dir <- list.files(path=input_dir, pattern = "progenitor", full.names = TRUE)
   poly_dir <- list.files(path=input_dir, pattern = "polyploid", full.names = TRUE)
@@ -119,7 +132,6 @@ count_heal_data <- function(input_dir, n_cores=FALSE, bin_size, paired_end, full
 
     feature_count_list <- Rsubread::featureCounts(bam_paths, annot.ext = anno_bins , isPairedEnd=paired_end, nthreads = n_cores, allowMultiOverlap=T)
 
-
     sample_names <- basename(dirname(dirname(bam_paths)))
     if ( sum(sample_names == "progenitor")>0 ){ # give random name.
       sample_names[ sample_names == "progenitor" ] <- c(paste0("progenitor",1:sum(sample_names == "progenitor")))
@@ -138,7 +150,7 @@ count_heal_data <- function(input_dir, n_cores=FALSE, bin_size, paired_end, full
     names(annotations) <- prog_anno
 
     # if there is 1 gene annotation files
-    if (sum(sort(prog_anno)==sort(progenitors))==length(species_anno)){
+    if (sum(sort(prog_anno)==sort(progenitors))==length(prog_anno)){
 
       genes_saf <- paste0(dirname(annotations[prog]), "/genes_", prog, ".saf")
 
