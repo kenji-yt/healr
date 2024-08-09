@@ -165,7 +165,7 @@ count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_out
 
     }else{
 
-      cat(paste("No annotations."))
+      cat(paste("NOTE: No annotations found, only inferring HE patterns."))
       return(list(bins=count_df))
 
     }
