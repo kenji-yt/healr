@@ -17,4 +17,6 @@ Imports:
     Rgff,
     Rsubread,
     withr,
-    DNAcopy
+    DNAcopy,
+    doParallel,
+    ggplot2

@@ -1,63 +1,85 @@
-get_copy_number <- function(counts, n_cores, prog_ploidy=2, method="median"){
+#' Infer copy number using Circular Binary Segmentation (from DNAcopy)
+#'
+#' @param counts Output list from count_heal_data() or filter_bins()
+#' @param n_cores Number of cores to use ('1' by default)
+#' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '1' by default)
+#' @param method Method to infered copy number in each segment ('median' or 'mean'. 'median' by default)
+#' @param full_output Logical: Do you want to also get the full DNAcopy output ('FALSE' by default)
+#'
+#' @return  A list with one element per progenitor containing the bins and genes elements of the inpiut plus a data table with infered copy number per bin for each sample and GC and mappability for each bin.
+#' @export
+#'
+#' @importFrom foreach %dopar%
+#' @importFrom foreach %do%
+get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", full_output=FALSE){
 
 
-    if(intersect(method, c("median", "mean"))==0 || length(method)!=1){
-      cat("ERROR: Invalid method input. Choose either 'median' or 'mean'")
-      quit()
+  if(intersect(method, c("median", "mean"))==0 || length(method)!=1){
+    cat("ERROR: Invalid method input. Choose either 'median' or 'mean'")
+    quit()
+  }
+
+  progenitors <- names(counts)
+  sample_name_per_prog <- lapply(counts,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))})
+  samples  <- unique(unlist(sample_name_per_prog))
+
+  doParallel::registerDoParallel(n_cores)
+  sample_averages <- foreach::foreach(smp=samples)%dopar%{
+    if(method=="median"){
+      avg <- stats::median(stats::na.omit(unlist(lapply(counts, function(df){df$bins[[smp]]}))))
+      return(avg)
+    }else{
+      avg <- mean(stats::na.omit(unlist(lapply(counts, function(df){df$bins[[smp]]}))))
+      return(avg)
     }
+  }
+  doParallel::stopImplicitCluster()
 
-    progenitors <- names(counts)
-    sample_name_per_prog <- lapply(counts,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))})
-    samples  <- unique(unlist(sample_name_per_prog))
+  names(sample_averages) <- samples
+
+
+  cn_list <- foreach::foreach(pr_name=progenitors)%do%{
+
+    prog <- counts[[pr_name]]$bins
+
+    sample_current_prog <- unlist(sample_name_per_prog[[pr_name]])
 
     doParallel::registerDoParallel(n_cores)
-    sample_average <- foreach::foreach(s=samples)%dopar%{
-      if(method=="median"){
-        avg <- stats::median(na.omit(unlist(lapply(counts, function(df){df$bins[[s]]}))))
-        return(avg)
-      }else{
-        avg <- mean(na.omit(unlist(lapply(counts, function(df){df$bins[[s]]}))))
-        return(avg)
+    sample_CN <- foreach::foreach(smp=sample_current_prog)%dopar%{
+
+      cna.object <- DNAcopy::CNA(chrom = prog$chr, maploc = prog$start, genomdat = prog[[smp]])
+      smooth_cna <- DNAcopy::smooth.CNA(cna.object)
+      sgmnts <- DNAcopy::segment(smooth_cna)
+
+      estimated_CN <- round((sgmnts$output$seg.mean/sample_averages[[smp]])*prog_ploidy)
+
+      copy_number <- rep(NA,length(prog$chr))
+
+      for(i in 1:nrow(sgmnts$segRows)){
+
+        copy_number[sgmnts$segRows[i,1]:sgmnts$segRows[i,2]] <- rep(estimated_CN[i],length(sgmnts$segRows[i,1]:sgmnts$segRows[i,2]))
+
       }
+      return(copy_number)
     }
     doParallel::stopImplicitCluster()
 
-    names(sample_medians) <- samples
 
-    # for each progenitor
-    cn_list <- foreach(p=progenitors)%do%{
+    cn_df <- data.table::data.table(prog$chr, prog$start, data.frame(sample_CN))
+    colnames(cn_df) <- c("chr", "start", sample_current_prog)
+    data.table::setkey(cn_df, chr, start)
 
-      prog <- counts[[p]]$bins
-
-      sample_current_prog <- unlist(sample_name_per_prog[[p]])
-
-      # For each polyploid sample
-      registerDoParallel(n_cores)
-      sample_CN <- foreach(s=sample_current_prog)%dopar%{
-
-        cna.object <- CNA(chrom = prog$chr,maploc = prog$start,genomdat = prog[[s]])
-        smooth_cna <- smooth.CNA(cna.object)
-        sgmnts <- segment(smooth_cna)
-
-        estimated_CN <- round((sgmnts$output$seg.mean/sample_medians[[s]])*prog_ploidy)
-
-        copy_number <- rep(NA,length(prog$chr))
-        # go through each segment
-        for(i in 1:nrow(sgmnts$segRows)){
-
-          copy_number[sgmnts$segRows[i,1]:sgmnts$segRows[i,2]] <- rep(estimated_CN[i],length(sgmnts$segRows[i,1]:sgmnts$segRows[i,2]))
-
-        }
-        return(copy_number)
-      }
-      stopImplicitCluster()  # Stop the parallel back end
-
-      cn_df <- data.table(prog$chr,prog$start,data.frame(sample_CN))
-      colnames(cn_df) <- c("chr","start",sample_current_prog)
-      setkey(cn_df,chr,start)
-      return(list(bins=cn_df,genes=counts[[p]]$genes))
+    if(full_output==TRUE){
+      return(list(bins=counts[[pr_name]]$bins, genes=counts[[pr_name]]$genes, CN=cn_df, DNAcopy=sgmnts))
+    }else{
+      return(list(bins=counts[[pr_name]]$bins, genes=counts[[pr_name]]$genes, CN=cn_df))
     }
-    names(cn_list) <- progenitors
-    return(cn_list)
   }
 
+  names(cn_list) <- progenitors
+  return(cn_list)
+
+}
+
+
+utils::globalVariables(c("pr_name", "smp"))
