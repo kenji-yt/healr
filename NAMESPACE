@@ -2,3 +2,5 @@
 
 export(count_heal_data)
 export(filter_bins)
+importFrom(foreach,"%do%")
+importFrom(utils,write.table)

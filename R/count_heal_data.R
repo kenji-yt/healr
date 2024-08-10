@@ -1,6 +1,6 @@
 parse_counts_bins <- function(feature_count_list, gc_df, map_df, sample_names, bin_size){
 
-  counts_df <- as.data.table(feature_count_list$counts)
+  counts_df <- data.table::as.data.table(feature_count_list$counts)
   colnames(counts_df) <- sample_names
 
   gene_ID <- feature_count_list$annotation$GeneID
@@ -10,16 +10,16 @@ parse_counts_bins <- function(feature_count_list, gc_df, map_df, sample_names, b
   length <- feature_count_list$annotation$Length
 
 
-  anno_df <- data.table(chr=chr[length==bin_size], start=start[length==bin_size]-1, end=end[length==bin_size])
+  anno_df <- data.table::data.table(chr=chr[length==bin_size], start=start[length==bin_size]-1, end=end[length==bin_size])
 
 
   out_df <- cbind(anno_df,counts_df[length==bin_size,])
-  setkey(out_df,chr,start)
-  setorder(out_df,chr,start)
+  data.table::setkey(out_df,chr,start)
+  data.table::setorder(out_df,chr,start)
 
   out_df <- merge(gc_df,out_df,by=c("chr","start"))
   out_df <- merge(map_df,out_df,by=c("chr","start"))
-  setkey(out_df,chr,start,gc_content,mappability)
+  data.table::setkey(out_df,chr,start,gc_content,mappability)
 
   return(out_df)
 
@@ -27,12 +27,12 @@ parse_counts_bins <- function(feature_count_list, gc_df, map_df, sample_names, b
 
 parse_counts_genes <- function(gene_counts_list, sample_names){
 
-  gene_count_df <- as.data.table(gene_counts_list$counts)
+  gene_count_df <- data.table::as.data.table(gene_counts_list$counts)
   colnames(gene_count_df) <- sample_names
 
   gene_count_df$GeneID <- rownames(gene_counts_list$counts)
 
-  gene_count_df <- merge(as.data.table(gene_counts_list$annotation),gene_count_df,by="GeneID")
+  gene_count_df <- merge(data.table::as.data.table(gene_counts_list$annotation),gene_count_df,by="GeneID")
   colnames(gene_count_df)[colnames(gene_count_df)=="Chr"] <- "chr"
   colnames(gene_count_df)[colnames(gene_count_df)=="Start"] <- "start"
   colnames(gene_count_df)[colnames(gene_count_df)=="End"] <- "end"
@@ -40,7 +40,7 @@ parse_counts_genes <- function(gene_counts_list, sample_names){
   colnames(gene_count_df)[colnames(gene_count_df)=="Length"] <- "length"
   colnames(gene_count_df)[colnames(gene_count_df)=="Strand"] <- "strand"
 
-  setkey(gene_count_df,GeneID,chr,start,end,length)
+  data.table::setkey(gene_count_df,GeneID,chr,start,end,length)
 
   return(gene_count_df)
 
@@ -56,6 +56,9 @@ parse_counts_genes <- function(gene_counts_list, sample_names){
 #'
 #' @return A list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
 #' @export
+#'
+#' @importFrom foreach %do%
+#' @importFrom utils write.table
 count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_output=FALSE){
 
   prog_dir <- list.files(path=input_dir, pattern = "progenitor", full.names = TRUE)
