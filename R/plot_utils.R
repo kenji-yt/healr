@@ -59,8 +59,8 @@ plot_bins <- function(cn_list, quick_view_sample=FALSE, output_dir=FALSE, n_core
     sample_averages <- sample_averages[quick_view_sample]
     smp_type_map <- smp_type_map[smp_type_map$sample==quick_view_sample,]
   }else if(output_dir==FALSE){
-    cat("ERROR: no output directory or no 'quick view sample' set. One must be set.")
-    return(NULL)
+    cat("ERROR: no output directory or no 'quick_view_sample' set. One must be set.")
+    return()
   }else{
     cat(paste0("Plotting all samples and chromosomes to ",output_dir,"."))
     samples <- names(sample_averages)
@@ -106,11 +106,11 @@ plot_bins <- function(cn_list, quick_view_sample=FALSE, output_dir=FALSE, n_core
             y_pts <- (y_pts/sample_averages[[smp]])*prog_ploidy
           }
 
-          plot_df <- data.frame(start=x,counts=y_pts,copy=y_line,group=rep(prog,length(y_line)))
+          plot_df <- data.frame(start=x,counts=y_pts,copy=y_line,progenitor=rep(prog,length(y_line)))
 
           bin_plot <- ggplot2::ggplot() +
-            ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, colour=group), linewidth = 2) +
-            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, colour=group), size = 1, alpha = 0.1) +
+            ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, colour=progenitor), linewidth = 2) +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, colour=progenitor), size = 1, alpha = 0.1) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = colour_map) +
             ggplot2::ylim(0, 8)+
@@ -125,10 +125,10 @@ plot_bins <- function(cn_list, quick_view_sample=FALSE, output_dir=FALSE, n_core
 
         }else{
 
-          plot_df <- data.frame(start=x,counts=y_pts, group=rep(prog,length(y_pts)))
+          plot_df <- data.frame(start=x,counts=y_pts, progenitor=rep(prog,length(y_pts)))
 
           bin_plot <- ggplot2::ggplot() +
-            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, colour=group), size = 1, alpha = 1) +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, colour=progenitor), size = 1, alpha = 1) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = colour_map) +
             ggplot2::labs(title = paste(c,ref), x = "Position", y = "Counts") +
@@ -201,9 +201,9 @@ plot_alignment <- function(cn_list, aln_map, polyploids, output_dir=FALSE, n_cor
 #           y_line <- c(ref_cn[[ply]][ref_cn$chr==chr],alt_merged_cn[[ply]][alt_merged_cn$map_chr==chr])
 #         }
 #
-#         prog_group <- c(rep(ref,sum(ref_count$chr==chr)),rep(alt,sum(alt_merged_count$map_chr==chr)))
+#         prog_progenitor <- c(rep(ref,sum(ref_count$chr==chr)),rep(alt,sum(alt_merged_count$map_chr==chr)))
 #
-#         plot_df <- data.frame(start=x,counts=y_pts,copy=y_line,group=prog_group)
+#         plot_df <- data.frame(start=x,counts=y_pts,copy=y_line,progenitor=prog_group)
 #
 #         colour_map <- c("purple","orange")
 #         names(colour_map) <- c(ref,alt)

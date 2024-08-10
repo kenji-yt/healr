@@ -81,7 +81,7 @@ count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_out
 
     if(length(gc_path)!=1 || length(map_path)!=1 || length(bins_path)!=1){
       cat(paste("ERROR: Not exactly one mappability, GC content or bins file for progenitor",prog,". Exiting!"))
-      return(NULL)
+      return()
     }
 
 
