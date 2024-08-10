@@ -3,7 +3,7 @@
 #' @param counts Output list from count_heal_data() or filter_bins()
 #' @param n_cores Number of cores to use ('1' by default)
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '1' by default)
-#' @param method Method to infered copy number in each segment ('median' or 'mean'. 'median' by default)
+#' @param method WA CBS p done mean! Method to infered copy number in each segment ('median' or 'mean'. 'median' by default)
 #' @param full_output Logical: Do you want to also get the full DNAcopy output ('FALSE' by default)
 #'
 #' @return  A list with one element per progenitor containing the bins and genes elements of the inpiut plus a data table with infered copy number per bin for each sample and GC and mappability for each bin.
@@ -13,10 +13,11 @@
 #' @importFrom foreach %do%
 get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", full_output=FALSE){
 
+  cat("wa CBS p done mean...")
 
   if(intersect(method, c("median", "mean"))==0 || length(method)!=1){
     cat("ERROR: Invalid method input. Choose either 'median' or 'mean'")
-    quit()
+    return(NULL)
   }
 
   progenitors <- names(counts)

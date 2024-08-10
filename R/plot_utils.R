@@ -1,4 +1,43 @@
-plot_bins <- function(cn_list, samples, output_dir=FALSE, n_cores, prog_ploidy=2, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange"), sample_averages){
+name_average_type <- function(cn_list, n_cores=1, method="median", sample_type=FALSE){
+
+  progenitors <- names(cn_list)
+  sample_name_list <- lapply(cn_list,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))})
+  sample_names  <- unlist(sample_name_list)
+  polyploids <- names(table(sample_names))[table(sample_names)==2]
+  progenitor_samples <- setdiff(sample_names, polyploids)
+
+  samples <- unique(sample_names)
+
+  if(sample_type==TRUE){
+    prog_list <- lapply(progenitors,function(pro){
+      pro_smpls <- setdiff(sample_name_list[[pro]],polyploids)
+      data.frame(sample=pro_smpls ,type=rep(pro,length(pro_smpls)))
+    })
+    smp_type_df <- do.call(rbind,prog_list)
+    smp_type_df<- rbind(smp_type_df,data.frame(sample=polyploids,type=rep("polyploid",length(polyploids))))
+    return(smp_type_df)
+
+  }else{
+    doParallel::registerDoParallel(n_cores)
+    sample_averages <- foreach::foreach(smp=samples)%dopar%{
+      if(method=="median"){
+        avg <- stats::median(stats::na.omit(unlist(lapply(counts, function(df){df$bins[[smp]]}))))
+        return(avg)
+      }else{
+        avg <- mean(stats::na.omit(unlist(lapply(counts, function(df){df$bins[[smp]]}))))
+        return(avg)
+      }
+    }
+    doParallel::stopImplicitCluster()
+
+    names(sample_averages) <- samples
+
+    return(sample_averages)
+  }
+}
+
+
+plot_bins <- function(cn_list, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, prog_ploidy=2, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange")){
 
   cn_exist <- unlist(lapply(cn_list,function(list){list$CN}))
   if(is.null(cn_exist) && plot_cn==TRUE){
@@ -6,10 +45,26 @@ plot_bins <- function(cn_list, samples, output_dir=FALSE, n_cores, prog_ploidy=2
     plot_cn <- FALSE
   }
 
-
+  sample_averages <- name_average_type(cn_list)
   progenitors <- names(cn_list)
 
   names(colour_map) <- progenitors
+
+  smp_type_map <- name_average_type(cn_list,sample_type = TRUE)
+
+  if(quick_view_sample!=FALSE){
+    cat(paste0("Quickly plotting for ",quick_view_sample,". Setting output_dir to 'FALSE'."))
+    output_dir <- FALSE
+    samples <- quick_view_sample
+    sample_averages <- sample_averages[quick_view_sample]
+    smp_type_map <- smp_type_map[smp_type_map$sample==quick_view_sample,]
+  }else if(output_dir==FALSE){
+    cat("ERROR: no output directory or no 'quick view sample' set. One must be set.")
+    return(NULL)
+  }else{
+    cat(paste0("Plotting all samples and chromosomes to ",output_dir,"."))
+    samples <- names(sample_averages)
+  }
 
   for(smp in samples){
 
@@ -18,7 +73,15 @@ plot_bins <- function(cn_list, samples, output_dir=FALSE, n_cores, prog_ploidy=2
       dir.create(ref_dir,showWarnings = F)
     }
 
-    for(prog in progenitors){
+    lapply(cn_list,function(df){colnames(df$bins)
+    })
+
+    if(smp_type_map$type[smp_type_map$sample==smp]!="polyploid"){
+      current_prog <- smp_type_map$type[smp_type_map$sample==smp]
+    }else{
+      current_prog <- progenitors
+    }
+    for(prog in current_prog){
 
       if(output_dir!=FALSE){
       dir.create(paste0(ref_dir,"/",prog,"/"),showWarnings = F)
@@ -34,43 +97,48 @@ plot_bins <- function(cn_list, samples, output_dir=FALSE, n_cores, prog_ploidy=2
 
         which_rows <- cn_list[[prog]]$bins$chr==chr
 
-        x <- cn_list[[prog]]$bins$start
-        y_pts <- cn_list[[prog]]$bins[[smp]]
+        x <- cn_list[[prog]]$bins$start[which_rows]
+        y_pts <- cn_list[[prog]]$bins[[smp]][which_rows]
 
         if(plot_cn==TRUE){
-          y_line <- cn_list[[prog]]$CN[[smp]]
+          y_line <- cn_list[[prog]]$CN[[smp]][which_rows]
           if(add_bins==TRUE){
-            y_pts <- y_pts/sample_averages[smp]*prog_ploidy
+            y_pts <- (y_pts/sample_averages[[smp]])*prog_ploidy
           }
 
-          plot_df <- data.frame(start=x,counts=y_pts,copy=y_line)
+          plot_df <- data.frame(start=x,counts=y_pts,copy=y_line,group=rep(prog,length(y_line)))
 
-          plot <- ggplot() +
-            geom_line(data = plot_df, aes(x = x, y = copy, color = colour_map[prog]), size = 2) +
-            geom_point(data = plot_df, aes(x = x, y = counts, color = colour_map[prog]), size = 1, alpha = 0.1) +
-            theme_minimal() +
-            labs(title = paste(c,ref), x = "Position", y = "Copy Number") +
-            theme_bw()
+          bin_plot <- ggplot2::ggplot() +
+            ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, colour=group), linewidth = 2) +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, colour=group), size = 1, alpha = 0.1) +
+            ggplot2::theme_minimal() +
+            ggplot2::scale_color_manual(values = colour_map) +
+            ggplot2::ylim(0, 8)+
+            ggplot2::labs(title = paste(chr,smp), x = "Position", y = "Copy Number") +
+            ggplot2::theme_bw()
 
           if(output_dir!=FALSE){
-            ggsave(filename=out_file,plot,device="png", width = 6, height = 4, units = "in")
+            ggplot2::ggsave(filename=out_file,bin_plot,device="png", width = 6, height = 4, units = "in")
+          }else{
+            print(bin_plot)
           }
-          plot
 
         }else{
 
-          plot_df <- data.frame(start=x,counts=y_pts)
+          plot_df <- data.frame(start=x,counts=y_pts, group=rep(prog,length(y_pts)))
 
-          plot <- ggplot() +
-            geom_point(data = plot_df, aes(x = x, y = counts, color = colour_map[prog]), size = 1, alpha = 1) +
-            theme_minimal() +
-            labs(title = paste(c,ref), x = "Position", y = "Counts") +
-            theme_bw()
+          bin_plot <- ggplot2::ggplot() +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, colour=group), size = 1, alpha = 1) +
+            ggplot2::theme_minimal() +
+            ggplot2::scale_color_manual(values = colour_map) +
+            ggplot2::labs(title = paste(c,ref), x = "Position", y = "Counts") +
+            ggplot2::theme_bw()
 
           if(output_dir!=FALSE){
-            ggsave(filename=out_file,plot,device="png", width = 6, height = 4, units = "in")
+            ggplot2::ggsave(filename=out_file,bin_plot,device="png", width = 6, height = 4, units = "in")
+          }else{
+            print(bin_plot)
           }
-          plot
         }
       }
       doParallel::stopImplicitCluster()
