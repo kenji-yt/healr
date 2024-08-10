@@ -128,7 +128,7 @@ count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_out
 
     sample_names <- basename(dirname(dirname(bam_paths)))
     if ( sum(sample_names == "progenitor")>0 ){ # give random name.
-      sample_names[ sample_names == "progenitor" ] <- c(paste0("progenitor",1:sum(sample_names == "progenitor")))
+      sample_names[ sample_names == "progenitor" ] <- c(paste0("progenitor_",prog,"_",1:sum(sample_names == "progenitor")))
     } else if ( sum(sample_names == prog )>0 ){ # user defined (directory) name.
       sample_names[ sample_names == prog ] <- basename(dirname(bam_paths))[ sample_names == prog ]
     }
