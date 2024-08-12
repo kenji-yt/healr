@@ -1,11 +1,11 @@
 Package: healr
-Title: Homeologous Exchange Automated Labeller 
+Title: Homoeologous Exchange Automated Labeller 
 Version: 0.0.0.9000
 Authors@R: 
     person("Kenji", "Yip Tong", , "kenji.yiptong@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0009-0000-6650-6918"))
-Description: This package offers a series of functions to automate the process of homeologous exchange inference.
-    With healr you can infer copy number ratio between homeologs, HE patterns and HE rates. 
+Description: This package offers a series of functions to automate the process of homoeologous exchange inference.
+    With healr you can infer copy number ratio between homoeologs, HE patterns and HE rates. 
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

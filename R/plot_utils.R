@@ -1,56 +1,34 @@
-name_average_type <- function(cn_list, n_cores=1, method="median", sample_type=FALSE){
-
-  progenitors <- names(cn_list)
-  sample_name_list <- lapply(cn_list,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))})
-  sample_names  <- unlist(sample_name_list)
-  polyploids <- names(table(sample_names))[table(sample_names)==2]
-  progenitor_samples <- setdiff(sample_names, polyploids)
-
-  samples <- unique(sample_names)
-
-  if(sample_type==TRUE){
-    prog_list <- lapply(progenitors,function(pro){
-      pro_smpls <- setdiff(sample_name_list[[pro]],polyploids)
-      data.frame(sample=pro_smpls ,type=rep(pro,length(pro_smpls)))
-    })
-    smp_type_df <- do.call(rbind,prog_list)
-    smp_type_df<- rbind(smp_type_df,data.frame(sample=polyploids,type=rep("polyploid",length(polyploids))))
-    return(smp_type_df)
-
-  }else{
-    doParallel::registerDoParallel(n_cores)
-    sample_averages <- foreach::foreach(smp=samples)%dopar%{
-      if(method=="median"){
-        avg <- stats::median(stats::na.omit(unlist(lapply(counts, function(df){df$bins[[smp]]}))))
-        return(avg)
-      }else{
-        avg <- mean(stats::na.omit(unlist(lapply(counts, function(df){df$bins[[smp]]}))))
-        return(avg)
-      }
-    }
-    doParallel::stopImplicitCluster()
-
-    names(sample_averages) <- samples
-
-    return(sample_averages)
-  }
-}
-
-
-plot_bins <- function(cn_list, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, prog_ploidy=2, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange")){
-
-  cn_exist <- unlist(lapply(cn_list,function(list){list$CN}))
+#' Title
+#'
+#' @param heal_list Output list in heal format (such as output from count_heal_data())
+#' @param quick_view_sample The name of a sample to plot (as character).
+#' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
+#' @param n_cores Number of cores to use ('1' by default).
+#' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default)
+#' @param plot_cn Logical: plot a line indicating infered copy number ('TRUE' by default in CN has been estimated).
+#' @param add_bins Logical: plot counts for each bin (normalized in plot_cn=TRUE).
+#' @param colour_map A vector of colours for each progenitor ('c(purple,orange)' by default).
+#' @param specific_chr
+#' @param return_list
+#'
+#' @return
+#' @export
+#'
+#' @examples
+plot_bins <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, prog_ploidy=2, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange"), specific_chr=FALSE, return_list=FALSE){
+  cat("Maybe good to have option to save plots for 1 sample only..?")
+  cn_exist <- unlist(lapply(heal_list,function(list){list$CN}))
   if(is.null(cn_exist) && plot_cn==TRUE){
-    cat("ERROR: plot_cn set to 'TRUE' but no CN data table found in cn_list. Setting plot_cn to 'FALSE'.")
+    cat("ERROR: plot_cn set to 'TRUE' but no CN data table found in heal_list. Setting plot_cn to 'FALSE'.")
     plot_cn <- FALSE
   }
 
-  sample_averages <- name_average_type(cn_list)
-  progenitors <- names(cn_list)
+  sample_averages <- get_sample_stats(heal_list)
+  progenitors <- names(heal_list)
 
   names(colour_map) <- progenitors
 
-  smp_type_map <- name_average_type(cn_list,sample_type = TRUE)
+  smp_type_map <- get_sample_stats(heal_list,sample_type = TRUE)
 
   if(quick_view_sample!=FALSE){
     cat(paste0("Quickly plotting for ",quick_view_sample,". Setting output_dir to 'FALSE'."))
@@ -58,6 +36,7 @@ plot_bins <- function(cn_list, quick_view_sample=FALSE, output_dir=FALSE, n_core
     samples <- quick_view_sample
     sample_averages <- sample_averages[quick_view_sample]
     smp_type_map <- smp_type_map[smp_type_map$sample==quick_view_sample,]
+
   }else if(output_dir==FALSE){
     cat("ERROR: no output directory or no 'quick_view_sample' set. One must be set.")
     return()
@@ -73,7 +52,7 @@ plot_bins <- function(cn_list, quick_view_sample=FALSE, output_dir=FALSE, n_core
       dir.create(ref_dir,showWarnings = F)
     }
 
-    lapply(cn_list,function(df){colnames(df$bins)
+    lapply(heal_list,function(df){colnames(df$bins)
     })
 
     if(smp_type_map$type[smp_type_map$sample==smp]!="polyploid"){
@@ -81,27 +60,32 @@ plot_bins <- function(cn_list, quick_view_sample=FALSE, output_dir=FALSE, n_core
     }else{
       current_prog <- progenitors
     }
-    for(prog in current_prog){
+
+    plot_prog_list <- foreach::foreach(prog=current_prog)%do%{
 
       if(output_dir!=FALSE){
       dir.create(paste0(ref_dir,"/",prog,"/"),showWarnings = F)
       }
+      if(sum(specific_chr!=FALSE)!=FALSE){
+        chromo <- intersect(specific_chr,unique(heal_list[[prog]]$bins$chr))
+      }else{
+        chromo <- unique(heal_list[[prog]]$bins$chr)
+      }
 
-      chromo <- unique(cn_list[[prog]]$bins$chr)
       doParallel::registerDoParallel(n_cores)
-      foreach::foreach(chr=chromo)%dopar%{
+      plot_list <- foreach::foreach(chr=chromo)%dopar%{
 
         if(output_dir!=FALSE){
           out_file <- paste0(ref_dir,"/",prog,"/",chr,".png")
         }
 
-        which_rows <- cn_list[[prog]]$bins$chr==chr
+        which_rows <- heal_list[[prog]]$bins$chr==chr
 
-        x <- cn_list[[prog]]$bins$start[which_rows]
-        y_pts <- cn_list[[prog]]$bins[[smp]][which_rows]
+        x <- heal_list[[prog]]$bins$start[which_rows]
+        y_pts <- heal_list[[prog]]$bins[[smp]][which_rows]
 
         if(plot_cn==TRUE){
-          y_line <- cn_list[[prog]]$CN[[smp]][which_rows]
+          y_line <- heal_list[[prog]]$CN[[smp]][which_rows]
           if(add_bins==TRUE){
             y_pts <- (y_pts/sample_averages[[smp]])*prog_ploidy
           }
@@ -120,7 +104,7 @@ plot_bins <- function(cn_list, quick_view_sample=FALSE, output_dir=FALSE, n_core
           if(output_dir!=FALSE){
             ggplot2::ggsave(filename=out_file,bin_plot,device="png", width = 6, height = 4, units = "in")
           }else{
-            print(bin_plot)
+            return(bin_plot)
           }
 
         }else{
@@ -137,28 +121,42 @@ plot_bins <- function(cn_list, quick_view_sample=FALSE, output_dir=FALSE, n_core
           if(output_dir!=FALSE){
             ggplot2::ggsave(filename=out_file,bin_plot,device="png", width = 6, height = 4, units = "in")
           }else{
-            print(bin_plot)
+            return(bin_plot)
           }
         }
       }
       doParallel::stopImplicitCluster()
+      if(quick_view_sample!=FALSE){
+        if(return_list==TRUE){
+          names(plot_list) <- chromo
+          return(plot_list)
+        }else{
+          lapply(plot_list,print)
+        }
+      }
+    }
+  }
+  if(quick_view_sample!=FALSE){
+    if(return_list==TRUE){
+      names(plot_prog_list) <- current_prog
+      return(plot_prog_list)
     }
   }
 }
 
 
-plot_alignment <- function(cn_list, aln_map, polyploids, output_dir=FALSE, n_cores, prog_ploidy=2, bin_size=NULL, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange"), sample_averages){
+plot_alignment <- function(heal_list, aln_map, polyploids, output_dir=FALSE, n_cores, prog_ploidy=2, bin_size=NULL, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange"), sample_averages){
 
-  cn_exist <- unlist(lapply(cn_list,function(list){list$CN}))
+  cn_exist <- unlist(lapply(heal_list,function(list){list$CN}))
   if(is.null(cn_exist) && plot_cn==TRUE){
-    cat("ERROR: plot_cn set to 'TRUE' but no CN data table found in cn_list. Setting plot_cn to 'FALSE'.")
+    cat("ERROR: plot_cn set to 'TRUE' but no CN data table found in heal_list. Setting plot_cn to 'FALSE'.")
     plot_cn <- FALSE
   }else if(is.null(bin_size) && plot_cn==TRUE && add_bins==TRUE){
     cat("ERROR: plot_cn set to 'TRUE' but no bin size is defined. Setting add_bins set to 'FALSE'.")
     add_bins <- FALSE
   }
 
-  progenitors <- names(cn_list)
+  progenitors <- names(heal_list)
 
   names(colour_map) <- progenitors
 
@@ -166,14 +164,14 @@ plot_alignment <- function(cn_list, aln_map, polyploids, output_dir=FALSE, n_cor
 
     alt <- setdiff(progenitors,ref)
 
-    ref_count <- cn_list[[ref]]$bins
+    ref_count <- heal_list[[ref]]$bins
 
-    alt_merged_count <- merge(cn_list[[alt]]$bins,aln_map[[alt]],by=c("chr","start"))
+    alt_merged_count <- merge(heal_list[[alt]]$bins,aln_map[[alt]],by=c("chr","start"))
   }
 } #### UNTIL HERE kind of done
 #
 #     if(plot_cn==TRUE){
-#       ref_cn <- cn_list[[ref]]$CN
+#       ref_cn <- heal_list[[ref]]$CN
 #       alt_merged_cn <- merge(aln_map[[alt]],CN_CBS[[alt]],by=c("chr","start"))
 #     }
 #
@@ -230,10 +228,10 @@ plot_alignment <- function(cn_list, aln_map, polyploids, output_dir=FALSE, n_cor
 #   }
 # }
 
-plot_heal <- function(cn_list, aln_map=FALSE, output_dir=FALSE, n_cores, prog_ploidy=2, bin_size){
+plot_heal <- function(heal_list, aln_map=FALSE, output_dir=FALSE, n_cores, prog_ploidy=2, bin_size){
 
-  progenitors <- names(cn_list)
-  sample_names  <- unlist(lapply(cn_list,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))}))
+  progenitors <- names(heal_list)
+  sample_names  <- unlist(lapply(heal_list,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))}))
   polyploids <- names(table(sample_names))[table(sample_names)==2]
   progenitors <- setdiff(sample_names, polyploids)
   samples <- unique(sample_names)

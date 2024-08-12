@@ -2,7 +2,7 @@
 #'
 #' @param counts Output list from count_heal_data() or filter_bins()
 #' @param n_cores Number of cores to use ('1' by default)
-#' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '1' by default)
+#' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default)
 #' @param method Method to infered copy number in each segment ('median' or 'mean'. 'median' by default)
 #' @param full_output Logical: Do you want to also get the full DNAcopy output ('FALSE' by default)
 #'
