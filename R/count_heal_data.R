@@ -127,8 +127,8 @@ count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_out
     feature_count_list <- Rsubread::featureCounts(bam_paths, annot.ext = anno_bins , isPairedEnd=paired_end, nthreads = n_cores, allowMultiOverlap=T)
 
     sample_names <- basename(dirname(dirname(bam_paths)))
-    if ( sum(sample_names == "progenitor")>0 ){ # give random name.
-      sample_names[ sample_names == "progenitor" ] <- c(paste0("progenitor_",prog,"_",1:sum(sample_names == "progenitor")))
+    if ( sum(sample_names == "progenitors")>0 ){ # give random name.
+      sample_names[ sample_names == "progenitors" ] <- c(paste0("progenitors_",prog,"_",1:sum(sample_names == "progenitors")))
     } else if ( sum(sample_names == prog )>0 ){ # user defined (directory) name.
       sample_names[ sample_names == prog ] <- basename(dirname(bam_paths))[ sample_names == prog ]
     }

@@ -1,0 +1,55 @@
+get_sample_stats <- function(heal_list, n_cores=1, method="median", sample_type=FALSE){
+
+  progenitors <- names(heal_list)
+  sample_name_list <- lapply(heal_list,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))})
+  sample_names  <- unlist(sample_name_list)
+  polyploids <- names(table(sample_names))[table(sample_names)==2]
+  progenitor_samples <- setdiff(sample_names, polyploids)
+
+  samples <- unique(sample_names)
+
+  if(sample_type==TRUE){
+    prog_list <- lapply(progenitors,function(pro){
+      pro_smpls <- setdiff(sample_name_list[[pro]],polyploids)
+      data.frame(sample=pro_smpls ,type=rep(pro,length(pro_smpls)))
+    })
+    smp_type_df <- do.call(rbind,prog_list)
+    smp_type_df<- rbind(smp_type_df,data.frame(sample=polyploids,type=rep("polyploid",length(polyploids))))
+    return(smp_type_df)
+
+  }else{
+    doParallel::registerDoParallel(n_cores)
+    sample_stats <- foreach::foreach(smp=samples)%dopar%{
+
+      if(method=="median"){
+        avg <- stats::median(stats::na.omit(unlist(lapply(heal_list, function(df){df$bins[[smp]]}))))
+        return(avg)
+
+      }else if(method=="mean"){
+        avg <- mean(stats::na.omit(unlist(lapply(heal_list, function(df){df$bins[[smp]]}))))
+        return(avg)
+
+      }else if(method=="sd"){
+        stndi <- sd(stats::na.omit(unlist(lapply(heal_list, function(df){df$bins[[smp]]}))))
+        return(stndi)
+
+      }else if(method=="is.na"){
+        na_count <-sum(is.na(unlist(lapply(heal_list, function(df){df$bins[[smp]]}))))
+        return(na_count)
+
+      }else if(method=="length"){
+        n_bins <-length(unlist(lapply(heal_list, function(df){df$bins[[smp]]})))
+        return(n_bins)
+
+      }else{
+        cat("ERROR: Unknown stats method. Please input either 'sd', 'mean' or 'median'.")
+        return()
+      }
+    }
+    doParallel::stopImplicitCluster()
+
+    names(sample_stats) <- samples
+
+    return(sample_stats)
+  }
+}

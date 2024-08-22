@@ -3,6 +3,7 @@
 export(count_heal_data)
 export(filter_bins)
 export(get_copy_number)
+export(plot_bins)
 importFrom(foreach,"%do%")
 importFrom(foreach,"%dopar%")
 importFrom(utils,write.table)

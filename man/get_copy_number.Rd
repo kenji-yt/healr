@@ -17,7 +17,7 @@ get_copy_number(
 
 \item{n_cores}{Number of cores to use ('1' by default)}
 
-\item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '1' by default)}
+\item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default)}
 
 \item{method}{Method to infered copy number in each segment ('median' or 'mean'. 'median' by default)}
 

@@ -1,20 +1,18 @@
-#' Title
+#' Plotting function for heal_list.
 #'
 #' @param heal_list Output list in heal format (such as output from count_heal_data())
-#' @param quick_view_sample The name of a sample to plot (as character).
+#' @param quick_view_sample The name of a sample to plot (as character)('FALSE' by default).
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_cores Number of cores to use ('1' by default).
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default)
 #' @param plot_cn Logical: plot a line indicating infered copy number ('TRUE' by default in CN has been estimated).
 #' @param add_bins Logical: plot counts for each bin (normalized in plot_cn=TRUE).
 #' @param colour_map A vector of colours for each progenitor ('c(purple,orange)' by default).
-#' @param specific_chr
-#' @param return_list
+#' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
+#' @param return_list Logical: return a list of plots if quick_view_sample.
 #'
-#' @return
+#' @return Either nothing or a list of plots.
 #' @export
-#'
-#' @examples
 plot_bins <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, prog_ploidy=2, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange"), specific_chr=FALSE, return_list=FALSE){
   cat("Maybe good to have option to save plots for 1 sample only..?")
   cn_exist <- unlist(lapply(heal_list,function(list){list$CN}))

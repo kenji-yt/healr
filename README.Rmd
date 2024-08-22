@@ -34,9 +34,9 @@ devtools::install_github("kenji-yt/healr")
 The input should be a single directory which follows a precise structure. This is important as healr relies heavily on this assumed directory structure. This input directory should be organised exactly as follows:
 
 -Input directory:
-<Two directories: progenitor & polyploid>
+<Two directories: progenitors & polyploids>
 
-  - progenitor:
+  - progenitors:
   <One directory per progenitor species & one genespace directory>
     - prog1:
     <mappability, gc content and bin range bed files> 
@@ -55,7 +55,7 @@ The input should be a single directory which follows a precise structure. This i
       - prog1_vs_prog2.synHits.txt
     
     
-  - polyploid:
+  - polyploids:
   <One directory per allopolyploid sample>
     - sample_1:
     <One directory per progenitor subgenome>

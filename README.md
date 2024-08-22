@@ -35,9 +35,9 @@ structure. This is important as healr relies heavily on this assumed
 directory structure. This input directory should be organised exactly as
 follows:
 
--Input directory: \<Two directories: progenitor & polyploid\>
+-Input directory: \<Two directories: progenitors & polyploids\>
 
-- progenitor: \<One directory per progenitor species & one genespace
+- progenitors: \<One directory per progenitor species & one genespace
   directory\>
   - prog1: \<mappability, gc content and bin range bed files\>
     \[Important: make sure the last word before “.bed” is as shown for
@@ -52,7 +52,7 @@ follows:
     last word before “.” is as shown\]
     - syntenicBlock_coordinates.csv
     - prog1_vs_prog2.synHits.txt
-- polyploid: <One directory per allopolyploid sample>
+- polyploids: <One directory per allopolyploid sample>
   - sample_1: <One directory per progenitor subgenome>
     - prog1: <bam file with reads assigned to this progenitor subgenome>
       - sample_1_prog1.bam
