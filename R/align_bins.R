@@ -35,78 +35,166 @@ parse_genespace_input <- function(genespace_dir){
 }
 
 
-dtw_na <- function(heal_list, tmp_map_df, ref_name, ref_chr, alt_name, alt_chr, bin_size, use_cn=TRUE){
+dtw_na <- function(heal_list, tmp_map_dt, ref_name, ref_chr, alt_name, alt_chr, bin_size){
 
+  smp_medians <- get_sample_stats(heal_list)
+
+  cn_exist <- sum(names(heal_list[[alt_name]])=="CN")!=0
+  if(cn_exist==TRUE){
+    alt_existing_bins <- heal_list[[alt_name]]$CN$start[heal_list[[alt_name]]$CN$chr==alt_chr]
+  }else{
+    cat("ERROR: no CN data. Exiting...")
+    quit()
+  }
+
+  get_sample_stats(heal_list)
   sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
   polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
-3
-  cn_exist <- sum(names(heal_list[[alt_name]])=="CN")!=0
 
-  ref_strt_vec <- tmp_map_df$ref_start
-  alt_strt_vec <- tmp_map_df$alt_start
 
-  na_indices <- which(is.na(alt_strt_vec))
+  na_indices <- which(tmp_map_dt$alt_bin=="REF_ANCHOR_NOT_IN_BIN" | tmp_map_dt$alt_bin=="ALT_ANCHOR_NOT_IN_BIN")
 
   if (length(na_indices) == 0) {
-    return(alt_strt_vec)
+    return(tmp_map_dt)
   }
 
   # Identify the start and end of each NA sequence
   na_runs <- split(na_indices, cumsum(c(1, diff(na_indices) != 1)))
 
-  for (na_run in na_runs) {
+  per_run_replacement_lists <- lapply(na_runs, function(na_run){
+
     start_na <- na_run[1]
     end_na <- na_run[length(na_run)]
 
+    ref_available_bins <- tmp_map_dt$ref_bin[start_na:end_na]
 
-    ref_prev_position <- ref_strt_vec[start_na]
-    ref_next_position <- ref_strt_vec[end_na]
-    ref_bins_to_map <- seq(ref_prev_position, ref_next_position, by = bin_size*(sign(next_position-prev_position)))
+    alt_prev_position <- as.numeric(tmp_map_dt$alt_bin[start_na - 1])
+    alt_next_position <- as.numeric(tmp_map_dt$alt_bin[end_na + 1])
+    alt_available_bins <- alt_existing_bins[alt_existing_bins>=alt_prev_position & alt_existing_bins<=alt_next_position]
 
-    alt_prev_position <- alt_strt_vec[start_na - 1]
-    alt_next_position <- alt_strt_vec[end_na + 1]
-    alt_available_bins <- seq(prev_position, next_position, by = bin_size*(sign(next_position-prev_position)))
+    if(length(alt_available_bins)==1){
 
-    if(length(available_alt_bins)==1){
-
-      replacement_values <- rep(alt_available_bins, length(na_run)+2)
+      replacement_list <- foreach::foreach(smp=polyploid_samples)%do%{
+        replacement_values <- rep(alt_available_bins, length(na_run))
+        return(replacement_values)
+      }
+      names(replacement_list) <- polyploid_samples
+      return(replacement_list)
 
     }else{
 
-      ref_dt_at_bins <-  dplyr::filter(heal_list[[ref_name]]$CN, start %in% alt_available_bins & chr %in% ref_chr)
-      alt_dt_at_bins <-  dplyr::filter(heal_list[[alt_name]]$CN, start %in% alt_available_bins & chr %in% alt_chr)
+      ref_cn_at_bins <-  dplyr::filter(heal_list[[ref_name]]$CN, start %in% ref_available_bins & chr %in% ref_chr)
+      alt_cn_at_bins <-  dplyr::filter(heal_list[[alt_name]]$CN, start %in% alt_available_bins & chr %in% alt_chr)
+      ref_count_at_bins <-  dplyr::filter(heal_list[[ref_name]]$bins, start %in% ref_available_bins & chr %in% ref_chr)
+      alt_count_at_bins <-  dplyr::filter(heal_list[[alt_name]]$bins, start %in% alt_available_bins & chr %in% alt_chr)
 
-      for(smp in polyploid_samples){
-        ref_dt_at_bins[[smp]]
+      replacement_list <- foreach::foreach(smp=polyploid_samples)%do%{
 
-      }
+        ref_cn_vec <- ref_cn_at_bins[[smp]]
+        alt_cn_vec <- alt_cn_at_bins[[smp]]
 
-      if(cn_exist && use_cn){
-        cn_dt <- heal_list[[alt_name]]$CN[heal_list[[alt_name]]$CN$chr==alt_chr,]
+        ref_count_vec <- abs(ref_count_at_bins[[smp]]/smp_medians[[smp]]-1)
+        alt_count_vec <- abs(alt_count_at_bins[[smp]]/smp_medians[[smp]]-1)
 
-        cn_at_avail_vec <- c()
-        for(poz in available_alt_bins){
-          cn_at_avail <- cn_dt$cn_dt$start==poz
-          cn_at_avail_vec <- c(cn_at_avail_vec,
+        # If one of the CN is uninformative i.e. constant
+        if(length(unique(ref_cn_vec))==1 | length(unique(alt_cn_vec))==1){
+          # If there is discordance i.e. only 1 is constant or both constant are not according
+          if(sum(abs(unique(ref_cn_vec)-2)!=abs(unique(alt_cn_vec)-2))>0){
+            # Align based on normalize counts
+
+            count_alignment <- dtw::dtw(ref_count_vec, alt_count_vec)
+
+            # For each ref bin mapping multiple alt chose single best match
+            ref_section <- split(count_alignment$index1, cumsum(c(1, diff(count_alignment$index1) != 0)))
+            alt_section <- split(count_alignment$index2, cumsum(c(1, diff(count_alignment$index1) != 0)))
+
+
+            replacement_values <- c()
+            for(i in 1:length(ref_section)){
+              if(length(ref_count_vec[ref_section[[i]]])>1){
+                which_less <- which.min(abs(ref_count_vec[ref_section[[i]]]-alt_count_vec[alt_section[[i]]]))
+                best_alt <- alt_section[[i]][which_less]
+                replacement_values <- c(replacement_values, alt_available_bins[best_alt])
+
+              }else{
+                replacement_values <- c(replacement_values, alt_available_bins[alt_section[[i]]])
+              }
+            }
+            return(replacement_values)
+
+          # Concordance i.e. unique and concordant
+          }else{
+            if(length(ref_available_bins)==(length(alt_available_bins)-2)){
+              replacement_values <- alt_available_bins[2:(length(alt_available_bins)-1)]
+
+            }else if(length(ref_available_bins)>(length(alt_available_bins)-2)){
+
+              if(length(ref_available_bins)==(length(alt_available_bins)-1)){
+                replacement_values <- alt_available_bins[1:length(ref_available_bins)]
+                return(replacement_values)
+
+              }else{
+                long_vec_len <- length(ref_available_bins)
+                short_vec_len <- length(alt_available_bins)
+                indices <- round(seq(1, long_vec_len, length.out = short_vec_len))
+                replacement_values <- rep(NA, long_vec_len)
+                replacement_values[indices] <- alt_available_bins
+                replacement_values <- zoo::na.locf(replacement_values)
+                return(replacement_values)
+              }
+
+            }else if(length(ref_available_bins)<(length(alt_available_bins)-2)){
+
+              indices <- seq(1, (length(alt_available_bins)-2), length.out=length(ref_available_bins))
+              replacement_values <- alt_available_bins[2:(length(alt_available_bins)-1)][indices]
+              return(replacement_values)
+            }
+          }
+
+        # Informative CN
+        }else{
+          cn_alignment <- dtw::dtw(ref_cn_vec, alt_cn_vec)
+
+          ref_section <- split(cn_alignment$index1, cumsum(c(1, diff(cn_alignment$index1) != 0)))
+          alt_section <- split(cn_alignment$index2, cumsum(c(1, diff(cn_alignment$index1) != 0)))
+
+          replacement_values <- c()
+          for(i in 1:length(ref_section)){
+            if(length(ref_count_vec[ref_section[[i]]])>1){
+
+              which_less <- which.min(abs(ref_count_vec[ref_section[[i]]]-alt_count_vec[alt_section[[i]]]))
+              best_alt <- alt_section[[i]][which_less]
+              replacement_values <- c(replacement_values, alt_available_bins[best_alt])
+
+            }else{
+              replacement_values <- c(replacement_values, alt_available_bins[alt_section[[i]]])
+            }
+          }
+          return(replacement_values)
+
         }
-        cn_at_avail <- cn_dt$start
-        available_alt_bins
 
       }
+
+      names(replacement_list) <- polyploid_samples
+      return(replacement_list)
     }
+  })
 
-    # Generate evenly spaced values
-    replacement_values <- seq(prev_value, next_value, length.out = length(na_run) + 2)[-c(1, length(na_run) + 2)]
-
-    # Replace NA values
-    vec[na_run] <- replacement_values
+  replacement_df <- do.call(rbind, lapply(per_run_replacement_lists,as.data.frame))
+  replacement_df$df_position <- unlist(na_runs)
+  map_dt <- data.table::data.table(ref_bin=tmp_map_dt$ref_bin)
+  for(smp in polyploid_samples){
+    map_dt[[smp]] <- suppressWarnings(as.numeric(tmp_map_dt$alt_bin))
+    for(i in 1:nrow(replacement_df)){
+      index <- replacement_df$df_position[i]
+      map_dt[[smp]][index] <- replacement_df[[smp]][i]
+    }
   }
 
-  return(vec)
-
+  return(map_dt)
 
 }
-
 
 
 
@@ -164,7 +252,7 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
 
       doParallel::registerDoParallel(n_cores)
 
-      foreach::foreach(i=(1:nrow(blks)))%do%{
+      map_per_blk_list <- foreach::foreach(i=(1:nrow(blks)))%dopar%{
 
         blk_id <- blks$blkID[i]
 
@@ -275,17 +363,8 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
 
         tmp_map_dt <- data.table::data.table(ref_bin=ref_start_vec,alt_bin=which_bin_alt)
 
-        map_df <- dtw_na(tmp_map_df)
-
-
-        # Infer position of bins with no anchor genes.
-        map_df$alt_center <- replace_na(map_df$alt_center,alt_start = alt_start,alt_end = alt_end)
-
-        alt_chromo_vec <- rep(alt_chr,length(ref_start_vec))
-
-
-        alignment <- data.frame(chr=ref_chromo_vec,start=map_df$ref_start,map_chr=alt_chromo_vec,map_pos=map_df$alt_center)
-        return(alignment)
+        map_dt <- dtw_na(tmp_map_dt = tmp_map_dt, heal_list = heal_list, ref_name = ref_name,
+                         alt_name = alt_name, ref_chr = ref_chr, alt_chr = alt_chr, bin_size = bin_size )
 
 
       }

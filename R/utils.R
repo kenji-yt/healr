@@ -1,3 +1,13 @@
+#' Get general statistics about the each sample.
+#'
+#' @param heal_list
+#' @param n_cores
+#' @param method
+#' @param sample_type
+#'
+#' @return stats
+#' @export
+#' @importFrom foreach %dopar%
 get_sample_stats <- function(heal_list, n_cores=1, method="median", sample_type=FALSE){
 
   progenitors <- names(heal_list)

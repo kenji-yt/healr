@@ -20,4 +20,6 @@ Imports:
     DNAcopy,
     doParallel,
     ggplot2,
-    dplyr
+    dplyr,
+    dtw,
+    zoo
