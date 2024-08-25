@@ -19,4 +19,5 @@ Imports:
     withr,
     DNAcopy,
     doParallel,
-    ggplot2
+    ggplot2,
+    dplyr

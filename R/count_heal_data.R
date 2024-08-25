@@ -61,8 +61,8 @@ parse_counts_genes <- function(gene_counts_list, sample_names){
 #' @importFrom utils write.table
 count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_output=FALSE){
 
-  prog_dir <- list.files(path=input_dir, pattern = "progenitor", full.names = TRUE)
-  poly_dir <- list.files(path=input_dir, pattern = "polyploid", full.names = TRUE)
+  prog_dir <- list.files(path=input_dir, pattern = "progenitors", full.names = TRUE)
+  poly_dir <- list.files(path=input_dir, pattern = "polyploids", full.names = TRUE)
 
   progenitors <- list.files(path=prog_dir)
 
