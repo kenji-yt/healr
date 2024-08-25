@@ -181,17 +181,40 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_name, ref_chr, alt_name, alt_chr, 
     }
   })
 
+  cat("ERROR: No good behaviour for start and end missing matches. Go back to align bins to fix start-end situation.")
   replacement_df <- do.call(rbind, lapply(per_run_replacement_lists,as.data.frame))
-  replacement_df$df_position <- unlist(na_runs)
+
+
   map_dt <- data.table::data.table(ref_bin=tmp_map_dt$ref_bin)
+  map_dt$ref_chr <- rep(ref_chr, nrow(map_dt))
+  map_dt$alt_chr <- rep(alt_chr, nrow(map_dt))
+
   for(smp in polyploid_samples){
     map_dt[[smp]] <- suppressWarnings(as.numeric(tmp_map_dt$alt_bin))
-    for(i in 1:nrow(replacement_df)){
-      index <- replacement_df$df_position[i]
-      map_dt[[smp]][index] <- replacement_df[[smp]][i]
-    }
   }
 
+  names_rows <- sort(as.numeric(gsub("\\.","",rownames(replacement_df))))
+  na_runs_names <- (names(unlist(na_runs)))
+
+  replacement_df$name_row <- names_rows
+
+  for(name_r in names_rows){
+    if(sum(name_r==na_runs_names)==1){
+      position <- unlist(na_runs)[name_r]
+      for(smp in polyploid_samples){
+
+        map_dt[position, (smp) := replacement_df[replacement_df$name_row == name_r,smp]]
+
+      }
+    }
+  }
+#
+#
+#     for(i in 1:nrow(replacement_df)){
+#       index <- replacement_df$df_position[i]
+#       map_dt[[smp]][index] <- replacement_df[[smp]][i]
+#     }
+#   }
   return(map_dt)
 
 }
@@ -253,7 +276,7 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
       doParallel::registerDoParallel(n_cores)
 
       map_per_blk_list <- foreach::foreach(i=(1:nrow(blks)))%dopar%{
-
+        print(i)
         blk_id <- blks$blkID[i]
 
         ref_chr <- blks$chr1[i]
@@ -288,7 +311,7 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
           alt_start_vec <- dt_alt$start[dt_alt$start<=alt_bin_start & dt_alt$start>=alt_bin_end]
         }
         alt_end_vec <- alt_start_vec+bin_size
-        atl_center_vec <- alt_start_vec+(bin_size/2)
+        alt_center_vec <- alt_start_vec+(bin_size/2)
         alt_chromo_vec <- rep(alt_chr,length(alt_start_vec))
 
         # Align alt_x_vec to ref_x_vec
@@ -297,7 +320,7 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
         ref_start_end <- colnames(ref_anchors_in_blk)[grepl("^(start|end)",colnames(ref_anchors_in_blk))]
         ref_anchors_in_blk$center_point <- rowMeans(ref_anchors_in_blk[,..start_end])
 
-        ref_anchors_in_blk_list <- split(anchors_in_blk, seq(nrow(anchors_in_blk)))
+        ref_anchors_in_blk_list <- split(ref_anchors_in_blk, seq(nrow(ref_anchors_in_blk)))
 
         # Assign a bin to each anchor gene (if possible)
         ref_which_bin <- unlist(lapply(ref_anchors_in_blk_list, function(row){
@@ -335,7 +358,7 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
         alt_anchor_centers <- rowMeans(alt_anchors_in_blk[,..poz_col])
         names(alt_anchor_centers) <- names(alt_anchor_start) <- names(alt_anchor_end) <- ref_which_bin
 
-        # ERROR HERE, IT SHOULD BE IN ORDER
+
         ref_to_alt_list <- sapply(ref_start_vec,function(bin){
           ref_start <- bin
           alt_mean <- mean(alt_anchor_centers[as.character(bin)])
@@ -366,9 +389,12 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
         map_dt <- dtw_na(tmp_map_dt = tmp_map_dt, heal_list = heal_list, ref_name = ref_name,
                          alt_name = alt_name, ref_chr = ref_chr, alt_chr = alt_chr, bin_size = bin_size )
 
-
+        return(map_dt)
       }
       doParallel::stopImplicitCluster()
+
+
+
       }
 
   }
