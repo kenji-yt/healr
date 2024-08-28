@@ -287,6 +287,8 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
         alt_start <- blks$minBp2[i]
         alt_end <- blks$maxBp2[i]
 
+        # Here I fetch the bins "in the block" but I get bins closest to start and end.
+        # These bins might not contain the anchors actually e.g they have been filtered out.
         dt_ref <- heal_list[[ref_gnm]]$bins[heal_list[[ref_gnm]]$bins$chr==ref_chr,]
         ref_bin_centers <- dt_ref$start+(bin_size/2)
         ref_bin_start <- dt_ref$start[which.min(abs(ref_bin_centers-ref_start))]
