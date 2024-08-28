@@ -35,13 +35,13 @@ parse_genespace_input <- function(genespace_dir){
 }
 
 
-dtw_na <- function(heal_list, tmp_map_dt, ref_name, ref_chr, alt_name, alt_chr, bin_size){
+dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bin_size){
 
   smp_medians <- get_sample_stats(heal_list)
 
-  cn_exist <- sum(names(heal_list[[alt_name]])=="CN")!=0
+  cn_exist <- sum(names(heal_list[[alt_gnm]])=="CN")!=0
   if(cn_exist==TRUE){
-    alt_existing_bins <- heal_list[[alt_name]]$CN$start[heal_list[[alt_name]]$CN$chr==alt_chr]
+    alt_existing_bins <- heal_list[[alt_gnm]]$CN$start[heal_list[[alt_gnm]]$CN$chr==alt_chr]
   }else{
     cat("ERROR: no CN data. Exiting...")
     quit()
@@ -51,8 +51,31 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_name, ref_chr, alt_name, alt_chr, 
   sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
   polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
 
+  indices <- 1:nrow(tmp_map_dt)
+  na_indices <- indices[tmp_map_dt$alt_bin=="REF_ANCHOR_NOT_IN_BIN" | tmp_map_dt$alt_bin=="ALT_ANCHOR_NOT_IN_BIN"]
 
-  na_indices <- which(tmp_map_dt$alt_bin=="REF_ANCHOR_NOT_IN_BIN" | tmp_map_dt$alt_bin=="ALT_ANCHOR_NOT_IN_BIN")
+  no_na_indices <- indices[tmp_map_dt$alt_bin!="REF_ANCHOR_NOT_IN_BIN" & tmp_map_dt$alt_bin!="ALT_ANCHOR_NOT_IN_BIN"]
+
+  # If start and end of block has missing bin, truncate block to first available
+  if(min(na_indices)==1){
+    first_not_na <- min(no_na_indices)
+
+    if(max(na_indices)==nrow(tmp_map_dt)){
+      last_not_na <- max(no_na_indices)
+      tmp_map_dt <- tmp_map_dt[first_not_na:last_not_na,]
+    }else{
+      last_not_na <- nrow(tmp_map_dt)
+    }
+    tmp_map_dt <- tmp_map_dt[first_not_na:last_not_na,]
+  }else if(max(na_indices)==nrow(tmp_map_dt)){
+    first_not_na <- 1
+    last_not_na <- max(no_na_indices)
+    tmp_map_dt <- tmp_map_dt[first_not_na:last_not_na,]
+  }
+
+  # recompute na indices
+  indices <- 1:nrow(tmp_map_dt)
+  na_indices <- indices[tmp_map_dt$alt_bin=="REF_ANCHOR_NOT_IN_BIN" | tmp_map_dt$alt_bin=="ALT_ANCHOR_NOT_IN_BIN"]
 
   if (length(na_indices) == 0) {
     return(tmp_map_dt)
@@ -62,7 +85,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_name, ref_chr, alt_name, alt_chr, 
   na_runs <- split(na_indices, cumsum(c(1, diff(na_indices) != 1)))
 
   per_run_replacement_lists <- lapply(na_runs, function(na_run){
-
+    print(na_run)
     start_na <- na_run[1]
     end_na <- na_run[length(na_run)]
 
@@ -70,7 +93,11 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_name, ref_chr, alt_name, alt_chr, 
 
     alt_prev_position <- as.numeric(tmp_map_dt$alt_bin[start_na - 1])
     alt_next_position <- as.numeric(tmp_map_dt$alt_bin[end_na + 1])
-    alt_available_bins <- alt_existing_bins[alt_existing_bins>=alt_prev_position & alt_existing_bins<=alt_next_position]
+    if((alt_next_position-alt_prev_position)>1){
+      alt_available_bins <- alt_existing_bins[alt_existing_bins>=alt_prev_position & alt_existing_bins<=alt_next_position]
+    }else{
+      alt_available_bins <- alt_existing_bins[alt_existing_bins<=alt_prev_position & alt_existing_bins>=alt_next_position]
+    }
 
     if(length(alt_available_bins)==1){
 
@@ -83,18 +110,18 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_name, ref_chr, alt_name, alt_chr, 
 
     }else{
 
-      ref_cn_at_bins <-  dplyr::filter(heal_list[[ref_name]]$CN, start %in% ref_available_bins & chr %in% ref_chr)
-      alt_cn_at_bins <-  dplyr::filter(heal_list[[alt_name]]$CN, start %in% alt_available_bins & chr %in% alt_chr)
-      ref_count_at_bins <-  dplyr::filter(heal_list[[ref_name]]$bins, start %in% ref_available_bins & chr %in% ref_chr)
-      alt_count_at_bins <-  dplyr::filter(heal_list[[alt_name]]$bins, start %in% alt_available_bins & chr %in% alt_chr)
+      ref_cn_at_bins <-  dplyr::filter(heal_list[[ref_gnm]]$CN, start %in% ref_available_bins & chr %in% ref_chr)
+      alt_cn_at_bins <-  dplyr::filter(heal_list[[alt_gnm]]$CN, start %in% alt_available_bins & chr %in% alt_chr)
+      ref_count_at_bins <-  dplyr::filter(heal_list[[ref_gnm]]$bins, start %in% ref_available_bins & chr %in% ref_chr)
+      alt_count_at_bins <-  dplyr::filter(heal_list[[alt_gnm]]$bins, start %in% alt_available_bins & chr %in% alt_chr)
 
       replacement_list <- foreach::foreach(smp=polyploid_samples)%do%{
 
         ref_cn_vec <- ref_cn_at_bins[[smp]]
         alt_cn_vec <- alt_cn_at_bins[[smp]]
 
-        ref_count_vec <- abs(ref_count_at_bins[[smp]]/smp_medians[[smp]]-1)
-        alt_count_vec <- abs(alt_count_at_bins[[smp]]/smp_medians[[smp]]-1)
+        ref_count_vec <- na.omit(abs(ref_count_at_bins[[smp]]/smp_medians[[smp]]-1))
+        alt_count_vec <- na.omit(abs(alt_count_at_bins[[smp]]/smp_medians[[smp]]-1))
 
         # If one of the CN is uninformative i.e. constant
         if(length(unique(ref_cn_vec))==1 | length(unique(alt_cn_vec))==1){
@@ -181,9 +208,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_name, ref_chr, alt_name, alt_chr, 
     }
   })
 
-  cat("ERROR: No good behaviour for start and end missing matches. Go back to align bins to fix start-end situation.")
   replacement_df <- do.call(rbind, lapply(per_run_replacement_lists,as.data.frame))
-
 
   map_dt <- data.table::data.table(ref_bin=tmp_map_dt$ref_bin)
   map_dt$ref_chr <- rep(ref_chr, nrow(map_dt))
@@ -193,32 +218,267 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_name, ref_chr, alt_name, alt_chr, 
     map_dt[[smp]] <- suppressWarnings(as.numeric(tmp_map_dt$alt_bin))
   }
 
-  names_rows <- sort(as.numeric(gsub("\\.","",rownames(replacement_df))))
-  na_runs_names <- (names(unlist(na_runs)))
+  if(length(unlist(na_runs))!=nrow(replacement_df)){
+    cat("ERROR: Replacement and NA not same length.")
+    quit()
+  }
 
-  replacement_df$name_row <- names_rows
+  for(i in 1:nrow(replacement_df)){
+    position <- unlist(na_runs)[i]
 
-  for(name_r in names_rows){
-    if(sum(name_r==na_runs_names)==1){
-      position <- unlist(na_runs)[name_r]
-      for(smp in polyploid_samples){
+    for(smp in polyploid_samples){
+      bin_to_map <- replacement_df[i,smp]
+      map_dt[position, (smp) := bin_to_map ]
+      }
+  }
+  return(map_dt)
+}
 
-        map_dt[position, (smp) := replacement_df[replacement_df$name_row == name_r,smp]]
+
+align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores){
+
+  doParallel::registerDoParallel(n_cores)
+
+  map_per_blk_list <- list()
+  for(i in (1:nrow(blk_dt))){
+
+    blk_id <- blk_dt$blkID[i]
+    cat(paste0("Processing syntenic block ",blk_id,".\n"))
+
+    ref_chr <- blk_dt$chr1[i]
+    ref_start <- blk_dt$startBp1[i]
+    ref_end <- blk_dt$endBp1[i]
+
+    alt_chr <- blk_dt$chr2[i]
+    alt_start <- blk_dt$minBp2[i]
+    alt_end <- blk_dt$maxBp2[i]
+
+    #############################
+    # Get bins within the block.#
+    #############################
+
+    ### Ref ###
+    dt_ref <- heal_list[[ref_gnm]]$bins[heal_list[[ref_gnm]]$bins$chr==ref_chr,]
+    ref_bin_centers <- dt_ref$start+(bin_size/2)
+    ref_blk_orientation <- sign(ref_end-ref_start)
+
+    # Gene center within a bin
+    if(min(abs(ref_bin_centers-ref_start))<(bin_size/2)){
+      ref_blk_bin_start <- dt_ref$start[which.min(abs(ref_bin_centers-ref_start))]
+
+      # If not, start is the first available bin towards center of the block.
+    }else{
+      distance_to_strt_vec <- ref_bin_centers-ref_start
+      if(ref_blk_orientation==1){
+        only_positive_dist <- distance_to_strt_vec[distance_to_strt_vec>1]
+        min_positive <- which.min(only_positive_dist) # this should always be one.
+        ref_blk_bin_start <- dt_ref$start[distance_to_strt_vec==only_positive_dist[min_positive]]
+
+      }else if(ref_blk_orientation==-1){
+        only_negative_dist <- distance_to_strt_vec[distance_to_strt_vec<1]
+        max_negative <- which.max(only_negative_dist) # this should always be length only negative.
+        ref_blk_bin_start <- dt_ref$start[distance_to_strt_vec==only_negative_dist[max_negative]]
+
+      }else{
+        cat(paste("ERROR: blk borders for",blk_id,"not valid. Exiting.."))
+        quit()
+      }
+    }
+
+
+    # Gene center within a bin
+    if(min(abs(ref_bin_centers-ref_end))<(bin_size/2)){
+      ref_blk_bin_end <- dt_ref$start[which.min(abs(ref_bin_centers-ref_end))]
+
+      # If not, end is the first available bin towards center of the block.
+    }else{
+      distance_to_end_vec <- ref_bin_centers-ref_end
+      if(ref_blk_orientation==-1){
+        only_positive_dist <- distance_to_end_vec[distance_to_end_vec>1]
+        min_positive <- which.min(only_positive_dist) # this should always be one.
+        ref_blk_bin_end <- dt_ref$start[distance_to_end_vec==only_positive_dist[min_positive]]
+
+      }else if(ref_blk_orientation==1){
+        only_negative_dist <- distance_to_end_vec[distance_to_end_vec<1]
+        max_negative <- which.max(only_negative_dist) # this should always be length only negative.
+        ref_blk_bin_end <- dt_ref$start[distance_to_end_vec==only_negative_dist[max_negative]]
 
       }
     }
+
+    if(ref_blk_orientation==1){
+      ref_start_vec <- dt_ref$start[dt_ref$start>=ref_blk_bin_start & dt_ref$start<=ref_blk_bin_end]
+    }else{
+      ref_start_vec <- dt_ref$start[dt_ref$start<=ref_blk_bin_start & dt_ref$start>=ref_blk_bin_end]
+    }
+    ref_end_vec <- ref_start_vec+bin_size
+    ref_center_vec <- ref_start_vec+(bin_size/2)
+    ref_chromo_vec <- rep(ref_chr,length(ref_start_vec))
+
+
+    ### Alt ###
+    dt_alt <- heal_list[[alt_gnm]]$bins[heal_list[[alt_gnm]]$bins$chr==alt_chr,]
+    alt_bin_centers <- dt_alt$start+(bin_size/2)
+    alt_blk_orientation <- sign(alt_end-alt_start)
+
+    # Gene center within a bin
+    if(min(abs(alt_bin_centers-alt_start))<(bin_size/2)){
+      alt_blk_bin_start <- dt_alt$start[which.min(abs(alt_bin_centers-alt_start))]
+
+      # If not, start is the first available bin towards center of the block.
+    }else{
+      distance_to_strt_vec <- alt_bin_centers-alt_start
+      if(alt_blk_orientation==1){
+        only_positive_dist <- distance_to_strt_vec[distance_to_strt_vec>1]
+        min_positive <- which.min(only_positive_dist) # this should always be one.
+
+        alt_blk_bin_start <- dt_alt$start[distance_to_strt_vec==only_positive_dist[min_positive]]
+
+      }else if(alt_blk_orientation==-1){
+        only_negative_dist <- distance_to_strt_vec[distance_to_strt_vec<1]
+        max_negative <- which.max(only_negative_dist) # this should always be length only negative.
+
+        alt_blk_bin_start <- dt_alt$start[distance_to_strt_vec==only_negative_dist[max_negative]]
+
+      }else{
+        cat(paste("ERROR: blk borders for",blk_id,"not valid. Exiting.."))
+        quit()
+      }
+    }
+
+
+    # Gene center within a bin
+    if(min(abs(alt_bin_centers-alt_end))<(bin_size/2)){
+      alt_blk_bin_end <- dt_alt$start[which.min(abs(alt_bin_centers-alt_end))]
+
+      # If not, end is the first available bin towards center of the block.
+    }else{
+      distance_to_end_vec <- alt_bin_centers-alt_end
+      if(alt_blk_orientation==-1){
+        only_positive_dist <- distance_to_end_vec[distance_to_end_vec>1]
+        min_positive <- which.min(only_positive_dist) # this should always be one.
+
+        alt_blk_bin_end <- dt_alt$start[distance_to_end_vec==only_positive_dist[min_positive]]
+
+      }else if(alt_blk_orientation==1){
+        only_negative_dist <- distance_to_end_vec[distance_to_end_vec<1]
+        max_negative <- which.max(only_negative_dist) # this should always be length only negative.
+
+        alt_blk_bin_end <- dt_alt$start[distance_to_end_vec==only_negative_dist[max_negative]]
+
+      }
+    }
+
+
+    if(alt_blk_orientation==1){
+      alt_start_vec <- dt_alt$start[dt_alt$start>=alt_blk_bin_start & dt_alt$start<=alt_blk_bin_end]
+    }else{
+      alt_start_vec <- dt_alt$start[dt_alt$start<=alt_blk_bin_start & dt_alt$start>=alt_blk_bin_end]
+    }
+
+    alt_end_vec <- alt_start_vec+bin_size
+    alt_center_vec <- alt_start_vec+(bin_size/2)
+    alt_chromo_vec <- rep(alt_chr,length(alt_start_vec))
+
+
+    ###########################
+    # Align within block bins #
+    ###########################
+    # we use anchors for that
+    cat("Maybe don't need the vectors. Just align bins based on anchors and that's it?")
+
+    ref_anchors_in_blk <- ref_anchors_dt[ref_anchors_dt$blkID==blk_id,]
+    ref_start_end <- colnames(ref_anchors_in_blk)[grepl("^(start|end)",colnames(ref_anchors_in_blk))]
+    ref_anchors_in_blk$center_point <- rowMeans(ref_anchors_in_blk[,..ref_start_end])
+
+    ref_anchors_in_blk_list <- split(ref_anchors_in_blk, seq(nrow(ref_anchors_in_blk)))
+
+    # Assign a bin to each anchor gene (if possible)
+    ref_which_bin <- unlist(lapply(ref_anchors_in_blk_list, function(row){
+
+      # Gene center within a bin
+
+      if(min(abs(ref_center_vec-row$center_point))==-Inf | min(abs(ref_center_vec-row$center_point))==Inf){
+        cat(blk_id)
+        print("ERROROROROR")
+        return()
+      }else if(is.na(min(abs(ref_center_vec-row$center_point)))){
+        cat(blk_id)
+        print("EROROROR")
+        return()
+      }
+      if(min(abs(ref_center_vec-row$center_point))<(bin_size/2)){
+        bin_start <- ref_start_vec[which.min(abs(ref_center_vec-row$center_point))]
+        return(bin_start)
+
+        # We assume no gene spans more than 2 bins such that
+        # if match the following 2 ifs, these are the only bins possible.
+
+        # Start within a bin
+      }else if(sum(row$start1>ref_start_vec & row$start1<ref_end_vec)==1){
+        bin_start <- ref_start_vec[which(row$start1>ref_start_vec & row$start1<ref_end_vec)]
+        return(bin_start)
+
+        # End within a bin
+      }else if(sum(row$end1>ref_start_vec & row$end1<ref_end_vec)==1){
+        bin_start <- ref_start_vec[which(row$end1>ref_start_vec & row$end1<ref_end_vec)]
+        return(bin_start)
+
+      }else{
+        return("NO_BIN")
+      }
+    }))
+
+
+    alt_anchors_in_blk <- alt_anchors_dt[alt_anchors_dt$blkID==blk_id,]
+    alt_start_name <- colnames(alt_anchors_in_blk)[grepl("^start",colnames(alt_anchors_in_blk))]
+    alt_anchor_start<- alt_anchors_in_blk[[alt_start_name]]
+    alt_end_name <- colnames(alt_anchors_in_blk)[grepl("^end",colnames(alt_anchors_in_blk))]
+    alt_anchor_end <- alt_anchors_in_blk[[alt_end_name]]
+    poz_col <- c(alt_start_name,alt_end_name)
+    alt_anchor_centers <- rowMeans(alt_anchors_in_blk[,..poz_col])
+    names(alt_anchor_centers) <- names(alt_anchor_start) <- names(alt_anchor_end) <- ref_which_bin
+
+
+    ref_to_alt_list <- sapply(ref_start_vec,function(bin){
+      ref_start <- bin
+      alt_mean <- mean(alt_anchor_centers[as.character(bin)])
+      alt_min <- min(alt_anchor_start[as.character(bin)])
+      alt_max <- max(alt_anchor_end[as.character(bin)])
+      list(ref_start=ref_start, alt_mean=alt_mean, alt_min=alt_min, alt_max=alt_max)}, simplify = FALSE)
+
+    which_bin_alt <- unlist(lapply(ref_to_alt_list ,function(row){
+
+      if(is.na(row$alt_mean)){
+        return("REF_ANCHOR_NOT_IN_BIN")
+      }else{
+
+        # Homoeolog edges containing bins?
+        alt_bins_included <- row$alt_min<alt_end_vec & row$alt_max>alt_start_vec
+        if(sum(alt_bins_included)>0){ # Bins in the range
+          bin_start <- alt_start_vec[which.min(abs(alt_center_vec-row$alt_mean))]
+          return(bin_start) # return bin closest to center
+
+        }else{
+          return("ALT_ANCHOR_NOT_IN_BIN")
+        }
+      }
+    }))
+
+    tmp_map_dt <- data.table::data.table(ref_bin=ref_start_vec,alt_bin=which_bin_alt)
+
+    map_dt <- dtw_na(tmp_map_dt = tmp_map_dt, heal_list = heal_list, ref_gnm = ref_gnm,
+                     alt_gnm = alt_gnm, ref_chr = ref_chr, alt_chr = alt_chr, bin_size = bin_size )
+
+    map_per_blk_list <- list(map_per_blk_list,map_dt)
+    #return(map_dt)
   }
-#
-#
-#     for(i in 1:nrow(replacement_df)){
-#       index <- replacement_df$df_position[i]
-#       map_dt[[smp]][index] <- replacement_df[[smp]][i]
-#     }
-#   }
-  return(map_dt)
+  doParallel::stopImplicitCluster()
+
+  names(map_per_blk_list) <- blk_dt$blkID
+  return(map_per_blk_list)
 
 }
-
 
 
 
@@ -258,11 +518,11 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
       gnm_1_keep_cols <- setdiff(colnames(anchors_dt), gnm_2_cols)
       gnm_2_keep_cols <- setdiff(colnames(anchors_dt), gnm_1_cols)
 
-      if(anchors_dt$genome1[1]==ref_name){
+      if(anchors_dt$genome1[1]==ref_gnm){
         ref_anchors_dt <- anchors_dt[, ..gnm_1_keep_cols]
         alt_anchors_dt <- anchors_dt[, ..gnm_2_keep_cols]
 
-      }else if(anchors_dt$genome1[1]==alt_name){
+      }else if(anchors_dt$genome1[1]==alt_gnm){
         ref_anchors_dt <- anchors_dt[, ..gnm_2_keep_cols]
         alt_anchors_dt <- anchors_dt[, ..gnm_1_keep_cols]
 
@@ -271,133 +531,8 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
         quit()
       }
 
-      blks <- map_dt_list$block_coord[map_dt_list$block_coord$genome1==ref_gnm & map_dt_list$block_coord$genome2==alt_gnm,]
+      blk_dt <- map_dt_list$block_coord[map_dt_list$block_coord$genome1==ref_gnm & map_dt_list$block_coord$genome2==alt_gnm,]
 
-      doParallel::registerDoParallel(n_cores)
-
-      map_per_blk_list <- foreach::foreach(i=(1:nrow(blks)))%dopar%{
-        print(i)
-        blk_id <- blks$blkID[i]
-
-        ref_chr <- blks$chr1[i]
-        ref_start <- blks$startBp1[i]
-        ref_end <- blks$endBp1[i]
-
-        alt_chr <- blks$chr2[i]
-        alt_start <- blks$minBp2[i]
-        alt_end <- blks$maxBp2[i]
-
-        # Here I fetch the bins "in the block" but I get bins closest to start and end.
-        # These bins might not contain the anchors actually e.g they have been filtered out.
-        dt_ref <- heal_list[[ref_gnm]]$bins[heal_list[[ref_gnm]]$bins$chr==ref_chr,]
-        ref_bin_centers <- dt_ref$start+(bin_size/2)
-        ref_bin_start <- dt_ref$start[which.min(abs(ref_bin_centers-ref_start))]
-        ref_bin_end <- dt_ref$start[which.min(abs(ref_bin_centers-ref_end))]
-        if(sign(ref_bin_end-ref_bin_start)==1){
-          ref_start_vec <- dt_ref$start[dt_ref$start>=ref_bin_start & dt_ref$start<=ref_bin_end]
-        }else{
-          ref_start_vec <- dt_ref$start[dt_ref$start<=ref_bin_start & dt_ref$start>=ref_bin_end]
-        }
-        ref_end_vec <- ref_start_vec+bin_size
-        ref_center_vec <- ref_start_vec+(bin_size/2)
-        ref_chromo_vec <- rep(ref_chr,length(ref_start_vec))
-
-
-        dt_alt <- heal_list[[alt_gnm]]$bins[heal_list[[alt_gnm]]$bins$chr==alt_chr,]
-        alt_bin_centers <- dt_alt$start+(bin_size/2)
-        alt_bin_start <- dt_alt$start[which.min(abs(alt_bin_centers-alt_start))]
-        alt_bin_end <- dt_alt$start[which.min(abs(alt_bin_centers-alt_end))]
-        if(sign(alt_bin_end-alt_bin_start)==1){
-          alt_start_vec <- dt_alt$start[dt_alt$start>=alt_bin_start & dt_alt$start<=alt_bin_end]
-        }else{
-          alt_start_vec <- dt_alt$start[dt_alt$start<=alt_bin_start & dt_alt$start>=alt_bin_end]
-        }
-        alt_end_vec <- alt_start_vec+bin_size
-        alt_center_vec <- alt_start_vec+(bin_size/2)
-        alt_chromo_vec <- rep(alt_chr,length(alt_start_vec))
-
-        # Align alt_x_vec to ref_x_vec
-        # we use anchors for that
-        ref_anchors_in_blk <- ref_anchors_dt[ref_anchors_dt$blkID==blk_id,]
-        ref_start_end <- colnames(ref_anchors_in_blk)[grepl("^(start|end)",colnames(ref_anchors_in_blk))]
-        ref_anchors_in_blk$center_point <- rowMeans(ref_anchors_in_blk[,..start_end])
-
-        ref_anchors_in_blk_list <- split(ref_anchors_in_blk, seq(nrow(ref_anchors_in_blk)))
-
-        # Assign a bin to each anchor gene (if possible)
-        ref_which_bin <- unlist(lapply(ref_anchors_in_blk_list, function(row){
-
-          # Gene center within a bin
-          if(min(abs(ref_center_vec-row$center_point))<(bin_size/2)){
-            bin_start <- ref_start_vec[which.min(abs(ref_center_vec-row$center_point))]
-            return(bin_start)
-
-            # We assume no gene spans more than 2 bins such that
-            # if match the following 2 ifs, these are the only bins possible.
-
-          # Start within a bin
-          }else if(sum(row$start1>ref_start_vec & row$start1<ref_end_vec)==1){
-            bin_start <- ref_start_vec[which(row$start1>ref_start_vec & row$start1<ref_end_vec)]
-            return(bin_start)
-
-          # End within a bin
-          }else if(sum(row$end1>ref_start_vec & row$end1<ref_end_vec)==1){
-            bin_start <- ref_start_vec[which(row$end1>ref_start_vec & row$end1<ref_end_vec)]
-            return(bin_start)
-
-          }else{
-            return("NO_BIN")
-          }
-        }))
-
-
-        alt_anchors_in_blk <- alt_anchors_dt[alt_anchors_dt$blkID==blk_id,]
-        alt_start_name <- colnames(alt_anchors_in_blk)[grepl("^start",colnames(alt_anchors_in_blk))]
-        alt_anchor_start<- alt_anchors_in_blk[[alt_start_name]]
-        alt_end_name <- colnames(alt_anchors_in_blk)[grepl("^end",colnames(alt_anchors_in_blk))]
-        alt_anchor_end <- alt_anchors_in_blk[[alt_end_name]]
-        poz_col <- c(alt_start_name,alt_end_name)
-        alt_anchor_centers <- rowMeans(alt_anchors_in_blk[,..poz_col])
-        names(alt_anchor_centers) <- names(alt_anchor_start) <- names(alt_anchor_end) <- ref_which_bin
-
-
-        ref_to_alt_list <- sapply(ref_start_vec,function(bin){
-          ref_start <- bin
-          alt_mean <- mean(alt_anchor_centers[as.character(bin)])
-          alt_min <- min(alt_anchor_start[as.character(bin)])
-          alt_max <- max(alt_anchor_end[as.character(bin)])
-          list(ref_start=ref_start, alt_mean=alt_mean, alt_min=alt_min, alt_max=alt_max)}, simplify = FALSE)
-
-        which_bin_alt <- unlist(lapply(ref_to_alt_list ,function(row){
-
-          if(is.na(row$alt_mean)){
-            return("REF_ANCHOR_NOT_IN_BIN")
-          }else{
-
-            # Homoeolog edges containing bins?
-            alt_bins_included <- row$alt_min<alt_end_vec & row$alt_max>alt_start_vec
-            if(sum(alt_bins_included)>0){ # Bins in the range
-              bin_start <- alt_start_vec[which.min(abs(alt_center_vec-row$alt_mean))]
-              return(bin_start) # return bin closest to center
-
-            }else{
-              return("ALT_ANCHOR_NOT_IN_BIN")
-            }
-          }
-        }))
-
-        tmp_map_dt <- data.table::data.table(ref_bin=ref_start_vec,alt_bin=which_bin_alt)
-
-        map_dt <- dtw_na(tmp_map_dt = tmp_map_dt, heal_list = heal_list, ref_name = ref_name,
-                         alt_name = alt_name, ref_chr = ref_chr, alt_chr = alt_chr, bin_size = bin_size )
-
-        return(map_dt)
-      }
-      doParallel::stopImplicitCluster()
-
-
-
-      }
-
-  }
+      map_per_blk_list <- align_blocks(blk_dt = blk_dt, heal_list = heal_list, ref_gnm = ref_gnm, alt_gnm = alt_gnm, n_cores = n_cores, bin_size = bin_size)
+}}
 }
