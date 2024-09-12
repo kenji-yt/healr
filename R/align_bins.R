@@ -35,6 +35,20 @@ parse_genespace_input <- function(genespace_dir){
 }
 
 
+#' Title
+#'
+#' @param heal_list
+#' @param tmp_map_dt
+#' @param ref_gnm
+#' @param ref_chr
+#' @param alt_gnm
+#' @param alt_chr
+#' @param bin_size
+#'
+#' @return
+#' @export
+#'
+#' @importFrom data.table :=
 dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bin_size){
 
   smp_medians <- get_sample_stats(heal_list)
@@ -44,7 +58,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
     alt_existing_bins <- heal_list[[alt_gnm]]$CN$start[heal_list[[alt_gnm]]$CN$chr==alt_chr]
   }else{
     cat("ERROR: no CN data. Exiting...")
-    quit()
+    return()
   }
 
   get_sample_stats(heal_list)
@@ -220,7 +234,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
 
   if(length(unlist(na_runs))!=nrow(replacement_df)){
     cat("ERROR: Replacement and NA not same length.")
-    quit()
+    return()
   }
 
   for(i in 1:nrow(replacement_df)){
@@ -239,8 +253,7 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores)
 
   doParallel::registerDoParallel(n_cores)
 
-  map_per_blk_list <- list()
-  for(i in (1:nrow(blk_dt))){
+  map_per_blk_list <- foreach::foreach(i=(1:nrow(blk_dt)))%do%{
 
     blk_id <- blk_dt$blkID[i]
     cat(paste0("Processing syntenic block ",blk_id,".\n"))
@@ -262,6 +275,21 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores)
     ref_bin_centers <- dt_ref$start+(bin_size/2)
     ref_blk_orientation <- sign(ref_end-ref_start)
 
+    if(ref_blk_orientation==1){
+      n_bins_in_blk <- sum(ref_bin_centers>ref_start & ref_bin_centers<ref_end)
+      if(n_bins_in_blk==0){
+        return()
+      }
+    }else if(ref_blk_orientation==-1){
+      n_bins_in_blk <- sum(ref_bin_centers<ref_start & ref_bin_centers>ref_end)
+      if(n_bins_in_blk==0){
+        return()
+      }
+    }else{
+      cat(paste("ERROR: blk borders for",blk_id,"not valid. Exiting.."))
+      return()
+    }
+
     # Gene center within a bin
     if(min(abs(ref_bin_centers-ref_start))<(bin_size/2)){
       ref_blk_bin_start <- dt_ref$start[which.min(abs(ref_bin_centers-ref_start))]
@@ -281,7 +309,7 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores)
 
       }else{
         cat(paste("ERROR: blk borders for",blk_id,"not valid. Exiting.."))
-        quit()
+        return()
       }
     }
 
@@ -321,6 +349,21 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores)
     alt_bin_centers <- dt_alt$start+(bin_size/2)
     alt_blk_orientation <- sign(alt_end-alt_start)
 
+    if(alt_blk_orientation==1){
+      n_bins_in_blk <- sum(alt_bin_centers>alt_start & alt_bin_centers<alt_end)
+      if(n_bins_in_blk==0){
+        return()
+      }
+    }else if(alt_blk_orientation==-1){
+      n_bins_in_blk <- sum(alt_bin_centers<alt_start & alt_bin_centers>alt_end)
+      if(n_bins_in_blk==0){
+        return()
+      }
+    }else{
+      cat(paste("ERROR: blk borders for",blk_id,"not valid. Exiting.."))
+      return()
+    }
+
     # Gene center within a bin
     if(min(abs(alt_bin_centers-alt_start))<(bin_size/2)){
       alt_blk_bin_start <- dt_alt$start[which.min(abs(alt_bin_centers-alt_start))]
@@ -342,7 +385,7 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores)
 
       }else{
         cat(paste("ERROR: blk borders for",blk_id,"not valid. Exiting.."))
-        quit()
+        return()
       }
     }
 
@@ -399,10 +442,16 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores)
       # Gene center within a bin
 
       if(min(abs(ref_center_vec-row$center_point))==-Inf | min(abs(ref_center_vec-row$center_point))==Inf){
-        cat(blk_id)
-        print("ERROROROROR")
+        while(TRUE==TRUE){
+          cat(blk_id)
+          print("ERROROROROR")
+          }
         return()
       }else if(is.na(min(abs(ref_center_vec-row$center_point)))){
+      while(TRUE==TRUE){
+        cat(blk_id)
+        print("ERROROROROR")
+      }
         cat(blk_id)
         print("EROROROR")
         return()
@@ -470,17 +519,17 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores)
     map_dt <- dtw_na(tmp_map_dt = tmp_map_dt, heal_list = heal_list, ref_gnm = ref_gnm,
                      alt_gnm = alt_gnm, ref_chr = ref_chr, alt_chr = alt_chr, bin_size = bin_size )
 
-    map_per_blk_list <- list(map_per_blk_list,map_dt)
-    #return(map_dt)
+    setNames(list(map_dt), blk_id)
+    return(map_dt)
   }
   doParallel::stopImplicitCluster()
 
-  names(map_per_blk_list) <- blk_dt$blkID
   return(map_per_blk_list)
 
 }
 
-
+# related to ":=" as in: https://github.com/tidyverse/dtplyr/issues/426
+.datatable.aware <- TRUE
 
 
 align_bins <- function(heal_list, genespace_dir, bin_size){
@@ -493,7 +542,7 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
   genomes <- unique(map_dt_list$block_coord$genome1)
   if(sum(sort(genomes)!=sort(names(heal_list)))!=0){
     cat("ERROR: Genome names in GENESPACE output and HEAL input directory do not match. Exiting..")
-    quit()
+    return()
   }
 
 
@@ -528,7 +577,7 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
 
       }else{
         cat("ERROR: syntenic hits genome names don't match sample names.")
-        quit()
+        return()
       }
 
       blk_dt <- map_dt_list$block_coord[map_dt_list$block_coord$genome1==ref_gnm & map_dt_list$block_coord$genome2==alt_gnm,]
@@ -536,3 +585,32 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
       map_per_blk_list <- align_blocks(blk_dt = blk_dt, heal_list = heal_list, ref_gnm = ref_gnm, alt_gnm = alt_gnm, n_cores = n_cores, bin_size = bin_size)
 }}
 }
+
+
+
+# #
+# align_genes <- function(){}
+# map_it <- parse_genespace_input(genespace_dir = "/srv/kenlab/kenji/heal_dirs/test_dir/genespace/")
+# map_dt_list
+#
+# ratios <- foreach::foreach(i=1:nrow(map_it$syn_hits$A.halleri_vs_A.lyrata))%do%{
+#   id1 <- map_it$syn_hits$A.halleri_vs_A.lyrata$id1[i]
+#   count_1 <- cn_list$A.halleri$genes$HM_RS2K_G1_2[cn_list$A.halleri$genes$GeneID==id1]
+#
+#   id2 <- map_it$syn_hits$A.halleri_vs_A.lyrata$id2[i]
+#   count_2 <- cn_list$A.lyrata$genes$HM_RS2K_G1_2[cn_list$A.lyrata$genes$GeneID==id2]
+#   if(count_1>count_2){
+#     return(count_2/count_1)
+#   }else{
+#     return(-(count_1/count_2))
+#   }
+#
+# }
+# ratio_vec <- unlist(ratios)
+#
+# hist(ratio_vec, xlim=c(-1,1),breaks = 80,main="histogram of gene ratio", col="chartreuse4")#,# ylim=c(0,3000))
+# cn_list$A.lyrata$genes
+# cn_list$A.halleri$genes
+#
+
+
