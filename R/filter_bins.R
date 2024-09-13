@@ -4,10 +4,11 @@
 #' @param mappability_threshold Threshold average per bin mappability value below which bins are ignored ('0.9' by default).
 #' @param gc_quantile Bins with GC content below first and above last quantiles are ignored. Set to 'FALSE' for no filtering ('FALSE' by default).
 #' @param count_threshold How many standard deviations away from the count mean to consider a bin as outlier. Set to 'FALSE' for no count filtering (3 by default).
+#' @param replace_by_NA Should outliers count values be set to NA ('FALSE' by default). Otherwise outliers are set to the threshold defined by count_threshold.
 #'
 #' @return A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
 #' @export
-filter_bins <- function(heal_list, mappability_threshold=0.9, gc_quantile=FALSE, count_threshold=3){
+filter_bins <- function(heal_list, mappability_threshold=0.9, gc_quantile=FALSE, count_threshold=3, replace_by_NA=FALSE){
 
   if(count_threshold!=FALSE){
     smp_means <- get_sample_stats(heal_list,method="mean")
@@ -67,7 +68,7 @@ filter_bins <- function(heal_list, mappability_threshold=0.9, gc_quantile=FALSE,
   }
 
   if(count_threshold!=FALSE){
-    cat(paste0("Ignoring bins with counts ",count_threshold," standard deviations above the mean: \n"))
+    cat(paste0("Smoothing bins with counts ",count_threshold," standard deviations above the mean: \n"))
 
     smp_na <- get_sample_stats(filtered_list,method = "is.na")
     smp_len <- get_sample_stats(filtered_list,method = "length")
@@ -75,9 +76,22 @@ filter_bins <- function(heal_list, mappability_threshold=0.9, gc_quantile=FALSE,
       round((smp_na[[name]]/smp_len[[name]])*100,2)
     })
     names(na_freq) <- names(smp_na)
+
+    # Replace NA by threshold_value
+    if(replace_by_NA==FALSE){
+      filtered_list <- lapply(filtered_list, function(df){
+        current_samples <- setdiff(colnames(df$bins),c("chr", "start", "mappability", "gc_content", "end"))
+        for(smp in current_samples){
+          threshold_value <- smp_means[[smp]]+count_threshold*smp_sd[[smp]]
+          df$bins[[smp]][is.na(df$bins[[smp]])] <- threshold_value
+        }
+        return(list(bins=df$bins,genes=df$genes))
+      })
+    }
+
     for(i in 1:length(na_freq)){
       smp_name <- names(na_freq)[i]
-      cat(paste0("                -",smp_name, " count outlier filtering:  ",na_freq[[smp_name]],"% of remaining bins ignored. \n"))
+      cat(paste0("                -",smp_name, " count outlier filtering:  ",na_freq[[smp_name]],"% of remaining bins set to ",count_threshold," standard deviations above the mean.\n"))
     }
   }
 

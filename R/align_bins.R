@@ -156,6 +156,8 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
         ref_cn_vec <- ref_cn_at_bins[[smp]]
         alt_cn_vec <- alt_cn_at_bins[[smp]]
 
+        # Replace NAs (count outliers) by median of the non-na values (inspired by CBS method)
+
         ref_count_vec <- na.omit(abs(ref_count_at_bins[[smp]]/smp_medians[[smp]]-1))
         alt_count_vec <- na.omit(abs(alt_count_at_bins[[smp]]/smp_medians[[smp]]-1))
 
@@ -289,7 +291,7 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, ref_anchors_dt, al
 
     blk_id <- blk_dt$blkID[i]
     cat(paste0("Processing syntenic block ",blk_id,".\n"))
-
+    print(blk_id)
     ref_chr <- blk_dt$chr1[i]
     ref_start <- blk_dt$startBp1[i]
     ref_end <- blk_dt$endBp1[i]
@@ -552,7 +554,7 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, ref_anchors_dt, al
     map_dt <- dtw_na(tmp_map_dt = tmp_map_dt, heal_list = heal_list, ref_gnm = ref_gnm,
                     alt_gnm = alt_gnm, ref_chr = ref_chr, alt_chr = alt_chr, bin_size = bin_size )
 
-    #return(map_dt)
+    return(map_dt)
   }
   doParallel::stopImplicitCluster()
 
