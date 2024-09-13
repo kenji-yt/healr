@@ -69,7 +69,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
   na_indices <- indices[tmp_map_dt$alt_bin=="REF_ANCHOR_NOT_IN_BIN" | tmp_map_dt$alt_bin=="ALT_ANCHOR_NOT_IN_BIN"]
   if (length(na_indices) == 0) {
     map_dt <- data.table::data.table(ref_bin=tmp_map_dt$ref_bin)
-    map_dt$dtw_aligned <- tmp_map_dt$dtw_aligned
+    map_dt$aligned <- tmp_map_dt$aligned
     map_dt$ref_chr <- rep(ref_chr, nrow(map_dt))
     map_dt$alt_chr <- rep(alt_chr, nrow(map_dt))
     for(smp in polyploid_samples){
@@ -90,8 +90,8 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
       tmp_map_dt <- tmp_map_dt[first_not_na:last_not_na,]
     }else{
       last_not_na <- nrow(tmp_map_dt)
+      tmp_map_dt <- tmp_map_dt[first_not_na:last_not_na,]
     }
-    tmp_map_dt <- tmp_map_dt[first_not_na:last_not_na,]
   }else if(max(na_indices)==nrow(tmp_map_dt)){
     first_not_na <- 1
     last_not_na <- max(no_na_indices)
@@ -105,7 +105,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
   if (length(na_indices) == 0) {
 
     map_dt <- data.table::data.table(ref_bin=tmp_map_dt$ref_bin)
-    map_dt$dtw_aligned <- tmp_map_dt$dtw_aligned
+    map_dt$aligned <- tmp_map_dt$aligned
     map_dt$ref_chr <- rep(ref_chr, nrow(map_dt))
     map_dt$alt_chr <- rep(alt_chr, nrow(map_dt))
     for(smp in polyploid_samples){
@@ -127,13 +127,15 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
 
     alt_prev_position <- as.numeric(tmp_map_dt$alt_bin[start_na - 1])
     alt_next_position <- as.numeric(tmp_map_dt$alt_bin[end_na + 1])
-    if((alt_next_position-alt_prev_position)>1){
+    if((alt_next_position-alt_prev_position)>0){
       alt_available_bins <- alt_existing_bins[alt_existing_bins>=alt_prev_position & alt_existing_bins<=alt_next_position]
     }else{
       alt_available_bins <- alt_existing_bins[alt_existing_bins<=alt_prev_position & alt_existing_bins>=alt_next_position]
     }
 
     if(length(alt_available_bins)==1){
+
+      tmp_map_dt$aligned[start_na:end_na] <- rep("constant", length(start_na:end_na))
 
       replacement_list <- foreach::foreach(smp=polyploid_samples)%do%{
         replacement_values <- rep(alt_available_bins, length(na_run))
@@ -162,7 +164,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
           # If there is discordance i.e. only 1 is constant or both constant are not according
           if(sum(abs(unique(ref_cn_vec)-2)!=abs(unique(alt_cn_vec)-2))>0){
 
-            tmp_map_dt$dtw_aligned[start_na:end_na] <- rep(TRUE, length(start_na:end_na))
+            tmp_map_dt$aligned[start_na:end_na] <- rep("dtw_counts", length(start_na:end_na))
 
             # Align based on normalize counts
 
@@ -188,6 +190,9 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
 
           # Concordance i.e. unique and concordant
           }else{
+
+            tmp_map_dt$aligned[start_na:end_na] <- rep("spread_concordant_CN", length(start_na:end_na))
+
             if(length(ref_available_bins)==(length(alt_available_bins)-2)){
               replacement_values <- alt_available_bins[2:(length(alt_available_bins)-1)]
 
@@ -218,7 +223,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
         # Informative CN
         }else{
 
-          tmp_map_dt$dtw_aligned[start_na:end_na] <- rep(TRUE, length(start_na:end_na))
+          tmp_map_dt$aligned[start_na:end_na] <- rep("dtw_cn", length(start_na:end_na))
 
           cn_alignment <- dtw::dtw(ref_cn_vec, alt_cn_vec)
 
@@ -251,7 +256,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
   replacement_df <- do.call(rbind, lapply(per_run_replacement_lists,as.data.frame))
 
   map_dt <- data.table::data.table(ref_bin=tmp_map_dt$ref_bin)
-  map_dt$dtw_aligned <- tmp_map_dt$dtw_aligned
+  map_dt$aligned <- tmp_map_dt$aligned
   map_dt$ref_chr <- rep(ref_chr, nrow(map_dt))
   map_dt$alt_chr <- rep(alt_chr, nrow(map_dt))
 
@@ -276,7 +281,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
 }
 
 
-align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores){
+align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, ref_anchors_dt, alt_anchors_dt, bin_size, n_cores){
 
   doParallel::registerDoParallel(n_cores)
 
@@ -541,12 +546,13 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores)
       }
     }))
 
-    tmp_map_dt <- data.table::data.table(ref_bin=ref_start_vec,alt_bin=which_bin_alt, dtw_aligned=rep(FALSE, length(which_bin_alt)))
+    tmp_map_dt <- data.table::data.table(ref_bin=ref_start_vec,alt_bin=which_bin_alt, aligned=rep("anchors", length(which_bin_alt)))
+
 
     map_dt <- dtw_na(tmp_map_dt = tmp_map_dt, heal_list = heal_list, ref_gnm = ref_gnm,
-                     alt_gnm = alt_gnm, ref_chr = ref_chr, alt_chr = alt_chr, bin_size = bin_size )
+                    alt_gnm = alt_gnm, ref_chr = ref_chr, alt_chr = alt_chr, bin_size = bin_size )
 
-    return(map_dt)
+    #return(map_dt)
   }
   doParallel::stopImplicitCluster()
 
@@ -558,7 +564,7 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, bin_size, n_cores)
 .datatable.aware <- TRUE
 
 
-align_bins <- function(heal_list, genespace_dir, bin_size){
+align_bins <- function(heal_list, genespace_dir, bin_size, n_cores){
 
   map_dt_list <- parse_genespace_input(genespace_dir)
 
@@ -608,7 +614,7 @@ align_bins <- function(heal_list, genespace_dir, bin_size){
 
       blk_dt <- map_dt_list$block_coord[map_dt_list$block_coord$genome1==ref_gnm & map_dt_list$block_coord$genome2==alt_gnm,]
 
-      map_per_blk_list <- align_blocks(blk_dt = blk_dt, heal_list = heal_list, ref_gnm = ref_gnm, alt_gnm = alt_gnm, n_cores = n_cores, bin_size = bin_size)
+      map_per_blk_list <- align_blocks(blk_dt = blk_dt, heal_list = heal_list, ref_gnm = ref_gnm, alt_gnm = alt_gnm, ref_anchors_dt = ref_anchors_dt, alt_anchors_dt = alt_anchors_dt, n_cores = n_cores, bin_size = bin_size)
 
       map <- data.table::rbindlist(map_per_blk_list)
 
