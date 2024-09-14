@@ -156,10 +156,12 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
         ref_cn_vec <- ref_cn_at_bins[[smp]]
         alt_cn_vec <- alt_cn_at_bins[[smp]]
 
-        # Replace NAs (count outliers) by median of the non-na values (inspired by CBS method)
+        # Replace NAs (count outliers) by mean of the non-na values (inspired by CBS method)
+        ref_count_vec[is.na(ref_count_vec)] <- mean(na.omit(ref_count_vec))
+        alt_count_vec[is.na(alt_count_vec)] <- mean(na.omit(alt_count_vec))
 
-        ref_count_vec <- na.omit(abs(ref_count_at_bins[[smp]]/smp_medians[[smp]]-1))
-        alt_count_vec <- na.omit(abs(alt_count_at_bins[[smp]]/smp_medians[[smp]]-1))
+        ref_count_vec <- abs(ref_count_at_bins[[smp]]/smp_medians[[smp]]-1)
+        alt_count_vec <- abs(alt_count_at_bins[[smp]]/smp_medians[[smp]]-1)
 
         # If one of the CN is uninformative i.e. constant
         if(length(unique(ref_cn_vec))==1 | length(unique(alt_cn_vec))==1){

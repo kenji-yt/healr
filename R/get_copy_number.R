@@ -13,7 +13,6 @@
 #' @importFrom foreach %do%
 get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", full_output=FALSE){
 
-  cat("wa CBS p done mean...")
 
   if(intersect(method, c("median", "mean"))==0 || length(method)!=1){
     cat("ERROR: Invalid method input. Choose either 'median' or 'mean'")
@@ -24,6 +23,7 @@ get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", f
   sample_name_per_prog <- lapply(counts,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))})
   samples  <- unique(unlist(sample_name_per_prog))
 
+  cat("I think there is a utils to do this")
   doParallel::registerDoParallel(n_cores)
   sample_averages <- foreach::foreach(smp=samples)%dopar%{
     if(method=="median"){

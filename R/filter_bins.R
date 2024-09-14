@@ -8,7 +8,7 @@
 #'
 #' @return A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
 #' @export
-filter_bins <- function(heal_list, mappability_threshold=0.9, gc_quantile=FALSE, count_threshold=3, replace_by_NA=FALSE){
+filter_bins <- function(heal_list, mappability_threshold=0.9, gc_quantile=FALSE, count_threshold=3){
 
   if(count_threshold!=FALSE){
     smp_means <- get_sample_stats(heal_list,method="mean")
@@ -77,17 +77,6 @@ filter_bins <- function(heal_list, mappability_threshold=0.9, gc_quantile=FALSE,
     })
     names(na_freq) <- names(smp_na)
 
-    # Replace NA by threshold_value
-    if(replace_by_NA==FALSE){
-      filtered_list <- lapply(filtered_list, function(df){
-        current_samples <- setdiff(colnames(df$bins),c("chr", "start", "mappability", "gc_content", "end"))
-        for(smp in current_samples){
-          threshold_value <- smp_means[[smp]]+count_threshold*smp_sd[[smp]]
-          df$bins[[smp]][is.na(df$bins[[smp]])] <- threshold_value
-        }
-        return(list(bins=df$bins,genes=df$genes))
-      })
-    }
 
     for(i in 1:length(na_freq)){
       smp_name <- names(na_freq)[i]
