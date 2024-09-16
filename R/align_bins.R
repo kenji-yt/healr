@@ -65,11 +65,17 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
   sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
   polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
 
+  for(smp in polyploid_samples){
+    tmp_map_dt[,paste0("aligned_",smp) := rep("anchors",nrow(tmp_map_dt))]
+  }
+
   indices <- 1:nrow(tmp_map_dt)
   na_indices <- indices[tmp_map_dt$alt_bin=="REF_ANCHOR_NOT_IN_BIN" | tmp_map_dt$alt_bin=="ALT_ANCHOR_NOT_IN_BIN"]
   if (length(na_indices) == 0) {
     map_dt <- data.table::data.table(ref_bin=tmp_map_dt$ref_bin)
-    map_dt$aligned <- tmp_map_dt$aligned
+    for(smp in polyploid_samples){
+      map_dt[,paste0("aligned_",smp) := rep("anchors",nrow(tmp_map_dt))]
+    }
     map_dt$ref_chr <- rep(ref_chr, nrow(map_dt))
     map_dt$alt_chr <- rep(alt_chr, nrow(map_dt))
     for(smp in polyploid_samples){
@@ -105,7 +111,9 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
   if (length(na_indices) == 0) {
 
     map_dt <- data.table::data.table(ref_bin=tmp_map_dt$ref_bin)
-    map_dt$aligned <- tmp_map_dt$aligned
+    for(smp in polyploid_samples){
+      map_dt[,paste0("aligned_",smp) := rep("anchors",nrow(tmp_map_dt))]
+    }
     map_dt$ref_chr <- rep(ref_chr, nrow(map_dt))
     map_dt$alt_chr <- rep(alt_chr, nrow(map_dt))
     for(smp in polyploid_samples){
@@ -119,7 +127,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
   na_runs <- split(na_indices, cumsum(c(1, diff(na_indices) != 1)))
 
   per_run_replacement_lists <- lapply(na_runs, function(na_run){
-
+    print(na_run)
     start_na <- na_run[1]
     end_na <- na_run[length(na_run)]
 
@@ -134,9 +142,9 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
     }
 
     if(length(alt_available_bins)==1){
-
-      tmp_map_dt$aligned[start_na:end_na] <- rep("constant", length(start_na:end_na))
-
+      for(smp in polyploid_samples){
+        tmp_map_dt[start_na:end_na , paste0("aligned_",smp) := rep("single_alt", length(start_na:end_na))]
+      }
       replacement_list <- foreach::foreach(smp=polyploid_samples)%do%{
         replacement_values <- rep(alt_available_bins, length(na_run))
         return(replacement_values)
@@ -156,19 +164,33 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
         ref_cn_vec <- ref_cn_at_bins[[smp]]
         alt_cn_vec <- alt_cn_at_bins[[smp]]
 
-        # Replace NAs (count outliers) by mean of the non-na values (inspired by CBS method)
-        ref_count_vec[is.na(ref_count_vec)] <- mean(na.omit(ref_count_vec))
-        alt_count_vec[is.na(alt_count_vec)] <- mean(na.omit(alt_count_vec))
-
+        # normalize count values
         ref_count_vec <- abs(ref_count_at_bins[[smp]]/smp_medians[[smp]]-1)
         alt_count_vec <- abs(alt_count_at_bins[[smp]]/smp_medians[[smp]]-1)
+
+        # Replace NAs (count outliers) by mean of the non-na values (inspired by CBS method)
+
+        if(sum(is.na(ref_count_vec))==length(ref_count_vec)){
+          if(sum(is.na(alt_count_vec)==length(alt_count_vec))){
+            cat("Why not any number? and why x2?")
+            ref_count_vec <- rep(smp_medians[[smp]]*2, length(ref_count_vec))
+            alt_count_vec <- rep(smp_medians[[smp]]*2, length(alt_count_vec))
+          }else{
+            ref_count_vec <- rep(mean(na.omit(alt_count_vec), length(ref_count_vec)))
+          }
+
+        }else if(sum(is.na(alt_count_vec))==length(alt_count_vec)){
+          alt_count_vec <- rep(mean(na.omit(ref_count_vec), length(alt_count_vec)))
+        }
+        ref_count_vec[is.na(ref_count_vec)] <- mean(na.omit(ref_count_vec))
+        alt_count_vec[is.na(alt_count_vec)] <- mean(na.omit(alt_count_vec))
 
         # If one of the CN is uninformative i.e. constant
         if(length(unique(ref_cn_vec))==1 | length(unique(alt_cn_vec))==1){
           # If there is discordance i.e. only 1 is constant or both constant are not according
           if(sum(abs(unique(ref_cn_vec)-2)!=abs(unique(alt_cn_vec)-2))>0){
 
-            tmp_map_dt$aligned[start_na:end_na] <- rep("dtw_counts", length(start_na:end_na))
+            tmp_map_dt[start_na:end_na , paste0("aligned_",smp) := rep("dtw_counts", length(start_na:end_na))]
 
             # Align based on normalize counts
 
@@ -195,7 +217,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
           # Concordance i.e. unique and concordant
           }else{
 
-            tmp_map_dt$aligned[start_na:end_na] <- rep("spread_concordant_CN", length(start_na:end_na))
+            tmp_map_dt[start_na:end_na , paste0("aligned_",smp) := rep("spread_concordant_CN", length(start_na:end_na))]
 
             if(length(ref_available_bins)==(length(alt_available_bins)-2)){
               replacement_values <- alt_available_bins[2:(length(alt_available_bins)-1)]
@@ -227,7 +249,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
         # Informative CN
         }else{
 
-          tmp_map_dt$aligned[start_na:end_na] <- rep("dtw_cn", length(start_na:end_na))
+          tmp_map_dt[start_na:end_na , paste0("aligned_",smp) := rep("dtw_cn", length(start_na:end_na))]
 
           cn_alignment <- dtw::dtw(ref_cn_vec, alt_cn_vec)
 
@@ -260,12 +282,12 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
   replacement_df <- do.call(rbind, lapply(per_run_replacement_lists,as.data.frame))
 
   map_dt <- data.table::data.table(ref_bin=tmp_map_dt$ref_bin)
-  map_dt$aligned <- tmp_map_dt$aligned
   map_dt$ref_chr <- rep(ref_chr, nrow(map_dt))
   map_dt$alt_chr <- rep(alt_chr, nrow(map_dt))
 
   for(smp in polyploid_samples){
     map_dt[[smp]] <- suppressWarnings(as.numeric(tmp_map_dt$alt_bin))
+    map_dt[,paste0("aligned_",smp) := tmp_map_dt[,paste0("aligned_",smp)]]
   }
 
   if(length(unlist(na_runs))!=nrow(replacement_df)){
@@ -289,11 +311,10 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, ref_anchors_dt, al
 
   doParallel::registerDoParallel(n_cores)
 
-  map_per_blk_list <- foreach::foreach(i=(1:nrow(blk_dt)))%dopar%{
+  map_per_blk_list <- foreach::foreach(i=(1:nrow(blk_dt)))%do%{
 
     blk_id <- blk_dt$blkID[i]
     cat(paste0("Processing syntenic block ",blk_id,".\n"))
-    print(blk_id)
     ref_chr <- blk_dt$chr1[i]
     ref_start <- blk_dt$startBp1[i]
     ref_end <- blk_dt$endBp1[i]
@@ -550,8 +571,7 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, ref_anchors_dt, al
       }
     }))
 
-    tmp_map_dt <- data.table::data.table(ref_bin=ref_start_vec,alt_bin=which_bin_alt, aligned=rep("anchors", length(which_bin_alt)))
-
+    tmp_map_dt <- data.table::data.table(ref_bin=ref_start_vec,alt_bin=which_bin_alt)
 
     map_dt <- dtw_na(tmp_map_dt = tmp_map_dt, heal_list = heal_list, ref_gnm = ref_gnm,
                     alt_gnm = alt_gnm, ref_chr = ref_chr, alt_chr = alt_chr, bin_size = bin_size )
