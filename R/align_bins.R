@@ -53,15 +53,8 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
 
   smp_medians <- get_sample_stats(heal_list)
 
-  cn_exist <- sum(names(heal_list[[alt_gnm]])=="CN")!=0
-  if(cn_exist==TRUE){
-    alt_existing_bins <- heal_list[[alt_gnm]]$CN$start[heal_list[[alt_gnm]]$CN$chr==alt_chr]
-  }else{
-    cat("ERROR: no CN data. Exiting...")
-    return()
-  }
+  alt_existing_bins <- heal_list[[alt_gnm]]$CN$start[heal_list[[alt_gnm]]$CN$chr==alt_chr]
 
-  get_sample_stats(heal_list)
   sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
   polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
 
@@ -598,6 +591,12 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, ref_anchors_dt, al
 
 
 align_bins <- function(heal_list, genespace_dir, bin_size, n_cores){
+
+  cn_exist <- sum(names(heal_list[[1]])=="CN")!=0
+  if(cn_exist!=TRUE){
+    cat("ERROR: no CN data. Exiting...")
+    return()
+  }
 
   map_dt_list <- parse_genespace_input(genespace_dir)
 
