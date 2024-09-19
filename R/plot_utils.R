@@ -150,7 +150,7 @@ plot_bins <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_co
 #'
 #' @param heal_list
 #' @param aln_map
-#' @param show_non_anchor
+#' @param show_dtw_aligned
 #' @param quick_view_sample
 #' @param output_dir
 #' @param n_cores
@@ -165,7 +165,7 @@ plot_bins <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_co
 #' @export
 #'
 #' @examples
-plot_alignment <- function(heal_list, aln_map, show_non_anchor=TRUE, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, prog_ploidy=2, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange"), specific_chr=FALSE, return_list=FALSE){
+plot_alignment <- function(heal_list, aln_map, show_dtw_aligned=TRUE, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, prog_ploidy=2, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange"), specific_chr=FALSE, return_list=FALSE){
 
   cn_exist <- sum(names(heal_list[[1]])=="CN")!=0
   if(cn_exist!=TRUE){
@@ -251,37 +251,19 @@ plot_alignment <- function(heal_list, aln_map, show_non_anchor=TRUE, quick_view_
 
             x <- c(x, sub_map$ref_bin)
 
-            alt_chrs <- unique(sub_map$alt_chr)
-            print("WAWAWA kapav ici ene zfr p fanE")
-            #ADFAFAEFQFEWFQFWEFEQ
-
-            for(alt_chr in alt_chrs){
-
-              which_alt_row_map <- sub_map$alt_chr==alt_chr
-              x_in_alt <- as.numeric(sub_map[[smp]][which_alt_row_map])
-
-              which_alt_row_CN <- heal_list[[alt]]$CN$chr==alt_chr
-              sub_CN_list <- heal_list[[alt]]$CN[which_alt_row_CN,]
-
-              alt_y_line <- c()
-              for(alt_x in x_in_alt){
-                alt_y_line <- c(alt_y_line, sub_CN_list[[smp]][sub_CN_list$start==alt_x])
-              }
-              y_line <- c(y_line, alt_y_line)
+            for(i in 1:nrow(sub_map)){
+              chr_alt <- sub_map$alt_chr[i]
+              pos_alt <- sub_map[[smp]][i]
+              which_row <- heal_list[[alt]]$CN$chr==chr_alt & heal_list[[alt]]$CN$start==pos_alt
+              y_line <- c(y_line,  heal_list[[alt]]$CN[[smp]][which_row])
 
               if(add_bins==TRUE){
-
-                which_alt_row_count <- heal_list[[alt]]$bins$chr==alt_chr
-                sub_count_list <- heal_list[[alt]]$bins[which_alt_row_count,]
-
-                alt_y_pts <- c()
-                for(alt_x in x_in_alt){
-                  alt_y_pts <- c(alt_y_pts, sub_count_list[[smp]][sub_count_list$start==alt_x])
-                }
-                y_pts <- c(y_pts, alt_y_pts)
+                which_row <- heal_list[[alt]]$bins$chr==chr_alt & heal_list[[alt]]$bins$start==pos_alt
+                y_pts <- c(y_pts,  heal_list[[alt]]$bins[[smp]][which_row])
               }
             }
           }
+
 
           if(add_bins==TRUE){
 
