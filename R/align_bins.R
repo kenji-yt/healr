@@ -122,7 +122,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
   na_runs <- split(na_indices, cumsum(c(1, diff(na_indices) != 1)))
 
   per_run_replacement_lists <- lapply(na_runs, function(na_run){
-
+    print(na_run)
     start_na <- na_run[1]
     end_na <- na_run[length(na_run)]
 
@@ -166,8 +166,8 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
         alt_count_vec <- abs(alt_count_at_bins[[smp]]/smp_medians[[smp]]-1)
 
         # Replace NAs (count outliers) by mean of the non-na values (inspired by CBS method)
-        cat("Why not any number? and why x2?")
-        cat("why do I always get counts? Sometimes not needed?")
+        #cat("Why not any number? and why x2?")
+        #cat("why do I always get counts? Sometimes not needed?")
         if(sum(is.na(ref_count_vec))==length(ref_count_vec)){
           if(sum(is.na(alt_count_vec)==length(alt_count_vec))){
 
@@ -285,7 +285,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
 
   for(smp in polyploid_samples){
     smp_col_name <- paste0("aligned_",smp)
-    col_vector <- tmp_map_dt[[colum_name]]
+    col_vector <- tmp_map_dt[[smp_col_name]]
     data.table::setDT(map_dt)
     data.table::set(map_dt, j = smp, value = suppressWarnings(as.numeric(tmp_map_dt$alt_bin)))
     #map_dt[[smp]] <- suppressWarnings(as.numeric(tmp_map_dt$alt_bin))
@@ -305,6 +305,7 @@ dtw_na <- function(heal_list, tmp_map_dt, ref_gnm, ref_chr, alt_gnm, alt_chr, bi
       map_dt[position, (smp) := bin_to_map]
       }
   }
+
   return(map_dt)
 }
 
@@ -649,6 +650,14 @@ align_bins <- function(heal_list, genespace_dir, bin_size, n_cores){
       map_per_blk_list <- align_blocks(blk_dt = blk_dt, heal_list = heal_list, ref_gnm = ref_gnm, alt_gnm = alt_gnm, ref_anchors_dt = ref_anchors_dt, alt_anchors_dt = alt_anchors_dt, n_cores = n_cores, bin_size = bin_size)
 
       map <- data.table::rbindlist(map_per_blk_list)
+
+      map$ref_bin <- as.numeric(map$ref_bin)
+
+      sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
+      polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
+      for(smp in polyploid_samples){
+        map[[smp]] <- as.numeric(map[[smp]])
+      }
 
       return(map)
     }

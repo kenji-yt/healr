@@ -80,7 +80,7 @@ filter_bins <- function(heal_list, mappability_threshold=0.9, gc_quantile=FALSE,
 
     for(i in 1:length(na_freq)){
       smp_name <- names(na_freq)[i]
-      cat(paste0("                -",smp_name, " count outlier filtering:  ",na_freq[[smp_name]],"% of remaining bins set to ",count_threshold," standard deviations above the mean.\n"))
+      cat(paste0("                -",smp_name, " count outlier filtering:  ",na_freq[[smp_name]],"% of remaining bins set to NA.\n"))
     }
   }
 

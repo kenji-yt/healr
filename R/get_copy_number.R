@@ -23,18 +23,7 @@ get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", f
   sample_name_per_prog <- lapply(counts,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))})
   samples  <- unique(unlist(sample_name_per_prog))
 
-  cat("I think there is a utils to do this")
-  doParallel::registerDoParallel(n_cores)
-  sample_averages <- foreach::foreach(smp=samples)%dopar%{
-    if(method=="median"){
-      avg <- stats::median(stats::na.omit(unlist(lapply(counts, function(df){df$bins[[smp]]}))))
-      return(avg)
-    }else{
-      avg <- mean(stats::na.omit(unlist(lapply(counts, function(df){df$bins[[smp]]}))))
-      return(avg)
-    }
-  }
-  doParallel::stopImplicitCluster()
+  sample_averages <- get_sample_stats(filt_list,method = method)
 
   names(sample_averages) <- samples
 

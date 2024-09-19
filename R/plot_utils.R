@@ -34,7 +34,7 @@ plot_bins <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_co
     cat(paste0("Quickly plotting for ",quick_view_sample,". Setting output_dir to 'FALSE'."))
     output_dir <- FALSE
     samples <- quick_view_sample
-    sample_averages <- sample_averages[quick_view_sample]
+
     smp_type_map <- smp_type_map[smp_type_map$sample==quick_view_sample,]
 
   }else if(output_dir==FALSE){
@@ -77,13 +77,15 @@ plot_bins <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_co
           out_file <- paste0(ref_dir,"/",prog,"/",chr,".png")
         }
 
-        which_rows <- heal_list[[prog]]$bins$chr==chr
+        cat("REMOVE THIS LATTER")
+        which_bin_rows <- heal_list[[prog]]$bins$chr==chr
+        which_cn_rows <- heal_list[[prog]]$CN$chr==chr
 
-        x <- heal_list[[prog]]$bins$start[which_rows]
-        y_pts <- heal_list[[prog]]$bins[[smp]][which_rows]
+        x <- heal_list[[prog]]$bins$start[which_bin_rows]
+        y_pts <- heal_list[[prog]]$bins[[smp]][which_bin_rows]
 
         if(plot_cn==TRUE){
-          y_line <- heal_list[[prog]]$CN[[smp]][which_rows]
+          y_line <- heal_list[[prog]]$CN[[smp]][which_cn_rows]
           if(add_bins==TRUE){
             y_pts <- (y_pts/sample_averages[[smp]])*prog_ploidy
           }
@@ -143,7 +145,27 @@ plot_bins <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_co
 }
 
 
-plot_alignment <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, prog_ploidy=2, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange"), specific_chr=FALSE, return_list=FALSE){
+
+#' Title
+#'
+#' @param heal_list
+#' @param aln_map
+#' @param show_non_anchor
+#' @param quick_view_sample
+#' @param output_dir
+#' @param n_cores
+#' @param prog_ploidy
+#' @param plot_cn
+#' @param add_bins
+#' @param colour_map
+#' @param specific_chr
+#' @param return_list
+#'
+#' @return
+#' @export
+#'
+#' @examples
+plot_alignment <- function(heal_list, aln_map, show_non_anchor=TRUE, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, prog_ploidy=2, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange"), specific_chr=FALSE, return_list=FALSE){
 
   cn_exist <- sum(names(heal_list[[1]])=="CN")!=0
   if(cn_exist!=TRUE){
@@ -158,19 +180,19 @@ plot_alignment <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE,
 
   smp_type_map <- get_sample_stats(heal_list,sample_type = TRUE)
 
-  polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
+  polyploid_samples <- smp_type_map$sample[smp_type_map$type=="polyploid"]
 
   if(quick_view_sample!=FALSE){
 
-    if(sum(polyploid_samples==quick_view_sample)!=0){
+    if(sum(polyploid_samples==quick_view_sample)==0){
       cat("ERROR: Sample name not recognized (or not polyploid) for quick view of alignment. Exiting..")
       return()
     }
 
     cat(paste0("Quickly plotting for ",quick_view_sample,". Setting output_dir to 'FALSE'. \n"))
     output_dir <- FALSE
-    samples <- quick_view_sample
-    sample_averages <- sample_averages[quick_view_sample]
+    polyploid_samples <- quick_view_sample
+
 
   }else if(output_dir==FALSE){
     cat("ERROR: no output directory and no 'quick_view_sample' set. One must be set.")
@@ -186,7 +208,7 @@ plot_alignment <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE,
       dir.create(smp_dir,showWarnings = F)
     }
 
-    for(ref in progenitors){
+    plot_ref_list <- foreach::foreach(ref=progenitors)%do%{
 
       alt_gnms <- setdiff(progenitors,ref)
 
@@ -230,6 +252,9 @@ plot_alignment <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE,
             x <- c(x, sub_map$ref_bin)
 
             alt_chrs <- unique(sub_map$alt_chr)
+            print("WAWAWA kapav ici ene zfr p fanE")
+            #ADFAFAEFQFEWFQFWEFEQ
+
             for(alt_chr in alt_chrs){
 
               which_alt_row_map <- sub_map$alt_chr==alt_chr
@@ -270,8 +295,20 @@ plot_alignment <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE,
               ggplot2::theme_minimal() +
               ggplot2::scale_color_manual(values = colour_map) +
               ggplot2::ylim(0, 8)+
-              ggplot2::labs(title = paste(chr,smp), x = "Position", y = "Copy Number") +
+              ggplot2::labs(title = paste(chr, ref, smp), x = "Position", y = "Copy Number") +
               ggplot2::theme_bw()
+
+            if (show_non_anchor==TRUE) {
+              smp_col_name <- paste0("aligned_",smp)
+              which_row <- aln_map[[ref]][[alt]]$ref_chr==chr
+              which_dtw_count <- aln_map[[ref]][[alt]][[smp_col_name]][which_row]=="dtw_counts"
+              dtw_count_zones <- aln_map[[ref]][[alt]]$ref_bin[which_row][which_dtw_count]
+              bin_plot <- bin_plot + ggplot2::geom_vline(xintercept = dtw_count_zones, color = "red", alpha=0.05)
+
+              which_dtw_cn <- aln_map[[ref]][[alt]][[smp_col_name]][which_row]=="dtw_cn"
+              dtw_cn_zones <- aln_map[[ref]][[alt]]$ref_bin[which_row][which_dtw_cn]
+              bin_plot <- bin_plot + ggplot2::geom_vline(xintercept = dtw_cn_zones, color = "purple", alpha=0.05)
+            }
 
             if(output_dir!=FALSE){
               ggplot2::ggsave(filename=out_file,bin_plot,device="png", width = 6, height = 4, units = "in")
@@ -281,90 +318,60 @@ plot_alignment <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE,
 
         }else{
 
-#     if(plot_cn==TRUE){
-#       ref_cn <- heal_list[[ref]]$CN
-#       alt_merged_cn <- merge(aln_map[[alt]],CN_CBS[[alt]],by=c("chr","start"))
-#     }
-#
-#     # Go through each sample
-#     for(ply in polyploids){
-#
-#       if(output_dir!=FALSE){
-#         ref_dir <- paste0(output_dir,"/",ply,"/",ref)
-#         dir.create(ref_dir,showWarnings = F)
-#       }
-#
-#       chromo <- unique(ref_cn$chr)
-#       doParallel::registerDoParallel(n_cores)
-#       foreach(chr=chromo)%dopar%{
-#
-#         if(output_dir!=FALSE){
-#           out_file <- paste0(ref_dir,"/",chr,".png")
-#         }
-#
-#         x <- c(ref_count$start[ref_count$chr==chr]+(bin_size/2),alt_merged_count$map_pos[alt_merged_count$map_chr==chr])
-#         y_pts <- c(ref_count[[ply]][ref_count$chr==chr],alt_merged_count[[ply]][alt_merged_count$map_chr==chr])
-#
-#         if(plot_cn==TRUE){
-#           y_pts <- y_pts/sample_medians[[ply]]*prog_ploidy # convert to CN
-#           y_line <- c(ref_cn[[ply]][ref_cn$chr==chr],alt_merged_cn[[ply]][alt_merged_cn$map_chr==chr])
-#         }
-#
-#         prog_progenitor <- c(rep(ref,sum(ref_count$chr==chr)),rep(alt,sum(alt_merged_count$map_chr==chr)))
-#
-#         plot_df <- data.frame(start=x,counts=y_pts,copy=y_line,progenitor=prog_group)
-#
-#         colour_map <- c("purple","orange")
-#         names(colour_map) <- c(ref,alt)
-#
-#         # Plot using ggplot2
-#         plot <- ggplot() +
-#           # Lines: define data and aes separately for lines
-#           geom_line(data = plot_df, aes(x = x, y = copy, group = group, color = group), size = 2) +
-#           # Points: define data and aes separately for points
-#           geom_point(data = plot_df, aes(x = x, y = counts, color = group), size = 1, alpha = 0.1) +
-#           # Manual color scale
-#           scale_color_manual(values = colour_map) +
-#           # Theme and labels
-#           theme_minimal() +
-#           labs(title = paste(c,ref), x = "Position", y = "Copy Number") +
-#           theme(legend.position = "bottom")+
-#           theme_bw()
-#
-#         # Save the plot
-#         ggsave(filename=out_file,plot,device="png", width = 6, height = 4, units = "in")
-#       }
-#       CLOSE BACKEND
-#     }
-#   }
-# }
+          plot_df <- data.frame(start=x,copy=y_line,subgenome=subgnm_group)
 
-plot_heal <- function(heal_list, aln_map=FALSE, output_dir=FALSE, n_cores, prog_ploidy=2, bin_size){
+          bin_plot <- ggplot2::ggplot() +
+            ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, colour=subgenome), linewidth = 2) +
+            ggplot2::theme_minimal() +
+            ggplot2::scale_color_manual(values = colour_map) +
+            ggplot2::ylim(0, 8)+
+            ggplot2::labs(title = paste(chr,smp), x = "Position", y = "Copy Number") +
+            ggplot2::theme_bw()
 
-  progenitors <- names(heal_list)
-  sample_names  <- unlist(lapply(heal_list,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))}))
-  polyploids <- names(table(sample_names))[table(sample_names)==2]
-  progenitors <- setdiff(sample_names, polyploids)
-  samples <- unique(sample_names)
+          if(output_dir!=FALSE){
+            ggplot2::ggsave(filename=out_file,bin_plot,device="png", width = 6, height = 4, units = "in")
+          }else{
+            return(bin_plot)
+          }
+        }
+      }else{
 
-  doParallel::registerDoParallel(n_cores)
-  sample_averages <- foreach::foreach(smp=samples)%dopar%{
-    if(method=="median"){
-      avg <- stats::median(stats::na.omit(unlist(lapply(counts, function(df){df$bins[[smp]]}))))
-      return(avg)
-    }else{
-      avg <- mean(stats::na.omit(unlist(lapply(counts, function(df){df$bins[[smp]]}))))
-      return(avg)
+          plot_df <- data.frame(start=x,counts=y_pts, progenitor=rep(prog,length(y_pts)))
+
+          bin_plot <- ggplot2::ggplot() +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, colour=progenitor), size = 1, alpha = 1) +
+            ggplot2::theme_minimal() +
+            ggplot2::scale_color_manual(values = colour_map) +
+            ggplot2::labs(title = paste(c,ref), x = "Position", y = "Counts") +
+            ggplot2::theme_bw()
+
+          if(output_dir!=FALSE){
+            ggplot2::ggsave(filename=out_file,bin_plot,device="png", width = 6, height = 4, units = "in")
+          }else{
+            return(bin_plot)
+          }
+        }
+      }
+      doParallel::stopImplicitCluster()
+      if(quick_view_sample!=FALSE){
+        if(return_list==TRUE){
+          names(plot_list) <- chromo
+          return(plot_list)
+        }else{
+          lapply(plot_list,print)
+        }
+      }
     }
   }
-  doParallel::stopImplicitCluster()
-
-  names(sample_averages) <- samples
-
-  if(output_dir!=FALSE){
-    plots_dir <- paste0(output_dir,"/ratio_plots")
-    dir.create(plots_dir,showWarnings = F)
-    for(smp in samples){dir.create(paste0(plots_dir,"/",smp),showWarnings = F)}
+  if(quick_view_sample!=FALSE){
+    if(return_list==TRUE){
+      names(plot_ref_list ) <- progenitors
+      return(plot_ref_list )
+    }
   }
-
 }
+
+
+
+
+#plot_heal <- Go check out riparian
