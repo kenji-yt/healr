@@ -73,3 +73,6 @@ get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", f
 
 
 utils::globalVariables(c("pr_name", "smp"))
+
+
+

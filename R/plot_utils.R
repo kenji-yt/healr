@@ -280,7 +280,7 @@ plot_alignment <- function(heal_list, aln_map, show_dtw_aligned=TRUE, quick_view
               ggplot2::labs(title = paste(chr, ref, smp), x = "Position", y = "Copy Number") +
               ggplot2::theme_bw()
 
-            if (show_non_anchor==TRUE) {
+            if (show_dtw_aligned==TRUE) {
               smp_col_name <- paste0("aligned_",smp)
               which_row <- aln_map[[ref]][[alt]]$ref_chr==chr
               which_dtw_count <- aln_map[[ref]][[alt]][[smp_col_name]][which_row]=="dtw_counts"

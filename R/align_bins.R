@@ -522,7 +522,7 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, ref_anchors_dt, al
 
         # We assume no gene spans more than 2 bins such that
         # if match the following 2 ifs, these are the only bins possible.
-
+        print('WRONG ASSUMPTION!')
         # Start within a bin
       }else if(sum(row$start1>ref_start_vec & row$start1<ref_end_vec)==1){
         bin_start <- ref_start_vec[which(row$start1>ref_start_vec & row$start1<ref_end_vec)]
@@ -591,7 +591,7 @@ align_blocks <- function(blk_dt, heal_list, ref_gnm, alt_gnm, ref_anchors_dt, al
 .datatable.aware <- TRUE
 
 
-align_bins <- function(heal_list, genespace_dir, bin_size, n_cores){
+make_aln_map <- function(heal_list, genespace_dir, bin_size, n_cores){
 
   cn_exist <- sum(names(heal_list[[1]])=="CN")!=0
   if(cn_exist!=TRUE){
@@ -667,6 +667,132 @@ align_bins <- function(heal_list, genespace_dir, bin_size, n_cores){
   names(key_per_genome) <- genomes
   return(key_per_genome)
 }
+
+
+per_sample_alignment <- function(heal_list, aln_map, n_cores=1, prog_ploidy=2){
+
+  cn_exist <- sum(names(heal_list[[1]])=="CN")!=0
+  if(cn_exist!=TRUE){
+    cat("ERROR: no CN data. Exiting...")
+    return()
+  }
+
+  sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
+  polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
+
+  subgenomes <- names(aln_map)
+
+  doParallel::registerDoParallel(n_cores)
+  per_sample_list <- foreach::foreach(smp=polyploid_samples)%dopar%{
+
+    ref_dt_list <- foreach::foreach(ref=subgenomes)%do%{
+
+      alt_gnms <- setdiff(subgenomes, ref)
+
+      col_ref_chr_name <- paste0(ref, "_chr")
+      col_ref_pos_name <- paste0(ref, "_start")
+      col_ref_count_name <- paste0(ref, "_count")
+      col_ref_cn_name <- paste0(ref, "_cn")
+      col_ref_gc_name <- paste0(ref, "_gc")
+      col_ref_mapa_name <- paste0(ref, "_mappability")
+
+      alt_dts <- foreach::foreach(alt=alt_gnms)%do%{
+
+        map <- aln_map[[ref]][[alt]]
+
+        ref_cn_vec <- c()
+        ref_count_vec <- c()
+        ref_gc_vec <- c()
+        ref_mapa_vec <- c()
+
+        alt_cn_vec <- c()
+        alt_count_vec <- c()
+        alt_gc_vec <- c()
+        alt_mapa_vec <- c()
+
+        for(i in 1:nrow(map)){
+
+          ref_chr <- map$ref_chr[i]
+          alt_chr <- map$alt_chr[i]
+          ref_pos <- map$ref_bin[i]
+          alt_pos <- map[[smp]][i]
+
+          ref_cn <- heal_list[[ref]]$CN[[smp]][heal_list[[ref]]$CN$chr==ref_chr & heal_list[[ref]]$CN$start==ref_pos]
+          alt_cn <- heal_list[[ref]]$CN[[smp]][heal_list[[ref]]$CN$chr==ref_chr & heal_list[[ref]]$CN$start==ref_pos]
+
+          ref_count <- heal_list[[alt]]$bins[[smp]][heal_list[[alt]]$bins$chr==alt_chr & heal_list[[alt]]$bins$start==alt_pos]
+          alt_count <- heal_list[[alt]]$bins[[smp]][heal_list[[alt]]$bins$chr==alt_chr & heal_list[[alt]]$bins$start==alt_pos]
+
+          ref_gc <- heal_list[[ref]]$bins$gc_content[heal_list[[ref]]$bins$chr==ref_chr & heal_list[[ref]]$bins$start==ref_pos]
+          alt_gc <- heal_list[[ref]]$bins$gc_content[heal_list[[ref]]$bins$chr==ref_chr & heal_list[[ref]]$bins$start==ref_pos]
+
+          ref_mapa <- heal_list[[alt]]$bins$mappability[heal_list[[alt]]$bins$chr==alt_chr & heal_list[[alt]]$bins$start==alt_pos]
+          alt_mapa <- heal_list[[alt]]$bins$mappability[heal_list[[alt]]$bins$chr==alt_chr & heal_list[[alt]]$bins$start==alt_pos]
+
+          ref_cn_vec <- c(ref_cn_vec, ref_cn)
+          ref_count_vec <- c(ref_count_vec, ref_count)
+          ref_gc_vec <- c(ref_gc_vec, ref_gc)
+          ref_mapa_vec <- c(ref_mapa_vec, ref_mapa)
+
+          alt_cn_vec <- c(alt_cn_vec, alt_cn)
+          alt_count_vec <- c(alt_count_vec, alt_count)
+          alt_gc_vec <- c(alt_gc_vec, alt_gc)
+          alt_mapa_vec <- c(alt_mapa_vec, alt_mapa)
+
+        }
+
+        col_alt_chr_name <- paste0(alt, "_chr")
+        col_alt_pos_name <- paste0(alt, "_start")
+        col_alt_count_name <- paste0(alt, "_count")
+        col_alt_cn_name <- paste0(alt, "_cn")
+        col_alt_gc_name <- paste0(alt, "_gc")
+        col_alt_mapa_name <- paste0(alt, "_mappability")
+
+        colnames_dt <- c(col_ref_chr_name,
+                         col_ref_pos_name,
+                         col_ref_count_name,
+                         col_ref_cn_name,
+                         col_ref_gc_name,
+                         col_ref_mapa_name,
+                         col_alt_chr_name,
+                         col_alt_pos_name,
+                         col_alt_count_name,
+                         col_alt_cn_name,
+                         col_alt_gc_name,
+                         col_alt_mapa_name)
+
+        key_cols <- colnames_dt <- c(col_ref_chr_name,
+                                     col_ref_pos_name,
+                                     col_alt_chr_name,
+                                     col_alt_pos_name)
+
+        aln_dt <- data.table::as.data.table(
+          setNames(list(map$ref_chr, map$ref_bin, ref_count_vec,
+                        ref_cn_vec, ref_gc_vec, ref_mapa_vec,
+                        map$alt_chr, map[[smp]], alt_count_vec,
+                        alt_cn_vec, alt_gc_vec, alt_mapa_vec),
+                   colnames_dt))
+        data.table::setkeyv(aln_dt, key_cols)
+
+        return(aln_dt)
+      }
+
+      columns_to_merge_by <- c(col_ref_chr_name, col_ref_pos_name)
+      map <- Reduce(function(x, y) merge(x, y, by=columns_to_merge_by), alt_dts)
+
+      return(map)
+    }
+
+    names(ref_dt_list) <- subgenomes
+    return(ref_dt_list)
+  }
+  doParallel::stopImplicitCluster()
+
+  names(per_sample_list) <- polyploid_samples
+  return(per_sample_list)
+}
+
+
 
 
 
