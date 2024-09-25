@@ -22,4 +22,6 @@ Imports:
     ggplot2,
     dplyr,
     dtw,
-    zoo
+    zoo,
+    GenomicRanges,
+    IRanges

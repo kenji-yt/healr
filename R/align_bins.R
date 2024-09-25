@@ -34,6 +34,125 @@ parse_genespace_input <- function(genespace_dir){
   return(list(syn_hits=syn_hits_dt_list,block_coord=blk_coord_dt))
 }
 
+#' get_bins_to_map
+#'
+#' @param heal_list
+#' @param blk_coord_dt
+#'
+#' @return
+#'
+#' @importFrom dplyr %>%
+get_bins_to_map <- function(heal_list, blk_coord_dt){
+
+  genomes <- unique(c(blk_coord_dt$genome1))
+  cat("Assuming that every genome is in genome1 and it's all just repeated.")
+
+  bins_to_map_list <- foreach::foreach(gnm=genomes)%do%{
+
+    current_blk_coord <- blk_coord_dt[blk_coord_dt$genome1==gnm & !grepl("selfBlk", blk_coord_dt$blkID), ]
+
+    blk_ranges <- GenomicRanges::GRanges(seqnames = current_blk_coord$chr1,
+                                        ranges = IRanges::IRanges(start = current_blk_coord$startBp1,
+                                                                  end = current_blk_coord$endBp1),
+                                        gene_id = current_blk_coord$blkID)
+
+    bin_ranges <- GenomicRanges::GRanges(seqnames = heal_list[[gnm]]$bins$chr,
+                                   ranges = IRanges::IRanges(start = heal_list[[gnm]]$bins$start,
+                                                    end = heal_list[[gnm]]$bins$end))
+
+    overlap_bins_blk <- GenomicRanges::findOverlaps(query = bin_ranges, subject = blk_ranges)
+
+    dt_overlap_bins_blk <- data.table::as.data.table(overlap_bins_blk) #Because queryHits does not work..?
+
+    overlap_widths <- IRanges::width(IRanges::pintersect(bin_ranges[dt_overlap_bins_blk$queryHits], blk_ranges[dt_overlap_bins_blk$subjectHits]))
+
+    overlap_dt <- data.table::data.table(
+      bin_index = dt_overlap_bins_blk$queryHits,
+      blk_index = dt_overlap_bins_blk$subjectHits,
+      bin_start = IRanges::start(bin_ranges[dt_overlap_bins_blk$queryHits]),
+      bin_end = IRanges::end(bin_ranges[dt_overlap_bins_blk$queryHits]),
+      bin_chr = heal_list[[gnm]]$bins$chr[dt_overlap_bins_blk$queryHits],
+      blk_id = blk_ranges$gene_id[dt_overlap_bins_blk$subjectHits],
+      overlap_width = overlap_widths
+    )
+
+    overlap_dt <- overlap_dt %>%
+      dplyr::group_by(bin_index) %>%
+      dplyr::slice_max(order_by = overlap_width, with_ties = FALSE) %>%
+      dplyr::ungroup()
+
+    return(overlap_dt)
+  }
+  names(bins_to_map_list) <- genomes
+  return(bins_to_map_list)
+}
+
+build_heal_aligment <- function(heal_list, genespace_dir, n_cores, bin_size){
+  print("bin_size might never actually be needed if we just calculate distance of bins.")
+
+  map_dt_list <- parse_genespace_input(genespace_dir)
+  syn_hits_list <- map_dt_list$syn_hits
+
+  bins_to_map_list <- get_bins_to_map(heal_list, map_dt_list$block_coord)
+
+  for(redundant_hits_dt in syn_hits_list){
+
+    gnm1 <- long_hits$genome1[1]
+    gnm2 <- long_hits$genome2[1]
+
+    gnm1_bins_to_map <- bins_to_map_list[[gnm1]]$bin_start
+    gnm2_bins_to_map <- bins_to_map_list[[gnm2]]$bin_start
+
+    print("Should we just use anchors?")
+    print("Maybe as there are repeats at gnm1_overlap_dt!")
+    hits_dt <- redundant_hits_dt[redundant_hits_dt$genome1==gnm1]
+
+    gnm1_anchor_ranges <- GenomicRanges::GRanges(seqnames = hits_dt$chr1,
+                                         ranges = IRanges::IRanges(start = hits_dt$start1,
+                                                                   end = hits_dt$end1),
+                                         gene_id = hits_dt$id1)
+    gnm2_anchor_ranges <- GenomicRanges::GRanges(seqnames = hits_dt$chr2,
+                                                 ranges = IRanges::IRanges(start = hits_dt$start2,
+                                                                           end = hits_dt$end2),
+                                                 gene_id = hits_dt$id2)
+
+    gnm1_bin_ranges <- GenomicRanges::GRanges(seqnames = bins_to_map_list[[gnm1]]$bin_chr,
+                                              ranges = IRanges::IRanges(start = bins_to_map_list[[gnm1]]$bin_start,
+                                                                        end = bins_to_map_list[[gnm1]]$bin_end))
+    gnm2_bin_ranges <- GenomicRanges::GRanges(seqnames = bins_to_map_list[[gnm2]]$bin_chr,
+                                              ranges = IRanges::IRanges(start = bins_to_map_list[[gnm2]]$bin_start,
+                                                                        end = bins_to_map_list[[gnm2]]$bin_end))
+
+    print("Wa ofet nou p rod align bins...REMEMBER lol")
+    gnm1_overlap_bins_anchors <- GenomicRanges::findOverlaps(query = gnm1_bin_ranges, subject = gnm1_anchor_ranges)
+
+    gnm1_dt_overlap_bins_anchors <- data.table::as.data.table(gnm1_overlap_bins_anchors) #Because queryHits does not work..?
+
+    gnm1_overlap_widths <- IRanges::width(IRanges::pintersect(gnm1_bin_ranges[gnm1_dt_overlap_bins_anchors$queryHits], gnm1_anchor_ranges[gnm1_dt_overlap_bins_anchors$subjectHits]))
+
+    gnm1_overlap_dt <- data.table::data.table(
+      bin_index = gnm1_dt_overlap_bins_anchors$queryHits,
+      anchor_index = gnm1_dt_overlap_bins_anchors$subjectHits,
+      bin_start = IRanges::start(gnm1_bin_ranges[gnm1_dt_overlap_bins_anchors$queryHits]),
+      bin_end = IRanges::end(bin_ranges[gnm1_dt_overlap_bins_anchors$queryHits]),
+      bin_chr = bins_to_map_list[[gnm1]]$bin_chr[gnm1_dt_overlap_bins_anchors$queryHits],
+      overlap_width = gnm1_overlap_widths
+    )
+#
+#     overlap_dt <- overlap_dt %>%
+#       dplyr::group_by(bin_index) %>%
+#       dplyr::slice_max(order_by = overlap_width, with_ties = FALSE) %>%
+#       dplyr::ungroup()
+
+    return(overlap_dt)
+
+
+
+    }
+
+  }
+
+}
 
 #' Title
 #'

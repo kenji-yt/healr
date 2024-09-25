@@ -19,6 +19,8 @@ filter_bins(
 \item{gc_quantile}{Bins with GC content below first and above last quantiles are ignored. Set to 'FALSE' for no filtering ('FALSE' by default).}
 
 \item{count_threshold}{How many standard deviations away from the count mean to consider a bin as outlier. Set to 'FALSE' for no count filtering (3 by default).}
+
+\item{replace_by_NA}{Should outliers count values be set to NA ('FALSE' by default). Otherwise outliers are set to the threshold defined by count_threshold.}
 }
 \value{
 A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
