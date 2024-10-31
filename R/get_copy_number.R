@@ -23,7 +23,7 @@ get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", f
   sample_name_per_prog <- lapply(counts,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))})
   samples  <- unique(unlist(sample_name_per_prog))
 
-  sample_averages <- get_sample_stats(filt_list,method = method)
+  sample_averages <- get_sample_stats(counts, method = method)
 
   names(sample_averages) <- samples
 
@@ -55,14 +55,14 @@ get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", f
     doParallel::stopImplicitCluster()
 
 
-    cn_df <- data.table::data.table(prog$chr, prog$start, data.frame(sample_CN))
-    colnames(cn_df) <- c("chr", "start", sample_current_prog)
-    data.table::setkey(cn_df, chr, start)
+    cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, data.frame(sample_CN))
+    colnames(cn_dt) <- c("chr", "start", "end", sample_current_prog)
+    data.table::setkey(cn_dt, chr, start, end)
 
     if(full_output==TRUE){
-      return(list(bins=counts[[pr_name]]$bins, genes=counts[[pr_name]]$genes, CN=cn_df, DNAcopy=sgmnts))
+      return(list(bins=counts[[pr_name]]$bins, genes=counts[[pr_name]]$genes, CN=cn_dt, DNAcopy=sgmnts))
     }else{
-      return(list(bins=counts[[pr_name]]$bins, genes=counts[[pr_name]]$genes, CN=cn_df))
+      return(list(bins=counts[[pr_name]]$bins, genes=counts[[pr_name]]$genes, CN=cn_dt))
     }
   }
 
