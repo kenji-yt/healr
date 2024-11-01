@@ -30,7 +30,7 @@ plot_bins(
 
 \item{plot_cn}{Logical: plot a line indicating infered copy number ('TRUE' by default in CN has been estimated).}
 
-\item{add_bins}{Logical: plot counts for each bin (normalized in plot_cn=TRUE).}
+\item{add_bins}{Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).}
 
 \item{colour_map}{A vector of colours for each progenitor ('c(purple,orange)' by default).}
 
