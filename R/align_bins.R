@@ -62,19 +62,20 @@ get_bins_to_map <- function(heal_list, blk_coord_dt){
                                    ranges = IRanges::IRanges(start = heal_list[[gnm]]$CN$start,
                                                     end = heal_list[[gnm]]$CN$end))
 
-    overlap_bins_blk <- GenomicRanges::findOverlaps(query = bin_ranges, subject = blk_ranges)
+    overlap_bins_blk <- GenomicRanges::findOverlaps(query = blk_ranges, subject = bin_ranges)
 
     dt_overlap_bins_blk <- data.table::as.data.table(overlap_bins_blk) #Because queryHits does not work..?
 
-    overlap_widths <- IRanges::width(IRanges::pintersect(bin_ranges[dt_overlap_bins_blk$queryHits], blk_ranges[dt_overlap_bins_blk$subjectHits]))
+    overlap_widths <- IRanges::width(IRanges::pintersect(bin_ranges[dt_overlap_bins_blk$subjectHits], blk_ranges[dt_overlap_bins_blk$queryHits]))
 
     overlap_dt <- data.table::data.table(
-      bin_index = dt_overlap_bins_blk$queryHits,
-      blk_index = dt_overlap_bins_blk$subjectHits,
-      bin_start = IRanges::start(bin_ranges[dt_overlap_bins_blk$queryHits]),
-      bin_end = IRanges::end(bin_ranges[dt_overlap_bins_blk$queryHits]),
-      bin_chr = heal_list[[gnm]]$CN$chr[dt_overlap_bins_blk$queryHits],
-      blk_id = blk_ranges$gene_id[dt_overlap_bins_blk$subjectHits],
+      bin_index = dt_overlap_bins_blk$subjectHits,
+      blk_index = dt_overlap_bins_blk$queryHits,
+      bin_start = IRanges::start(bin_ranges[dt_overlap_bins_blk$subjectHits]),
+      bin_end = IRanges::end(bin_ranges[dt_overlap_bins_blk$subjectHits]),
+      bin_chr = heal_list[[gnm]]$CN$chr[dt_overlap_bins_blk$subjectHits],
+      #blk_chr = as.character(GenomicRanges::seqnames(blk_ranges)[dt_overlap_bins_blk$queryHits]),
+      blk_id = blk_ranges$gene_id[dt_overlap_bins_blk$queryHits],
       overlap_width = overlap_widths
     )
 #
@@ -102,6 +103,7 @@ get_conserved_anchors <- function(genespace_dir){
   map_dt_list <- parse_genespace_input(genespace_dir)
   syn_hits_list <- map_dt_list$syn_hits
 
+  # Pick on genome as reference and keep only data tables containing this genome.
   genomes_per_hits_dt_list <- strsplit(names(syn_hits_list),"_vs_")
   reference_genome <- unlist(genomes_per_hits_dt_list)[1]
   which_has_ref <- which(sapply(genomes_per_hits_dt_list, function(x) reference_genome %in% x))
@@ -326,6 +328,7 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores){
 
     return("kitsoz")
 
+  }
   }
 
   names(cn_alignment_list) <- polyploid_samples
