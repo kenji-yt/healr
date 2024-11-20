@@ -276,11 +276,43 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores){
   polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
   progenitors <- names(heal_list)
 
+  cat("Likely very ineficient to subset whole dt for each anchor...")
   cn_alignment_list <- foreach::foreach(smp=polyploid_samples)%do%{
 
-    merge_dt <- anchors_dt
+    doParallel::registerDoParallel(n_cores)
 
-    foreach::foreach(prog=progenitors)%do%{
+    cn_per_anchor_pair_list <- foreach::foreach(i=1:nrow(anchors_dt))%dopar%{
+
+      cn_at_anchor_list <- foreach::foreach(prog=progenitors)%do%{
+
+        anchor_gene <- anchors_dt[[paste0("id_",prog)]][i]
+
+        which_rows <- cn_per_anchor_per_sample_dt[[prog]]$gene_id==anchor_gene
+
+        cn_at_anchor <- cn_per_anchor_per_sample_dt[[prog]][[smp]][which_rows]
+
+        return(cn_at_anchor)
+
+      }
+      names(cn_at_anchor_list) <- progenitors
+
+      ### ERROR THE COPY NUMBER EXTRACTED IS NOT MATCHING THE BIN CN.
+      ### See this with the lyrata:
+      cn_per_anchor_per_sample_dt[[prog]][which_rows,]
+      heal_list$A.lyrata$CN[heal_list$A.lyrata$CN$chr=="chr1",][1:10]
+      ## NOT MATCHING
+      ## See also
+      unique(heal_list$A.lyrata$CN$chr[cn_per_anchor_per_sample_dt[[prog]][cn_per_anchor_per_sample_dt[[prog]]$chr=="chr8",]$bin_index])
+
+
+      if(sum(lapply(cn_at_anchor_list, length)==0)!=0){
+        return()
+
+      }else{
+
+
+
+
 
       id <- cn_per_anchor_per_sample_dt[[prog]]$gene_id
       cn <- cn_per_anchor_per_sample_dt[[prog]][[smp]]
@@ -290,8 +322,9 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores){
       merge_dt <- merge(merge_dt, cn_dt, by = intersect(names(merge_dt), names(cn_dt)))
 
     }
+    doParallel::stopImplicitCluster()
 
-    return(merge_dt)
+    return("kitsoz")
 
   }
 

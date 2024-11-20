@@ -231,21 +231,17 @@ plot_alignment <- function(heal_list, genespace_dir, quick_view_sample=FALSE, ou
 
         which_rows_aln_dt <- alignment_cn[[smp]][[ref_chr_col_name]]==chr
 
-        x <- (alignment_cn[[smp]][[ref_start_col_name]][which_rows_aln_dt] + alignment_cn[[smp]][[alt_end_col_name]][which_rows_aln_dt]) / 2
+        x <- (alignment_cn[[smp]][[ref_start_col_name]][which_rows_aln_dt] + alignment_cn[[smp]][[ref_end_col_name]][which_rows_aln_dt]) / 2
         y_line <- alignment_cn[[smp]][[ref_cn_col_name]][which_rows_aln_dt]
         subgnm_group <- rep(ref, length(x))
 
         for(alt in alt_gnms){
 
-          alt_start_col_name <- paste0("start_", alt)
-          alt_end_col_name <- paste0("end_", alt)
           alt_cn_col_name <- paste0("cn_", alt)
-
-          x_alt <- (alignment_cn[[smp]][[alt_start_col_name]][which_rows_aln_dt] + alignment_cn[[smp]][[alt_end_col_name]][which_rows_aln_dt]) / 2
           y_alt <- alignment_cn[[smp]][[alt_cn_col_name]][which_rows_aln_dt]
 
           subgnm_group <- c(subgnm_group, rep(alt, length(y_alt)))
-          x <- c(x, x_alt) # same coordinates
+          x <- c(x, x) # same coordinates
           y_line <- c(y_line, y_alt)
         }
 
@@ -263,7 +259,7 @@ plot_alignment <- function(heal_list, genespace_dir, quick_view_sample=FALSE, ou
 
           bin_plot <- ggplot2::ggplot() +
             ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, colour=subgenome), linewidth = 2) +
-            #ggplot2::geom_point(data = pts_df, ggplot2::aes(x = start, y = points, colour=colour_map[[ref]]), size = 1, alpha = 0.1) +
+            ggplot2::geom_point(data = pts_df, ggplot2::aes(x = start, y = points, colour=colour_map[[ref]]), size = 1, alpha = 0.1) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = colour_map) +
             ggplot2::ylim(0, 8)+
