@@ -36,60 +36,6 @@ parse_genespace_input <- function(genespace_dir){
   return(list(syn_hits=syn_hits_dt_list,block_coord=blk_coord_dt))
 }
 
-#' get_bins_to_map
-#'
-#' @param heal_list
-#' @param blk_coord_dt
-#'
-#' @return
-#'
-#' @importFrom dplyr %>%
-get_bins_to_map <- function(heal_list, blk_coord_dt){
-
-  genomes <- unique(c(blk_coord_dt$genome1))
-
-  bins_to_map_list <- foreach::foreach(gnm=genomes)%do%{
-
-
-    current_blk_coord <- blk_coord_dt[blk_coord_dt$genome1==gnm & !grepl("selfBlk", blk_coord_dt$blkID), ]
-
-    blk_ranges <- GenomicRanges::GRanges(seqnames = current_blk_coord$chr1,
-                                        ranges = IRanges::IRanges(start = current_blk_coord$startBp1,
-                                                                  end = current_blk_coord$endBp1),
-                                        gene_id = current_blk_coord$blkID)
-
-    bin_ranges <- GenomicRanges::GRanges(seqnames = heal_list[[gnm]]$CN$chr,
-                                   ranges = IRanges::IRanges(start = heal_list[[gnm]]$CN$start,
-                                                    end = heal_list[[gnm]]$CN$end))
-
-    overlap_bins_blk <- GenomicRanges::findOverlaps(query = blk_ranges, subject = bin_ranges)
-
-    dt_overlap_bins_blk <- data.table::as.data.table(overlap_bins_blk) #Because queryHits does not work..?
-
-    overlap_widths <- IRanges::width(IRanges::pintersect(bin_ranges[dt_overlap_bins_blk$subjectHits], blk_ranges[dt_overlap_bins_blk$queryHits]))
-
-    overlap_dt <- data.table::data.table(
-      bin_index = dt_overlap_bins_blk$subjectHits,
-      blk_index = dt_overlap_bins_blk$queryHits,
-      bin_start = IRanges::start(bin_ranges[dt_overlap_bins_blk$subjectHits]),
-      bin_end = IRanges::end(bin_ranges[dt_overlap_bins_blk$subjectHits]),
-      bin_chr = heal_list[[gnm]]$CN$chr[dt_overlap_bins_blk$subjectHits],
-      #blk_chr = as.character(GenomicRanges::seqnames(blk_ranges)[dt_overlap_bins_blk$queryHits]),
-      blk_id = blk_ranges$gene_id[dt_overlap_bins_blk$queryHits],
-      overlap_width = overlap_widths
-    )
-#
-#     overlap_dt <- overlap_dt %>%
-#       dplyr::group_by(bin_index) %>%
-#       dplyr::slice_max(order_by = overlap_width, with_ties = FALSE) %>%
-#       dplyr::ungroup()
-
-    return(overlap_dt)
-  }
-  names(bins_to_map_list) <- genomes
-  return(bins_to_map_list)
-}
-
 
 #' get_conserved_hits
 #'
@@ -158,12 +104,13 @@ get_conserved_anchors <- function(genespace_dir){
 #'
 #' @return
 #'
-map_bins_to_anchors <- function(heal_list, genespace_dir){
+map_bins_to_anchors <- function(heal_list, genespace_dir, n_cores){
 
   map_dt_list <- parse_genespace_input(genespace_dir)
   syn_hits_list <- map_dt_list$syn_hits
 
-  bins_to_map_list <- get_bins_to_map(heal_list, map_dt_list$block_coord)
+  sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
+  polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
 
   anchors_dt <- get_conserved_anchors(genespace_dir)
 
@@ -182,9 +129,9 @@ map_bins_to_anchors <- function(heal_list, genespace_dir){
                                                                             end = anchors_dt[[end]]),
                                                   gene_id = anchors_dt[[id]])
 
-    gnm_bin_ranges <- GenomicRanges::GRanges(seqnames = bins_to_map_list[[prog]]$bin_chr,
-                                                 ranges = IRanges::IRanges(start = bins_to_map_list[[prog]]$bin_start,
-                                                                           end = bins_to_map_list[[prog]]$bin_end))
+    gnm_bin_ranges <- GenomicRanges::GRanges(seqnames = heal_list[[prog]]$CN$chr,
+                                                 ranges = IRanges::IRanges(start = heal_list[[prog]]$CN$start,
+                                                                           end = heal_list[[prog]]$CN$end))
 
     gnm_overlap_bins_anchors <- GenomicRanges::findOverlaps(query = gnm_bin_ranges, subject = gnm_anchors_ranges)
 
@@ -203,54 +150,24 @@ map_bins_to_anchors <- function(heal_list, genespace_dir){
       overlap_width = gnm_overlap_widths
     )
 
-    syn_anchors_to_bin_dt_list[[prog]] <- gnm_overlap_dt
-
-  }
-
-  return(syn_anchors_to_bin_dt_list)
-
-}
-
-
-#' get_cn_per_anchor_per_sample
-#'
-#' @param heal_list
-#' @param genespace_dir
-#' @param n_cores
-#' @param bin_size
-#'
-#' @return
-#'
-get_cn_per_anchor_per_sample <- function(heal_list, genespace_dir, n_cores){
-
-  anchors_and_bins <- map_bins_to_anchors(heal_list, genespace_dir)
-
-  sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
-  polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
-
-  progenitors <- names(anchors_and_bins)
-
-  anchors_dt <- get_conserved_anchors(genespace_dir)
-
-  anchors_bins_and_cn_list <- foreach::foreach(prog=progenitors)%do%{
-
-    anchors_dt <- get_conserved_anchors(genespace_dir)
     doParallel::registerDoParallel(n_cores)
     cn_per_sample_list <- foreach::foreach(smp=polyploid_samples)%dopar%{
 
-      return(heal_list[[prog]]$CN[[smp]][anchors_and_bins[[prog]]$bin_index])
+      return(heal_list[[prog]]$CN[[smp]][dt_overlap_bins_anchors$queryHits])
 
     }
     doParallel::stopImplicitCluster()
     cn_dt <- data.table::as.data.table(cn_per_sample_list)
     colnames(cn_dt) <- polyploid_samples
 
-    cn_anchors_and_bins_dt <- cbind(anchors_and_bins[[prog]],cn_dt)
-    return(cn_anchors_and_bins_dt)
+    cn_anchors_and_bins_dt <- cbind(gnm_overlap_dt,cn_dt)
+
+
+    syn_anchors_to_bin_dt_list[[prog]] <- cn_anchors_and_bins_dt
+
   }
 
-  names(anchors_bins_and_cn_list) <- progenitors
-  return(anchors_bins_and_cn_list)
+  return(syn_anchors_to_bin_dt_list)
 
 }
 
