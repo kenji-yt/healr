@@ -232,13 +232,13 @@ plot_alignment <- function(heal_list, genespace_dir, quick_view_sample=FALSE, ou
         which_rows_aln_dt <- alignment_cn[[smp]][[ref_chr_col_name]]==chr
 
         x <- (alignment_cn[[smp]][[ref_start_col_name]][which_rows_aln_dt] + alignment_cn[[smp]][[ref_end_col_name]][which_rows_aln_dt]) / 2
-        y_line <- alignment_cn[[smp]][[ref_cn_col_name]][which_rows_aln_dt]
+        y_line <- alignment_cn[[smp]][[ref]][which_rows_aln_dt]
         subgnm_group <- rep(ref, length(x))
 
         for(alt in alt_gnms){
 
           alt_cn_col_name <- paste0("cn_", alt)
-          y_alt <- alignment_cn[[smp]][[alt_cn_col_name]][which_rows_aln_dt]
+          y_alt <- alignment_cn[[smp]][[alt]][which_rows_aln_dt]
 
           subgnm_group <- c(subgnm_group, rep(alt, length(y_alt)))
           x <- c(x, x) # same coordinates

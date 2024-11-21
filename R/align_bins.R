@@ -146,7 +146,7 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_cores){
       anchor_start = IRanges::start(gnm_anchors_ranges[dt_overlap_bins_anchors$subjectHits]),
       anchor_end = IRanges::end(gnm_anchors_ranges[dt_overlap_bins_anchors$subjectHits]),
       gene_id = gnm_anchors_ranges$gene_id[dt_overlap_bins_anchors$subjectHits],
-      chr = bins_to_map_list[[prog]]$bin_chr[dt_overlap_bins_anchors$queryHits],
+      chr = as.character(GenomicRanges::seqnames(gnm_bin_ranges[dt_overlap_bins_anchors$queryHits])),
       overlap_width = gnm_overlap_widths
     )
 
@@ -180,7 +180,7 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_cores){
 #'
 #' @return
 #'
-get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores){
+get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores, prog_ploidy=2){
 
   cn_exist <- sum(names(heal_list[[1]])=="CN")!=0
   if(cn_exist!=TRUE){
@@ -189,11 +189,13 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores){
   }
 
   anchors_dt <- get_conserved_anchors(genespace_dir)
-  cn_per_anchor_per_sample_dt <- get_cn_per_anchor_per_sample(heal_list, genespace_dir, n_cores)
+  cn_anchors_and_bins <- map_bins_to_anchors(heal_list, genespace_dir, n_cores)
 
   sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
   polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
   progenitors <- names(heal_list)
+
+  total_ploidy <- length(progenitors)*prog_ploidy
 
   cat("Likely very ineficient to subset whole dt for each anchor...")
   cn_alignment_list <- foreach::foreach(smp=polyploid_samples)%do%{
@@ -202,50 +204,72 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores){
 
     cn_per_anchor_pair_list <- foreach::foreach(i=1:nrow(anchors_dt))%dopar%{
 
-      cn_at_anchor_list <- foreach::foreach(prog=progenitors)%do%{
+      cn_at_anchor_dt_list <- foreach::foreach(prog=progenitors)%do%{
 
         anchor_gene <- anchors_dt[[paste0("id_",prog)]][i]
 
-        which_rows <- cn_per_anchor_per_sample_dt[[prog]]$gene_id==anchor_gene
+        which_rows <- cn_anchors_and_bins[[prog]]$gene_id==anchor_gene
 
-        cn_at_anchor <- cn_per_anchor_per_sample_dt[[prog]][[smp]][which_rows]
+        cn_at_anchor_dt <- cn_anchors_and_bins[[prog]][which_rows,]
 
-        return(cn_at_anchor)
+        return(cn_at_anchor_dt)
 
       }
-      names(cn_at_anchor_list) <- progenitors
+      names(cn_at_anchor_dt_list) <- progenitors
 
-      ### ERROR THE COPY NUMBER EXTRACTED IS NOT MATCHING THE BIN CN.
-      ### See this with the lyrata:
-      cn_per_anchor_per_sample_dt[[prog]][which_rows,]
-      heal_list$A.lyrata$CN[heal_list$A.lyrata$CN$chr=="chr1",][1:10]
-      ## NOT MATCHING
-      ## See also
-      unique(heal_list$A.lyrata$CN$chr[cn_per_anchor_per_sample_dt[[prog]][cn_per_anchor_per_sample_dt[[prog]]$chr=="chr8",]$bin_index])
-
-
-      if(sum(lapply(cn_at_anchor_list, length)==0)!=0){
+      # If the anchor overlaps no bin (eg. bin filtered out)
+      if(sum(lapply(cn_at_anchor_dt_list, nrow)==0)!=0){
         return()
 
       }else{
 
+        unique_cn <- lapply(cn_at_anchor_dt_list, function(dt){ unique(dt[[smp]])})
 
+        # Unique CN in all genomes
+        if(sum(unlist(lapply(unique_cn,length)))==length(unique_cn)){
 
+          output_dt <- cbind(anchors_dt[i,], as.data.table(unique_cn), data.table(method="unique"))
+          return(output_dt)
 
+        # Find most concordant CN combination (heuristic solution)
+        }else{
 
-      id <- cn_per_anchor_per_sample_dt[[prog]]$gene_id
-      cn <- cn_per_anchor_per_sample_dt[[prog]][[smp]]
-      cn_dt <- data.table::data.table(id, cn)
-      colnames(cn_dt) <- c(paste0("id_", prog), paste0("cn_", prog))
+          cartesian_product <- as.data.table(expand.grid(unique_cn))
+          most_concordant <- which(abs(rowSums(cartesian_product)-total_ploidy)==min(abs(rowSums(cartesian_product)-total_ploidy)))
 
-      merge_dt <- merge(merge_dt, cn_dt, by = intersect(names(merge_dt), names(cn_dt)))
+          concordant_combinations <- cartesian_product[most_concordant,]
 
+          # if multiple equally concordant combinations, pick the one with most overlap
+          # Note that we consider copy number of same value at start and end of the gene as equivalent
+          if(nrow(concordant_combinations)>1){
+
+            overlaps <- apply(concordant_combinations, 1, function(row) {
+
+              overlaps <- foreach::foreach(prog=names(row))%do%{
+                which_row <- cn_at_anchor_dt_list[[prog]][[smp]]==row[[prog]]
+                overlap <- sum(cn_at_anchor_dt_list[[prog]]$overlap_width[which_row])
+                return(overlap)
+              }
+              sum(unlist(overlaps))
+
+            })
+
+            output_dt <- cbind(anchors_dt[i,], concordant_combinations[which.max(overlaps)], data.table(method="concordance_overlap"))
+            return(output_dt)
+
+          }else{
+            output_dt <- cbind(anchors_dt[i,], concordant_combinations, data.table(method="concordance_unique"))
+            return(output_dt)
+          }
+
+        }
+      }
     }
     doParallel::stopImplicitCluster()
 
-    return("kitsoz")
+    alignment <- rbindlist(cn_per_anchor_pair_list)
+    return(alignment)
 
-  }
   }
 
   names(cn_alignment_list) <- polyploid_samples
