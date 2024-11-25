@@ -324,7 +324,7 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample=FALSE, output
 }
 
 
-plot_pre_db_data <- function(densities, quick_view_sample=FALSE, output_dir=FALSE, show_discordant=FALSE, heal_list=FALSE, alignment=FALSE, ylim_max=FALSE, colour_vec=FALSE){
+plot_pre_db_data <- function(densities, quick_view_sample=FALSE, output_dir=FALSE, show_discordant=FALSE, heal_list=FALSE, alignment=FALSE, ylim_max=FALSE, colour_vec=FALSE, prog_ploidy=2){
 
   is_align_and_count_data <- is.list(alignment) & is.list(heal_list)
   if(show_discordant==TRUE & !is_align_and_count_data){
@@ -333,6 +333,7 @@ plot_pre_db_data <- function(densities, quick_view_sample=FALSE, output_dir=FALS
   }
 
   polyploid_samples <- names(densities)
+  progenitors <- names(heal_list)
 
   if(quick_view_sample!=FALSE){
 
@@ -374,7 +375,7 @@ plot_pre_db_data <- function(densities, quick_view_sample=FALSE, output_dir=FALS
     cn_labels <- names(densities[[smp]])
 
     if(colour_vec==FALSE){
-      colour_vec <- rainbow(n=length(cn_labels), s = 0.7)
+      colour_vec <- rainbow(n=length(cn_labels), s = 0.7, v = 1)
     }else{
       if(length(cn_labels)!=length(colour_vec)){
         cat("ERROR: Colour vector length not matching number of copy number categories. Exiting..")
@@ -382,22 +383,48 @@ plot_pre_db_data <- function(densities, quick_view_sample=FALSE, output_dir=FALS
       }
     }
 
-    contour(densities[[smp]][[cn_labels[1]]], ylim=c(-5, ylim_max), col = colour_vec[1])
+    names(colour_vec) <- cn_labels
+
+    contour(densities[[smp]][[cn_labels[1]]], ylim=c(-5, ylim_max), col = colour_vec[cn_labels[1]])
 
     for(i in 2:length(cn_labels)){
 
-      contour(densities[[smp]][[cn_labels[i]]], ylim=c(0, ylim_max), col = colour_vec[i], add=TRUE)
+      contour(densities[[smp]][[cn_labels[i]]], ylim=c(0, ylim_max), col = colour_vec[cn_labels[i]], add=TRUE)
 
     }
 
     if(show_discordant==TRUE){
 
       cn_col_indx <- grep("cn_", colnames(alignment[[smp]]))
-      alignment[[smp]]$
+      which_discord <- rowSums(alignment[[smp]][, ..cn_col_indx])!=prog_ploidy*length(heal_list)
 
+      per_prog_dt_list <- foreach::foreach(prog=progenitors)%do%{
+        cn_col_name <- paste0("cn_", prog)
+        bin_col_name <- paste0("bin_index_", prog)
+        col_keep <- c(cn_col_name, bin_col_name)
 
+        cn_bindex_dt_list <- apply(alignment[[smp]][which_discord, ..col_keep], 1, function(row){
+          bindex_vec <- as.numeric(unlist(strsplit(row[[bin_col_name]], ",")))
+          cn_vec <- rep(row[[cn_col_name]], length(bindex_vec))
+          return(data.table::data.table(bin_index=bindex_vec, cn=cn_vec))
+        })
+
+        bin_cn_dt <- unique(data.table::rbindlist(cn_bindex_dt_list))
+
+        merge_dt <- data.table::data.table(chr=heal_list[[prog]]$CN$chr[bin_cn_dt$bin_index], start=heal_list[[prog]]$CN$start[bin_cn_dt$bin_index])
+
+        merge_dt <- merge(heal_list[[prog]]$bins, merge_dt)
+
+        col_keep <- c("gc_content", smp)
+
+        return(cbind(merge_dt[, ..col_keep], cn=bin_cn_dt$cn))
     }
 
+    points_dt <- data.table::rbindlist(per_prog_dt_list)
+
+    points_dt$cn <- paste0("cn_", points_dt$cn)
+
+    points(points_dt$gc_content, points_dt[[smp]], col=colour_vec[points_dt$cn], pch=16, cex=1)
 
   }
 }
