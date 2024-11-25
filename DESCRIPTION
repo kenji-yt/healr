@@ -24,4 +24,5 @@ Imports:
     dtw,
     zoo,
     GenomicRanges,
-    IRanges
+    IRanges,
+    MASS

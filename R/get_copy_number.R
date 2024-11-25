@@ -55,9 +55,9 @@ get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", f
     doParallel::stopImplicitCluster()
 
 
-    cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, data.frame(sample_CN))
-    colnames(cn_dt) <- c("chr", "start", "end", sample_current_prog)
-    data.table::setkey(cn_dt, chr, start, end)
+    cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, prog$gc_content, data.frame(sample_CN))
+    colnames(cn_dt) <- c("chr", "start", "end", "gc_content", sample_current_prog)
+    data.table::setkey(cn_dt, chr, start, end, gc_content)
 
     if(full_output==TRUE){
       return(list(bins=counts[[pr_name]]$bins, genes=counts[[pr_name]]$genes, CN=cn_dt, DNAcopy=sgmnts))

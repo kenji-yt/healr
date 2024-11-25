@@ -15,8 +15,6 @@
 #' @export
 plot_bins <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, prog_ploidy=2, plot_cn=TRUE, add_bins=TRUE, colour_map=c("purple","orange"), specific_chr=FALSE, return_list=FALSE){
 
-  cat("Maybe good to have option to save plots for 1 sample only..?")
-  cat("To do that just don't set output dir to false If it is provided alongside quick view sample")
   cn_exist <- unlist(lapply(heal_list,function(list){list$CN}))
   if(is.null(cn_exist) && plot_cn==TRUE){
     cat("ERROR: plot_cn set to 'TRUE' but no CN data table found in heal_list. Setting plot_cn to 'FALSE'.")
@@ -31,18 +29,31 @@ plot_bins <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_co
   smp_type_map <- get_sample_stats(heal_list,sample_type = TRUE)
 
   if(quick_view_sample!=FALSE){
-    cat(paste0("Quickly plotting for ",quick_view_sample,". Setting output_dir to 'FALSE'."))
-    output_dir <- FALSE
+
+    if(sum(names(sample_averages)==quick_view_sample)==0){
+      cat("ERROR: Sample name not recognized for quick view of alignment. Exiting..")
+      return()
+    }
+
+    if(output_dir==FALSE){
+      cat(paste0("Quickly plotting for ",quick_view_sample,". \n"))
+    }else{
+      cat(paste0("Saving ", quick_view_sample, "to ", output_dir,"."))
+    }
     samples <- quick_view_sample
 
     smp_type_map <- smp_type_map[smp_type_map$sample==quick_view_sample,]
 
   }else if(output_dir==FALSE){
+
     cat("ERROR: no output directory and no 'quick_view_sample' set. One must be set.")
     return()
+
   }else{
-    cat(paste0("Plotting all samples and chromosomes to ",output_dir,"."))
+
+    cat(paste0("Saving all samples and chromosomes to ", output_dir,"."))
     samples <- names(sample_averages)
+
   }
 
   for(smp in samples){
@@ -164,10 +175,9 @@ plot_bins <- function(heal_list, quick_view_sample=FALSE, output_dir=FALSE, n_co
 #' @export
 #'
 #' @examples
-plot_alignment <- function(heal_list, genespace_dir, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, add_bins=TRUE, prog_ploidy=2, colour_map=c("purple","orange"), specific_chr=FALSE, return_list=FALSE){
+plot_alignment <- function(heal_list, alignment, quick_view_sample=FALSE, output_dir=FALSE, n_cores=1, add_bins=TRUE, prog_ploidy=2, colour_map=c("purple","orange"), specific_chr=FALSE, return_list=FALSE){
 
-  alignment_cn <- get_cn_alignment_by_anchors(heal_list, genespace_dir, n_cores)
-  polyploid_samples <- names(alignment_cn)
+  polyploid_samples <- names(alignment)
 
   sample_averages <- get_sample_stats(heal_list)
 
@@ -182,13 +192,17 @@ plot_alignment <- function(heal_list, genespace_dir, quick_view_sample=FALSE, ou
       return()
     }
 
-    cat(paste0("Quickly plotting for ",quick_view_sample,". Setting output_dir to 'FALSE'. \n"))
-    output_dir <- FALSE
+    if(output_dir==FALSE){
+      cat(paste0("Quickly plotting for ",quick_view_sample,". \n"))
+    }else{
+      cat(paste0("Saving ", quick_view_sample, "to ", output_dir,"."))
+    }
+
     polyploid_samples <- quick_view_sample
 
 
   }else if(output_dir==FALSE){
-    cat("ERROR: no output directory and no 'quick_view_sample' set. One must be set.")
+    cat("ERROR: no output directory and no 'quick_view_sample' set. One must be set. Exiting..")
     return()
   }else{
     cat(paste0("Plotting all samples and chromosomes to ",output_dir,"."))
@@ -229,16 +243,16 @@ plot_alignment <- function(heal_list, genespace_dir, quick_view_sample=FALSE, ou
         ref_end_col_name <- paste0("end_", ref)
         ref_cn_col_name <- paste0("cn_", ref)
 
-        which_rows_aln_dt <- alignment_cn[[smp]][[ref_chr_col_name]]==chr
+        which_rows_aln_dt <- alignment[[smp]][[ref_chr_col_name]]==chr
 
-        x <- (alignment_cn[[smp]][[ref_start_col_name]][which_rows_aln_dt] + alignment_cn[[smp]][[ref_end_col_name]][which_rows_aln_dt]) / 2
-        y_line <- alignment_cn[[smp]][[ref]][which_rows_aln_dt]
+        x <- (alignment[[smp]][[ref_start_col_name]][which_rows_aln_dt] + alignment[[smp]][[ref_end_col_name]][which_rows_aln_dt]) / 2
+        y_line <- alignment[[smp]][[ref]][which_rows_aln_dt]
         subgnm_group <- rep(ref, length(x))
 
         for(alt in alt_gnms){
 
           alt_cn_col_name <- paste0("cn_", alt)
-          y_alt <- alignment_cn[[smp]][[alt]][which_rows_aln_dt]
+          y_alt <- alignment[[smp]][[alt]][which_rows_aln_dt]
 
           subgnm_group <- c(subgnm_group, rep(alt, length(y_alt)))
           x <- c(x, x) # same coordinates
@@ -310,6 +324,82 @@ plot_alignment <- function(heal_list, genespace_dir, quick_view_sample=FALSE, ou
 }
 
 
+plot_pre_db_data <- function(densities, quick_view_sample=FALSE, output_dir=FALSE, show_discordant=FALSE, heal_list=FALSE, alignment=FALSE, ylim_max=FALSE, colour_vec=FALSE){
 
+  is_align_and_count_data <- is.list(alignment) & is.list(heal_list)
+  if(show_discordant==TRUE & !is_align_and_count_data){
+    cat("ERROR: show_discordant is TRUE but no valid heal_list or aligment provided. Exiting..")
+    return()
+  }
+
+  polyploid_samples <- names(densities)
+
+  if(quick_view_sample!=FALSE){
+
+    if(sum(polyploid_samples==quick_view_sample)==0){
+      cat("ERROR: Sample name not recognized (or not polyploid) for quick view of alignment. Exiting..")
+      return()
+    }
+
+    cat(paste0("Quickly plotting for ",quick_view_sample, ". \n"))
+    polyploid_samples <- quick_view_sample
+
+
+  }else if(output_dir==FALSE){
+    cat("ERROR: no output directory and no 'quick_view_sample' set. One must be set. Exiting..")
+    return()
+  }else{
+    cat(paste0("Plotting all samples and chromosomes to ",output_dir,"."))
+  }
+
+  foreach::foreach(smp=polyploid_samples)%do%{
+
+    if(output_dir!=FALSE){
+      smp_dir <- paste0(output_dir,"/",smp,"/")
+      dir.create(smp_dir,showWarnings = F)
+    }
+
+    if(ylim_max==FALSE){
+      if(is.list(heal_list)==FALSE){
+        cat("ERROR: No ylim_max and no heal_list. Set at least one. Exiting..")
+        return()
+      }else{
+        counts_vec <- unlist(lapply(heal_list, function(dt){
+        return(dt$bins[[smp]])
+      }))
+      ylim_max <- mean(counts_vec, na.rm = T)+3*sd(counts_vec, na.rm = T)
+      }
+    }
+
+    cn_labels <- names(densities[[smp]])
+
+    if(colour_vec==FALSE){
+      colour_vec <- rainbow(n=length(cn_labels), s = 0.7)
+    }else{
+      if(length(cn_labels)!=length(colour_vec)){
+        cat("ERROR: Colour vector length not matching number of copy number categories. Exiting..")
+        return()
+      }
+    }
+
+    contour(densities[[smp]][[cn_labels[1]]], ylim=c(-5, ylim_max), col = colour_vec[1])
+
+    for(i in 2:length(cn_labels)){
+
+      contour(densities[[smp]][[cn_labels[i]]], ylim=c(0, ylim_max), col = colour_vec[i], add=TRUE)
+
+    }
+
+    if(show_discordant==TRUE){
+
+      cn_col_indx <- grep("cn_", colnames(alignment[[smp]]))
+      alignment[[smp]]$
+
+
+    }
+
+
+  }
+}
 
 #plot_heal <- Go check out riparian

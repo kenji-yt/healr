@@ -147,6 +147,7 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_cores){
       anchor_end = IRanges::end(gnm_anchors_ranges[dt_overlap_bins_anchors$subjectHits]),
       gene_id = gnm_anchors_ranges$gene_id[dt_overlap_bins_anchors$subjectHits],
       chr = as.character(GenomicRanges::seqnames(gnm_bin_ranges[dt_overlap_bins_anchors$queryHits])),
+      gc_content = heal_list[[prog]]$CN$gc_content[dt_overlap_bins_anchors$queryHits],
       overlap_width = gnm_overlap_widths
     )
 
@@ -157,11 +158,12 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_cores){
 
     }
     doParallel::stopImplicitCluster()
+
     cn_dt <- data.table::as.data.table(cn_per_sample_list)
     colnames(cn_dt) <- polyploid_samples
 
     cn_anchors_and_bins_dt <- cbind(gnm_overlap_dt,cn_dt)
-
+    data.table::setkey(cn_anchors_and_bins_dt, chr,  bin_start, anchor_start, anchor_end, gene_id, gc_content)
 
     syn_anchors_to_bin_dt_list[[prog]] <- cn_anchors_and_bins_dt
 
@@ -198,7 +200,7 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores, prog_
   total_ploidy <- length(progenitors)*prog_ploidy
 
   cat("Likely very ineficient to subset whole dt for each anchor...")
-  cn_alignment_list <- foreach::foreach(smp=polyploid_samples)%do%{
+  cn_alignment_list <- foreach::foreach(smp=polyploid_samples)%dopar%{
 
     doParallel::registerDoParallel(n_cores)
 
@@ -224,17 +226,24 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores, prog_
       }else{
 
         unique_cn <- lapply(cn_at_anchor_dt_list, function(dt){ unique(dt[[smp]])})
+        bin_indexes <-lapply(cn_at_anchor_dt_list, function(dt){
+          paste(dt$bin_index, collapse = ",")})
+        bin_index_dt <- data.table::as.data.table(bin_indexes)
+        colnames(bin_index_dt) <- paste0("bin_index_",colnames(bin_index_dt))
 
         # Unique CN in all genomes
         if(sum(unlist(lapply(unique_cn,length)))==length(unique_cn)){
 
-          output_dt <- cbind(anchors_dt[i,], as.data.table(unique_cn), data.table(method="unique"))
+          unique_cn_dt <- data.table::as.data.table(unique_cn)
+          colnames(unique_cn_dt) <- paste0("cn_",colnames(unique_cn_dt))
+
+          output_dt <- cbind(anchors_dt[i,], unique_cn_dt, bin_index_dt, data.table::data.table(method="unique"))
           return(output_dt)
 
         # Find most concordant CN combination (heuristic solution)
         }else{
 
-          cartesian_product <- as.data.table(expand.grid(unique_cn))
+          cartesian_product <- data.table::as.data.table(expand.grid(unique_cn))
           most_concordant <- which(abs(rowSums(cartesian_product)-total_ploidy)==min(abs(rowSums(cartesian_product)-total_ploidy)))
 
           concordant_combinations <- cartesian_product[most_concordant,]
@@ -254,11 +263,18 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores, prog_
 
             })
 
-            output_dt <- cbind(anchors_dt[i,], concordant_combinations[which.max(overlaps)], data.table(method="concordance_overlap"))
+            unique_cn_dt <- concordant_combinations[which.max(overlaps)]
+            colnames(unique_cn_dt) <- paste0("cn_",colnames(unique_cn_dt))
+
+            output_dt <- cbind(anchors_dt[i,], unique_cn_dt, bin_index_dt, data.table::data.table(method="multiple_overlap"))
             return(output_dt)
 
           }else{
-            output_dt <- cbind(anchors_dt[i,], concordant_combinations, data.table(method="concordance_unique"))
+
+            unique_cn_dt <- concordant_combinations
+            colnames(unique_cn_dt) <- paste0("cn_",colnames(unique_cn_dt))
+
+            output_dt <- cbind(anchors_dt[i,], unique_cn_dt, bin_index_dt, data.table::data.table(method="multiple_unique"))
             return(output_dt)
           }
 
@@ -267,7 +283,7 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores, prog_
     }
     doParallel::stopImplicitCluster()
 
-    alignment <- rbindlist(cn_per_anchor_pair_list)
+    alignment <- data.table::rbindlist(cn_per_anchor_pair_list)
     return(alignment)
 
   }
@@ -276,3 +292,105 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores, prog_
   return(cn_alignment_list)
 
 }
+
+
+
+#' Get data for DBSCAN copy number re-evaluation
+#'
+#' @param alignment
+#' @param heal_list
+#' @param n_cores
+#' @param prog_ploidy
+#' @param n_points The n parameter for MASS::kde2d(). "Number of grid points in each direction. Can be scalar or a length-2 integer vector". Default is 1000.
+#'
+#' @return
+#' @export
+#'
+get_concordant_density <- function(alignment, heal_list, n_cores, prog_ploidy=2, n_points=1000){
+
+  polyploid_samples <- names(alignment)
+  progenitors <- names(heal_list)
+  total_ploidy <- length(progenitors)*prog_ploidy
+
+  cn_columns <- grep("cn_", colnames(alignment[[1]]))
+
+  doParallel::registerDoParallel(n_cores)
+  cn_count_type_dt_list <- foreach::foreach(smp=polyploid_samples)%dopar%{
+
+    concordant_and_unique <- rowSums(alignment[[smp]][, ..cn_columns])==total_ploidy & alignment[[smp]]$method=="unique"
+
+    dt_per_prog_list <- foreach::foreach(prog=progenitors)%do%{
+
+      bin_index_col <- paste0("bin_index_", prog)
+      cn_col <- paste0("cn_", prog)
+
+      cc_and_u_bins <- apply(alignment[[smp]][concordant_and_unique, ..bin_index_col], 1, function(row){
+        strsplit(row,",")
+      })
+
+      cc_and_u_rows <- as.numeric(unique(unlist(cc_and_u_bins)))
+
+      chr_vec <- heal_list[[prog]]$CN$chr[cc_and_u_rows]
+      start_vec <- heal_list[[prog]]$CN$start[cc_and_u_rows]
+      cc_and_u_dt <- data.table::data.table(chr=chr_vec, start=start_vec)
+      data.table::setkey(cc_and_u_dt, chr, start)
+      cc_and_u_dt <- merge(heal_list[[prog]]$bins, cc_and_u_dt, by = c("chr", "start"))
+      col_keep <- c("chr", "start", "gc_content", smp)
+      cc_and_u_dt <- cc_and_u_dt[, ..col_keep]
+      data.table::setkey(cc_and_u_dt, chr, start)
+      colnames(cc_and_u_dt) <- c("chr", "start", "gc_content", paste0("count_",smp))
+      cc_and_u_dt <- merge(heal_list[[prog]]$CN, cc_and_u_dt, by = c("chr", "start", "gc_content"))
+      col_keep <- c("chr", "start", "gc_content", paste0("count_",smp), smp)
+      cc_and_u_dt <- cc_and_u_dt[, ..col_keep]
+      colnames(cc_and_u_dt) <- c("chr", "start", "gc_content", "count", "cn")
+
+      cc_and_u_dt <- cc_and_u_dt[!is.na(cc_and_u_dt$count), ]
+      return(cc_and_u_dt)
+    }
+
+    total_dt <- data.table::rbindlist(dt_per_prog_list)
+    key_colname <- c("chr", "start", "gc_content", "cn")
+    data.table::setkeyv(total_dt, key_colname)
+
+    return(total_dt)
+  }
+  doParallel::stopImplicitCluster()
+
+  names(cn_count_type_dt_list) <- polyploid_samples
+
+  doParallel::registerDoParallel(n_cores)
+  density_list <- foreach::foreach(smp=polyploid_samples)%do%{
+
+    cn_groups <- unique(cn_count_type_dt_list[[smp]]$cn)
+
+    density_by_cn_list <- foreach::foreach(cn=cn_groups)%do%{
+
+      which_rows <- cn_count_type_dt_list[[smp]]$cn==cn
+
+      density <- MASS::kde2d(cn_count_type_dt_list[[smp]]$gc_content[which_rows], cn_count_type_dt_list[[smp]]$count[which_rows], n = n_points)
+
+      return(density)
+    }
+    names(density_by_cn_list) <- paste0("cn_", cn_groups)
+    return(density_by_cn_list)
+  }
+  doParallel::stopImplicitCluster()
+  names(density_list) <- polyploid_samples
+
+  return(density_list)
+}
+
+
+
+# discordant <- rowSums(alignment[[smp]][, ..cn_columns])!=total_ploidy
+#
+# bin_col_indexes <- grep("bin_index", colnames(alignment[[smp]]))
+# alignment[[smp]][discordant, ..bin_col_indexes]
+# dis_bins <- apply(alignment[[smp]][discordant, ..bin_col_indexes], 1, function(row){
+#   return(row)
+# })
+#
+# dis_cn <- apply(alignment[[smp]][discordant, ], 1, function(row){
+#   return(row)
+# })
+
