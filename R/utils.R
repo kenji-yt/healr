@@ -1,14 +1,14 @@
 #' Get general statistics about the each sample.
 #'
 #' @param heal_list
-#' @param n_cores
+#' @param n_threads
 #' @param method
 #' @param sample_type
 #'
 #' @return stats
 #' @export
 #' @importFrom foreach %dopar%
-get_sample_stats <- function(heal_list, n_cores=1, method="median", sample_type=FALSE){
+get_sample_stats <- function(heal_list, n_threads=1, method="median", sample_type=FALSE){
 
   progenitors <- names(heal_list)
   sample_name_list <- lapply(heal_list,function(df){setdiff(colnames(df$bins),c("chr","start","mappability","gc_content","end"))})
@@ -28,7 +28,7 @@ get_sample_stats <- function(heal_list, n_cores=1, method="median", sample_type=
     return(smp_type_df)
 
   }else{
-    doParallel::registerDoParallel(n_cores)
+    doParallel::registerDoParallel(n_threads)
     sample_stats <- foreach::foreach(smp=samples)%dopar%{
 
       if(method=="median"){

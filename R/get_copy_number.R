@@ -1,7 +1,7 @@
 #' Infer copy number using Circular Binary Segmentation (from DNAcopy)
 #'
 #' @param counts Output list from count_heal_data() or filter_bins()
-#' @param n_cores Number of cores to use ('1' by default)
+#' @param n_threads Number of threads to use ('1' by default)
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default)
 #' @param method Method to infered copy number in each segment ('median' or 'mean'. 'median' by default)
 #' @param full_output Logical: Do you want to also get the full DNAcopy output ('FALSE' by default)
@@ -11,7 +11,7 @@
 #'
 #' @importFrom foreach %dopar%
 #' @importFrom foreach %do%
-get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", full_output=FALSE){
+get_copy_number <- function(counts, n_threads=1, prog_ploidy=2, method="median", full_output=FALSE){
 
 
   if(intersect(method, c("median", "mean"))==0 || length(method)!=1){
@@ -34,7 +34,7 @@ get_copy_number <- function(counts, n_cores=1, prog_ploidy=2, method="median", f
 
     sample_current_prog <- unlist(sample_name_per_prog[[pr_name]])
 
-    doParallel::registerDoParallel(n_cores)
+    doParallel::registerDoParallel(n_threads)
     sample_CN <- foreach::foreach(smp=sample_current_prog)%dopar%{
 
       cna.object <- DNAcopy::CNA(chrom = prog$chr, maploc = prog$start, genomdat = prog[[smp]])

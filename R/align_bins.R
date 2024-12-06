@@ -99,12 +99,12 @@ get_conserved_anchors <- function(genespace_dir){
 #'
 #' @param heal_list
 #' @param genespace_dir
-#' @param n_cores
+#' @param n_threads
 #' @param bin_size
 #'
 #' @return
 #'
-map_bins_to_anchors <- function(heal_list, genespace_dir, n_cores){
+map_bins_to_anchors <- function(heal_list, genespace_dir, n_threads){
 
   map_dt_list <- parse_genespace_input(genespace_dir)
   syn_hits_list <- map_dt_list$syn_hits
@@ -151,7 +151,7 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_cores){
       overlap_width = gnm_overlap_widths
     )
 
-    doParallel::registerDoParallel(n_cores)
+    doParallel::registerDoParallel(n_threads)
     cn_per_sample_list <- foreach::foreach(smp=polyploid_samples)%dopar%{
 
       return(heal_list[[prog]]$CN[[smp]][dt_overlap_bins_anchors$queryHits])
@@ -178,11 +178,11 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_cores){
 #'
 #' @param heal_list
 #' @param genespace_dir
-#' @param n_cores
+#' @param n_threads
 #'
 #' @return
 #'
-get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores, prog_ploidy=2){
+get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_threads, prog_ploidy=2){
 
   cn_exist <- sum(names(heal_list[[1]])=="CN")!=0
   if(cn_exist!=TRUE){
@@ -191,7 +191,7 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores, prog_
   }
 
   anchors_dt <- get_conserved_anchors(genespace_dir)
-  cn_anchors_and_bins <- map_bins_to_anchors(heal_list, genespace_dir, n_cores)
+  cn_anchors_and_bins <- map_bins_to_anchors(heal_list, genespace_dir, n_threads)
 
   sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
   polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
@@ -202,7 +202,7 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores, prog_
   cat("Likely very ineficient to subset whole dt for each anchor...")
   cn_alignment_list <- foreach::foreach(smp=polyploid_samples)%dopar%{
 
-    doParallel::registerDoParallel(n_cores)
+    doParallel::registerDoParallel(n_threads)
 
     cn_per_anchor_pair_list <- foreach::foreach(i=1:nrow(anchors_dt))%dopar%{
 
@@ -305,21 +305,21 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_cores, prog_
 #'
 #' @param alignment
 #' @param heal_list
-#' @param n_cores
+#' @param n_threads
 #' @param prog_ploidy
 #' @param n_points The n parameter for MASS::kde2d(). "Number of grid points in each direction. Can be scalar or a length-2 integer vector". Default is 1000.
 #'
 #' @return
 #' @export
 #'
-get_concordant_density <- function(alignment, heal_list, n_cores, prog_ploidy=2, n_points=1000){
+get_concordant_density <- function(alignment, heal_list, n_threads, prog_ploidy=2, n_points=1000){
 
   polyploid_samples <- names(alignment)
   progenitors <- names(heal_list)
   total_ploidy <- length(progenitors)*prog_ploidy
 
 
-  doParallel::registerDoParallel(n_cores)
+  doParallel::registerDoParallel(n_threads)
   cn_count_type_dt_list <- foreach::foreach(smp=polyploid_samples)%dopar%{
 
     concordant_and_unique <- alignment[[smp]]$status=="concordant" & alignment[[smp]]$method=="unique"
@@ -363,7 +363,7 @@ get_concordant_density <- function(alignment, heal_list, n_cores, prog_ploidy=2,
 
   names(cn_count_type_dt_list) <- polyploid_samples
 
-  doParallel::registerDoParallel(n_cores)
+  doParallel::registerDoParallel(n_threads)
   density_list <- foreach::foreach(smp=polyploid_samples)%do%{
 
     cn_groups <- unique(cn_count_type_dt_list[[smp]]$cn)
@@ -390,14 +390,14 @@ get_concordant_density <- function(alignment, heal_list, n_cores, prog_ploidy=2,
 #' @param densities
 #' @param alignment
 #' @param heal_list
-#' @param n_cores
+#' @param n_threads
 #' @param prog_ploidy
 #'
 #' @return
 #' @export
 #'
 #' @examples
-correct_cn_with_density <- function(densities, alignment, heal_list, n_cores, prog_ploidy=2){
+correct_cn_with_density <- function(densities, alignment, heal_list, n_threads, prog_ploidy=2){
 
   polyploid_samples <- names(densities)
   progenitors <- names(heal_list)
@@ -407,7 +407,7 @@ correct_cn_with_density <- function(densities, alignment, heal_list, n_cores, pr
     corrected_aln_dt <- alignment[[smp]]
     which_discord <- which(corrected_aln_dt$status=="discordant")
 
-    doParallel::registerDoParallel(n_cores)
+    doParallel::registerDoParallel(n_threads)
     corrected_discordant_list <- foreach::foreach(a=which_discord)%dopar%{
 
       print(a)
@@ -440,10 +440,12 @@ correct_cn_with_density <- function(densities, alignment, heal_list, n_cores, pr
           current_cn_name <- paste0("cn_", merged_dt$cn[i])
 
           if(length(intersect(current_cn_name, names(density_at_cn_list)))==0){
+
             which_best <- which.max(density_at_cn_list)
             valid_cn <- as.numeric(gsub("cn_", "", names(density_at_cn_list)[which_best]))
             densities_valid <- unlist(density_at_cn_list[which_best])
             return(data.table::data.table(cn=valid_cn, densities=densities_valid))
+
           }else{
 
             which_better_or_equal <- density_at_cn>=density_at_cn[current_cn_name]

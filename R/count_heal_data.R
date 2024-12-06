@@ -49,17 +49,17 @@ parse_counts_genes <- function(gene_counts_list, sample_names){
 #' Counts reads and combines results with GC and mappability information.
 #'
 #' @param input_dir A healr input directory (see details).
-#' @param n_cores Number of cores to use with featureCounts ('1' by default)
+#' @param n_threads Number of threads to use with featureCounts ('1' by default)
 #' @param bin_size Bin size.
 #' @param paired_end Logical: Is the data paired end.
-#' @param full_output Logical: Do you want to also get the full featureCounts output ('FALSE' by default)
+#' @param full_output Logical: Do you want to also get the full featureCounts output ('FALSE' by default).
 #'
 #' @return A list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
 #' @export
 #'
 #' @importFrom foreach %do%
 #' @importFrom utils write.table
-count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_output=FALSE){
+count_heal_data <- function(input_dir, n_threads=1, bin_size, paired_end, full_output=FALSE){
 
   prog_dir <- list.files(path=input_dir, pattern = "progenitors", full.names = TRUE)
   poly_dir <- list.files(path=input_dir, pattern = "polyploids", full.names = TRUE)
@@ -124,7 +124,7 @@ count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_out
     prog_dirs <- all_dirs[grepl(prog, all_dirs)]
     bam_paths <- list.files(prog_dirs, pattern = ".bam$", full.names = TRUE, recursive = TRUE)
 
-    feature_count_list <- Rsubread::featureCounts(bam_paths, annot.ext = anno_bins , isPairedEnd=paired_end, nthreads = n_cores, allowMultiOverlap=T)
+    feature_count_list <- Rsubread::featureCounts(bam_paths, annot.ext = anno_bins , isPairedEnd=paired_end, nthreads = n_threads, allowMultiOverlap=T)
 
     sample_names <- basename(dirname(dirname(bam_paths)))
     if ( sum(sample_names == "progenitors")>0 ){ # give random name.
@@ -150,7 +150,7 @@ count_heal_data <- function(input_dir, n_cores=1, bin_size, paired_end, full_out
 
       Rgff::saf_from_gff(annotations[prog], outFile = genes_saf, features=c("gene"), forceOverwrite=TRUE)
 
-      gene_counts_list <- Rsubread::featureCounts(bam_paths, annot.ext = genes_saf, isPairedEnd=paired_end, nthreads = n_cores, allowMultiOverlap=TRUE)
+      gene_counts_list <- Rsubread::featureCounts(bam_paths, annot.ext = genes_saf, isPairedEnd=paired_end, nthreads = n_threads, allowMultiOverlap=TRUE)
 
       genes_df <- parse_counts_genes(gene_counts_list = gene_counts_list, sample_names = sample_names)
 
