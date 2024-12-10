@@ -6,22 +6,22 @@
 \usage{
 get_copy_number(
   counts,
-  n_cores = 1,
+  n_threads = 1,
   prog_ploidy = 2,
   method = "median",
   full_output = FALSE
 )
 }
 \arguments{
-\item{counts}{Output list from count_heal_data() or filter_bins()}
+\item{counts}{Output list in heal format (such as output from count_heal_data() or filter_bins()).}
 
-\item{n_cores}{Number of cores to use ('1' by default)}
+\item{n_threads}{Number of threads to use ('1' by default).}
 
-\item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default)}
+\item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default).}
 
-\item{method}{Method to infered copy number in each segment ('median' or 'mean'. 'median' by default)}
+\item{method}{Method to infered copy number in each segment ('median' or 'mean'. 'median' by default).}
 
-\item{full_output}{Logical: Do you want to also get the full DNAcopy output ('FALSE' by default)}
+\item{full_output}{Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).}
 }
 \value{
 A list with one element per progenitor containing the bins and genes elements of the inpiut plus a data table with infered copy number per bin for each sample and GC and mappability for each bin.

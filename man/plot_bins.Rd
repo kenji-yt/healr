@@ -8,11 +8,11 @@ plot_bins(
   heal_list,
   quick_view_sample = FALSE,
   output_dir = FALSE,
-  n_cores = 1,
+  n_threads = 1,
   prog_ploidy = 2,
   plot_cn = TRUE,
   add_bins = TRUE,
-  colour_map = c("purple", "orange"),
+  colour_map = FALSE,
   specific_chr = FALSE,
   return_list = FALSE
 )
@@ -24,15 +24,15 @@ plot_bins(
 
 \item{output_dir}{The name of a directory to write all plots to. Will create one if nonexistent.}
 
-\item{n_cores}{Number of cores to use ('1' by default).}
+\item{n_threads}{Number of threads to use ('1' by default).}
 
-\item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default)}
+\item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default).}
 
 \item{plot_cn}{Logical: plot a line indicating infered copy number ('TRUE' by default in CN has been estimated).}
 
 \item{add_bins}{Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).}
 
-\item{colour_map}{A vector of colours for each progenitor ('c(purple,orange)' by default).}
+\item{colour_map}{A vector of colours for each progenitor. If "FALSE" the colours are choosen using rainbow().}
 
 \item{specific_chr}{A vector of characters indicating which chromosomes to plot (plots all by default).}
 

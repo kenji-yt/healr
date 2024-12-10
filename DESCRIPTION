@@ -20,9 +20,9 @@ Imports:
     DNAcopy,
     doParallel,
     ggplot2,
-    dplyr,
-    dtw,
-    zoo,
     GenomicRanges,
     IRanges,
-    MASS
+    MASS,
+    grDevices,
+    graphics,
+    utils

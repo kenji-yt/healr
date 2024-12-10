@@ -1,93 +1,99 @@
-ref_alt_pair <- function(syn_hits_list,show_which_non_self=TRUE){
-  out_list <- lapply(syn_hits_list,function(path){
+#' Get the genome pairs of the synHits file.
+#'
+#' @param syn_hits_list A list with the GENESPACE output files "synHits.txt.gz".
+#' @param show_which_non_self Output a logical value being TRUE if the pair is not a self hit. Defaults is "TRUE".
+#'
+#' @return A list with one element per genome pair (including self). If show_which_non_self=TRUE the item is a logical value being TRUE if the pair is self hit, else it returns the base name of the file without suffix.
+#'
+ref_alt_pair <- function(syn_hits_list, show_which_non_self = TRUE) {
+  out_list <- lapply(syn_hits_list, function(path) {
     filename <- basename(path)
-    filename <- gsub(".synHits.txt.gz","",filename)
-    which_genomes <- unique(unlist(strsplit(filename,"_vs_")))
-    if(show_which_non_self==TRUE){
-      return(length(which_genomes)!=1)
-    }else{
+    filename <- gsub(".synHits.txt.gz", "", filename)
+    which_genomes <- unique(unlist(strsplit(filename, "_vs_")))
+    if (show_which_non_self == TRUE) {
+      return(length(which_genomes) != 1)
+    } else {
       paste(filename)
     }
   })
   return(unlist(out_list))
 }
 
-parse_genespace_input <- function(genespace_dir){
-
+#' Parse genespace results directory to extract syntenic hits information.
+#' Gets a list with one data table per pair of progenitors. Each data table contains all syntenic anchor pairs (syntenicHits.txt files from GENESPACE).
+#'
+#' @param genespace_dir Path to a directory containing the syntenicHits output directory for GENESPACE.
+#'
+#' @return A list with one data table per pair of progenitors. Each data table contains all syntenic anchor pairs (syntenicHits.txt files from GENESPACE).
+#'
+parse_genespace_input <- function(genespace_dir) {
   # Syntenic hits
-  all_syn_lists <- list.files(genespace_dir,pattern = "synHits.txt.gz$",recursive = TRUE,full.names = TRUE)
-  which_keep <- ref_alt_pair(all_syn_lists,show_which_non_self = TRUE)
+  all_syn_lists <- list.files(genespace_dir, pattern = "synHits.txt.gz$", recursive = TRUE, full.names = TRUE)
+  which_keep <- ref_alt_pair(all_syn_lists, show_which_non_self = TRUE)
   syn_hits_list <- list()
-  for(i in 1:length(all_syn_lists)){
-    if(which_keep[i]==TRUE)  syn_hits_list <- append(syn_hits_list,all_syn_lists[[i]])
+  for (i in 1:length(all_syn_lists)) {
+    if (which_keep[i] == TRUE) syn_hits_list <- append(syn_hits_list, all_syn_lists[[i]])
   }
-  syn_hits_dt_list <- lapply(syn_hits_list, function(synHits_txt){
-    return(data.table::as.data.table(read.table(gzfile(synHits_txt[[1]]), header = TRUE, sep = "\t")))
+  syn_hits_dt_list <- lapply(syn_hits_list, function(synHits_txt) {
+    return(data.table::as.data.table(utils::read.table(gzfile(synHits_txt[[1]]), header = TRUE, sep = "\t")))
   })
 
-  names(syn_hits_dt_list) <- ref_alt_pair(syn_hits_list,show_which_non_self = FALSE)
+  names(syn_hits_dt_list) <- ref_alt_pair(syn_hits_list, show_which_non_self = FALSE)
 
 
-  # Block coordinates
-  block_coord_path <- list.files(genespace_dir,pattern = "syntenicBlock_coordinates.csv",recursive = TRUE,full.names = TRUE)
-  blk_coord_dt <- data.table::fread(block_coord_path)
-
-
-  return(list(syn_hits=syn_hits_dt_list,block_coord=blk_coord_dt))
+  return(syn_hits = syn_hits_dt_list)
 }
 
 
 #' get_conserved_hits
 #'
-#' @param genespace_dir
+#' @param genespace_dir Path to a directory containing the syntenicHits output directory for GENESPACE.
 #'
-#' @return
+#' @return A data table with one row for each anchor set present in all progenitors.
 #'
 #' @importFrom data.table .SD
-get_conserved_anchors <- function(genespace_dir){
-
-  map_dt_list <- parse_genespace_input(genespace_dir)
-  syn_hits_list <- map_dt_list$syn_hits
+get_conserved_anchors <- function(genespace_dir) {
+  syn_hits_list <- parse_genespace_input(genespace_dir)
 
   # Pick on genome as reference and keep only data tables containing this genome.
-  genomes_per_hits_dt_list <- strsplit(names(syn_hits_list),"_vs_")
+  genomes_per_hits_dt_list <- strsplit(names(syn_hits_list), "_vs_")
   reference_genome <- unlist(genomes_per_hits_dt_list)[1]
   which_has_ref <- which(sapply(genomes_per_hits_dt_list, function(x) reference_genome %in% x))
 
   genomes <- c(syn_hits_list[which_has_ref][[1]]$genome1[1], syn_hits_list[which_has_ref][[1]]$genome2[1])
-  ref_index <- which(genomes==reference_genome)
-  ref_chr <- paste0("chr",ref_index)
-  ref_start <- paste0("start",ref_index)
-  ref_end <- paste0("end",ref_index)
-  ref_id <- paste0("id",ref_index)
+  ref_index <- which(genomes == reference_genome)
+  ref_chr <- paste0("chr", ref_index)
+  ref_start <- paste0("start", ref_index)
+  ref_end <- paste0("end", ref_index)
+  ref_id <- paste0("id", ref_index)
 
   merge_dt <- syn_hits_list[which_has_ref][[1]][, .SD, .SDcols = c(ref_chr, ref_start, ref_end, ref_id)]
-  merge_dt <- merge_dt[syn_hits_list[which_has_ref][[1]]$isAnchor==TRUE, ]
-  colnames(merge_dt) <- c(paste0("chr_",reference_genome), paste0("start_",reference_genome), paste0("end_",reference_genome), paste0("id_",reference_genome))
+  merge_dt <- merge_dt[syn_hits_list[which_has_ref][[1]]$isAnchor == TRUE, ]
+  colnames(merge_dt) <- c(paste0("chr_", reference_genome), paste0("start_", reference_genome), paste0("end_", reference_genome), paste0("id_", reference_genome))
 
-  for(hits_dt in syn_hits_list[which_has_ref]){
-
-    anchors_dt <- hits_dt[hits_dt$isAnchor==TRUE, ]
+  for (hits_dt in syn_hits_list[which_has_ref]) {
+    anchors_dt <- hits_dt[hits_dt$isAnchor == TRUE, ]
     genome_1 <- anchors_dt$genome1[1]
     genome_2 <- anchors_dt$genome2[1]
 
-    colnames(anchors_dt)[colnames(anchors_dt)==c("chr1")] <- paste0("chr_",genome_1)
-    colnames(anchors_dt)[colnames(anchors_dt)==c("start1")] <- paste0("start_",genome_1)
-    colnames(anchors_dt)[colnames(anchors_dt)==c("end1")] <- paste0("end_",genome_1)
-    colnames(anchors_dt)[colnames(anchors_dt)==c("id1")] <- paste0("id_",genome_1)
+    colnames(anchors_dt)[colnames(anchors_dt) == c("chr1")] <- paste0("chr_", genome_1)
+    colnames(anchors_dt)[colnames(anchors_dt) == c("start1")] <- paste0("start_", genome_1)
+    colnames(anchors_dt)[colnames(anchors_dt) == c("end1")] <- paste0("end_", genome_1)
+    colnames(anchors_dt)[colnames(anchors_dt) == c("id1")] <- paste0("id_", genome_1)
 
-    colnames(anchors_dt)[colnames(anchors_dt)==c("chr2")] <- paste0("chr_",genome_2)
-    colnames(anchors_dt)[colnames(anchors_dt)==c("start2")] <- paste0("start_",genome_2)
-    colnames(anchors_dt)[colnames(anchors_dt)==c("end2")] <- paste0("end_",genome_2)
-    colnames(anchors_dt)[colnames(anchors_dt)==c("id2")] <- paste0("id_",genome_2)
+    colnames(anchors_dt)[colnames(anchors_dt) == c("chr2")] <- paste0("chr_", genome_2)
+    colnames(anchors_dt)[colnames(anchors_dt) == c("start2")] <- paste0("start_", genome_2)
+    colnames(anchors_dt)[colnames(anchors_dt) == c("end2")] <- paste0("end_", genome_2)
+    colnames(anchors_dt)[colnames(anchors_dt) == c("id2")] <- paste0("id_", genome_2)
 
     merge_dt <- merge(merge_dt, anchors_dt, by = intersect(names(merge_dt), names(anchors_dt)))
 
-    which_relevant <- which(colnames(merge_dt) %in% c(paste0(c("chr_", "start_", "end_", "id_"),genome_1),
-                                     paste0(c("chr_", "start_", "end_", "id_"),genome_2)))
+    which_relevant <- which(colnames(merge_dt) %in% c(
+      paste0(c("chr_", "start_", "end_", "id_"), genome_1),
+      paste0(c("chr_", "start_", "end_", "id_"), genome_2)
+    ))
 
     merge_dt <- merge_dt[, ..which_relevant]
-
   }
 
   return(merge_dt)
@@ -95,47 +101,53 @@ get_conserved_anchors <- function(genespace_dir){
 
 
 
-#' map_bins_to_anchors
+#' Get the bins overlapping with each anchor gene.
 #'
-#' @param heal_list
-#' @param genespace_dir
-#' @param n_threads
-#' @param bin_size
+#' @param heal_list Output list in heal format (such as output from count_heal_data()).
+#' @param genespace_dir Path to a directory containing the syntenicHits output directory for GENESPACE.
+#' @param n_threads Number of threads to use ('1' by default).
 #'
-#' @return
+#' @return A list containing one data table per progenitor with anchors and overlapping bins.
 #'
-map_bins_to_anchors <- function(heal_list, genespace_dir, n_threads){
+map_bins_to_anchors <- function(heal_list, genespace_dir, n_threads) {
+  syn_hits_list <- parse_genespace_input(genespace_dir)
 
-  map_dt_list <- parse_genespace_input(genespace_dir)
-  syn_hits_list <- map_dt_list$syn_hits
-
-  sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
-  polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
+  sample_names <- unlist(lapply(heal_list, function(prog) {
+    setdiff(colnames(prog$bins), c("chr", "start", "end", "mappability", "gc_content"))
+  }))
+  polyploid_samples <- names(table(sample_names))[table(sample_names) == 2]
 
   anchors_dt <- get_conserved_anchors(genespace_dir)
 
   progenitors <- names(heal_list)
 
   syn_anchors_to_bin_dt_list <- list()
-  for(prog in progenitors){
+  for (prog in progenitors) {
+    chr <- paste0("chr_", prog)
+    start <- paste0("start_", prog)
+    end <- paste0("end_", prog)
+    id <- paste0("id_", prog)
 
-    chr <- paste0("chr_",prog)
-    start <- paste0("start_",prog)
-    end <- paste0("end_",prog)
-    id <- paste0("id_",prog)
+    gnm_anchors_ranges <- GenomicRanges::GRanges(
+      seqnames = anchors_dt[[chr]],
+      ranges = IRanges::IRanges(
+        start = anchors_dt[[start]],
+        end = anchors_dt[[end]]
+      ),
+      gene_id = anchors_dt[[id]]
+    )
 
-    gnm_anchors_ranges <- GenomicRanges::GRanges(seqnames = anchors_dt[[chr]],
-                                                  ranges = IRanges::IRanges(start = anchors_dt[[start]],
-                                                                            end = anchors_dt[[end]]),
-                                                  gene_id = anchors_dt[[id]])
-
-    gnm_bin_ranges <- GenomicRanges::GRanges(seqnames = heal_list[[prog]]$CN$chr,
-                                                 ranges = IRanges::IRanges(start = heal_list[[prog]]$CN$start,
-                                                                           end = heal_list[[prog]]$CN$end))
+    gnm_bin_ranges <- GenomicRanges::GRanges(
+      seqnames = heal_list[[prog]]$CN$chr,
+      ranges = IRanges::IRanges(
+        start = heal_list[[prog]]$CN$start,
+        end = heal_list[[prog]]$CN$end
+      )
+    )
 
     gnm_overlap_bins_anchors <- GenomicRanges::findOverlaps(query = gnm_bin_ranges, subject = gnm_anchors_ranges)
 
-    dt_overlap_bins_anchors <- data.table::as.data.table(gnm_overlap_bins_anchors) #Because queryHits does not work..?
+    dt_overlap_bins_anchors <- data.table::as.data.table(gnm_overlap_bins_anchors) # Because queryHits does not work..?
 
     gnm_overlap_widths <- IRanges::width(IRanges::pintersect(gnm_bin_ranges[dt_overlap_bins_anchors$queryHits], gnm_anchors_ranges[dt_overlap_bins_anchors$subjectHits]))
 
@@ -152,40 +164,37 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_threads){
     )
 
     doParallel::registerDoParallel(n_threads)
-    cn_per_sample_list <- foreach::foreach(smp=polyploid_samples)%dopar%{
-
+    cn_per_sample_list <- foreach::foreach(smp = polyploid_samples) %dopar% {
       return(heal_list[[prog]]$CN[[smp]][dt_overlap_bins_anchors$queryHits])
-
     }
     doParallel::stopImplicitCluster()
 
     cn_dt <- data.table::as.data.table(cn_per_sample_list)
     colnames(cn_dt) <- polyploid_samples
 
-    cn_anchors_and_bins_dt <- cbind(gnm_overlap_dt,cn_dt)
-    data.table::setkey(cn_anchors_and_bins_dt, chr,  bin_start, anchor_start, anchor_end, gene_id, gc_content)
+    cn_anchors_and_bins_dt <- cbind(gnm_overlap_dt, cn_dt)
+    data.table::setkey(cn_anchors_and_bins_dt, chr, bin_start, anchor_start, anchor_end, gene_id, gc_content)
 
     syn_anchors_to_bin_dt_list[[prog]] <- cn_anchors_and_bins_dt
-
   }
 
   return(syn_anchors_to_bin_dt_list)
-
 }
 
 
-#' Create data table with anchors and copy number at the anchors
+#' Create heal alignment object.
 #'
-#' @param heal_list
-#' @param genespace_dir
-#' @param n_threads
+#' @param heal_list Output list in heal format (such as output from count_heal_data()).
+#' @param genespace_dir Path to a directory containing the syntenicHits output directory for GENESPACE.
+#' @param n_threads Number of threads to use ('1' by default).
+#' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #'
-#' @return
+#' @return A data table with one row for each anchor set present in all progenitors. The bins overlapping each anchor are given along with a consensus copy number at the anchor based on these bins.
+#' @export
 #'
-get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_threads, prog_ploidy=2){
-
-  cn_exist <- sum(names(heal_list[[1]])=="CN")!=0
-  if(cn_exist!=TRUE){
+get_heal_alignment <- function(heal_list, genespace_dir, n_threads, prog_ploidy = 2) {
+  cn_exist <- sum(names(heal_list[[1]]) == "CN") != 0
+  if (cn_exist != TRUE) {
     cat("ERROR: no CN data. Exiting...")
     return()
   }
@@ -193,91 +202,82 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_threads, pro
   anchors_dt <- get_conserved_anchors(genespace_dir)
   cn_anchors_and_bins <- map_bins_to_anchors(heal_list, genespace_dir, n_threads)
 
-  sample_names <- unlist(lapply(heal_list, function(prog){setdiff(colnames(prog$bins),c("chr", "start", "end", "mappability", "gc_content"))}))
-  polyploid_samples <- names(table(sample_names))[table(sample_names)==2]
+  sample_names <- unlist(lapply(heal_list, function(prog) {
+    setdiff(colnames(prog$bins), c("chr", "start", "end", "mappability", "gc_content"))
+  }))
+  polyploid_samples <- names(table(sample_names))[table(sample_names) == 2]
   progenitors <- names(heal_list)
 
-  total_ploidy <- length(progenitors)*prog_ploidy
+  total_ploidy <- length(progenitors) * prog_ploidy
 
   cat("Likely very ineficient to subset whole dt for each anchor...")
-  cn_alignment_list <- foreach::foreach(smp=polyploid_samples)%dopar%{
-
+  cn_alignment_list <- foreach::foreach(smp = polyploid_samples) %dopar% {
     doParallel::registerDoParallel(n_threads)
 
-    cn_per_anchor_pair_list <- foreach::foreach(i=1:nrow(anchors_dt))%dopar%{
+    cn_per_anchor_pair_list <- foreach::foreach(i = 1:nrow(anchors_dt)) %dopar% {
+      cn_at_anchor_dt_list <- foreach::foreach(prog = progenitors) %do% {
+        anchor_gene <- anchors_dt[[paste0("id_", prog)]][i]
 
-      cn_at_anchor_dt_list <- foreach::foreach(prog=progenitors)%do%{
+        which_rows <- cn_anchors_and_bins[[prog]]$gene_id == anchor_gene
 
-        anchor_gene <- anchors_dt[[paste0("id_",prog)]][i]
-
-        which_rows <- cn_anchors_and_bins[[prog]]$gene_id==anchor_gene
-
-        cn_at_anchor_dt <- cn_anchors_and_bins[[prog]][which_rows,]
+        cn_at_anchor_dt <- cn_anchors_and_bins[[prog]][which_rows, ]
 
         return(cn_at_anchor_dt)
-
       }
       names(cn_at_anchor_dt_list) <- progenitors
 
       # If the anchor overlaps no bin (eg. bin filtered out)
-      if(sum(lapply(cn_at_anchor_dt_list, nrow)==0)!=0){
+      if (sum(lapply(cn_at_anchor_dt_list, nrow) == 0) != 0) {
         return()
-
-      }else{
-
-        unique_cn <- lapply(cn_at_anchor_dt_list, function(dt){ unique(dt[[smp]])})
-        bin_indexes <-lapply(cn_at_anchor_dt_list, function(dt){
-          paste(dt$bin_index, collapse = ",")})
+      } else {
+        unique_cn <- lapply(cn_at_anchor_dt_list, function(dt) {
+          unique(dt[[smp]])
+        })
+        bin_indexes <- lapply(cn_at_anchor_dt_list, function(dt) {
+          paste(dt$bin_index, collapse = ",")
+        })
         bin_index_dt <- data.table::as.data.table(bin_indexes)
-        colnames(bin_index_dt) <- paste0("bin_index_",colnames(bin_index_dt))
+        colnames(bin_index_dt) <- paste0("bin_index_", colnames(bin_index_dt))
 
         # Unique CN in all genomes
-        if(sum(unlist(lapply(unique_cn,length)))==length(unique_cn)){
-
+        if (sum(unlist(lapply(unique_cn, length))) == length(unique_cn)) {
           unique_cn_dt <- data.table::as.data.table(unique_cn)
-          colnames(unique_cn_dt) <- paste0("cn_",colnames(unique_cn_dt))
+          colnames(unique_cn_dt) <- paste0("cn_", colnames(unique_cn_dt))
 
-          output_dt <- cbind(anchors_dt[i,], unique_cn_dt, bin_index_dt, data.table::data.table(method="unique"))
+          output_dt <- cbind(anchors_dt[i, ], unique_cn_dt, bin_index_dt, data.table::data.table(method = "unique"))
           return(output_dt)
 
-        # Find most concordant CN combination (heuristic solution)
-        }else{
-
+          # Find most concordant CN combination (heuristic solution)
+        } else {
           cartesian_product <- data.table::as.data.table(expand.grid(unique_cn))
-          most_concordant <- which(abs(rowSums(cartesian_product)-total_ploidy)==min(abs(rowSums(cartesian_product)-total_ploidy)))
+          most_concordant <- which(abs(rowSums(cartesian_product) - total_ploidy) == min(abs(rowSums(cartesian_product) - total_ploidy)))
 
-          concordant_combinations <- cartesian_product[most_concordant,]
+          concordant_combinations <- cartesian_product[most_concordant, ]
 
           # if multiple equally concordant combinations, pick the one with most overlap
           # Note that we consider copy number of same value at start and end of the gene as equivalent
-          if(nrow(concordant_combinations)>1){
-
+          if (nrow(concordant_combinations) > 1) {
             overlaps <- apply(concordant_combinations, 1, function(row) {
-
-              overlaps <- foreach::foreach(prog=names(row))%do%{
-                which_row <- cn_at_anchor_dt_list[[prog]][[smp]]==row[[prog]]
+              overlaps <- foreach::foreach(prog = names(row)) %do% {
+                which_row <- cn_at_anchor_dt_list[[prog]][[smp]] == row[[prog]]
                 overlap <- sum(cn_at_anchor_dt_list[[prog]]$overlap_width[which_row])
                 return(overlap)
               }
               sum(unlist(overlaps))
-
             })
 
             unique_cn_dt <- concordant_combinations[which.max(overlaps)]
-            colnames(unique_cn_dt) <- paste0("cn_",colnames(unique_cn_dt))
+            colnames(unique_cn_dt) <- paste0("cn_", colnames(unique_cn_dt))
 
-            output_dt <- cbind(anchors_dt[i,], unique_cn_dt, bin_index_dt, data.table::data.table(method="multiple_overlap"))
+            output_dt <- cbind(anchors_dt[i, ], unique_cn_dt, bin_index_dt, data.table::data.table(method = "multiple_overlap"))
             return(output_dt)
-
-          }else{
-
+          } else {
             unique_cn_dt <- concordant_combinations
-            colnames(unique_cn_dt) <- paste0("cn_",colnames(unique_cn_dt))
+            colnames(unique_cn_dt) <- paste0("cn_", colnames(unique_cn_dt))
 
-            output_dt <- cbind(anchors_dt[i,], unique_cn_dt, bin_index_dt, data.table::data.table(method="multiple_unique"))
+            output_dt <- cbind(anchors_dt[i, ], unique_cn_dt, bin_index_dt, data.table::data.table(method = "multiple_unique"))
             return(output_dt)
           }
-
         }
       }
     }
@@ -288,252 +288,11 @@ get_cn_alignment_by_anchors <- function(heal_list, genespace_dir, n_threads, pro
     alignment$status <- rep("concordant", nrow(alignment))
 
     cn_col <- grep("cn_", colnames(alignment))
-    discordant_cols <- rowSums(alignment[, ..cn_col])!=prog_ploidy*length(heal_list)
+    discordant_cols <- rowSums(alignment[, ..cn_col]) != prog_ploidy * length(heal_list)
     alignment$status[discordant_cols] <- "discordant"
     return(alignment)
-
   }
 
   names(cn_alignment_list) <- polyploid_samples
   return(cn_alignment_list)
-
 }
-
-
-
-#' Get data for DBSCAN copy number re-evaluation
-#'
-#' @param alignment
-#' @param heal_list
-#' @param n_threads
-#' @param prog_ploidy
-#' @param n_points The n parameter for MASS::kde2d(). "Number of grid points in each direction. Can be scalar or a length-2 integer vector". Default is 1000.
-#'
-#' @return
-#' @export
-#'
-get_concordant_density <- function(alignment, heal_list, n_threads, prog_ploidy=2, n_points=1000){
-
-  polyploid_samples <- names(alignment)
-  progenitors <- names(heal_list)
-  total_ploidy <- length(progenitors)*prog_ploidy
-
-
-  doParallel::registerDoParallel(n_threads)
-  cn_count_type_dt_list <- foreach::foreach(smp=polyploid_samples)%dopar%{
-
-    concordant_and_unique <- alignment[[smp]]$status=="concordant" & alignment[[smp]]$method=="unique"
-
-    dt_per_prog_list <- foreach::foreach(prog=progenitors)%do%{
-
-      bin_index_col <- paste0("bin_index_", prog)
-      cn_col <- paste0("cn_", prog)
-
-      cc_and_u_bins <- apply(alignment[[smp]][concordant_and_unique, ..bin_index_col], 1, function(row){
-        strsplit(row,",")
-      })
-
-      cc_and_u_rows <- as.numeric(unique(unlist(cc_and_u_bins)))
-
-      chr_vec <- heal_list[[prog]]$CN$chr[cc_and_u_rows]
-      start_vec <- heal_list[[prog]]$CN$start[cc_and_u_rows]
-      cc_and_u_dt <- data.table::data.table(chr=chr_vec, start=start_vec)
-      data.table::setkey(cc_and_u_dt, chr, start)
-      cc_and_u_dt <- merge(heal_list[[prog]]$bins, cc_and_u_dt, by = c("chr", "start"))
-      col_keep <- c("chr", "start", "gc_content", smp)
-      cc_and_u_dt <- cc_and_u_dt[, ..col_keep]
-      data.table::setkey(cc_and_u_dt, chr, start)
-      colnames(cc_and_u_dt) <- c("chr", "start", "gc_content", paste0("count_",smp))
-      cc_and_u_dt <- merge(heal_list[[prog]]$CN, cc_and_u_dt, by = c("chr", "start", "gc_content"))
-      col_keep <- c("chr", "start", "gc_content", paste0("count_",smp), smp)
-      cc_and_u_dt <- cc_and_u_dt[, ..col_keep]
-      colnames(cc_and_u_dt) <- c("chr", "start", "gc_content", "count", "cn")
-
-      cc_and_u_dt <- cc_and_u_dt[!is.na(cc_and_u_dt$count), ]
-      return(cc_and_u_dt)
-    }
-
-    total_dt <- data.table::rbindlist(dt_per_prog_list)
-    key_colname <- c("chr", "start", "gc_content", "cn")
-    data.table::setkeyv(total_dt, key_colname)
-
-    return(total_dt)
-  }
-  doParallel::stopImplicitCluster()
-
-  names(cn_count_type_dt_list) <- polyploid_samples
-
-  doParallel::registerDoParallel(n_threads)
-  density_list <- foreach::foreach(smp=polyploid_samples)%do%{
-
-    cn_groups <- unique(cn_count_type_dt_list[[smp]]$cn)
-
-    density_by_cn_list <- foreach::foreach(cn=cn_groups)%do%{
-
-      which_rows <- cn_count_type_dt_list[[smp]]$cn==cn
-
-      density <- MASS::kde2d(cn_count_type_dt_list[[smp]]$gc_content[which_rows], cn_count_type_dt_list[[smp]]$count[which_rows], n = n_points)
-
-      return(density)
-    }
-    names(density_by_cn_list) <- paste0("cn_", cn_groups)
-    return(density_by_cn_list)
-  }
-  doParallel::stopImplicitCluster()
-  names(density_list) <- polyploid_samples
-
-  return(density_list)
-}
-
-#' Title
-#'
-#' @param densities
-#' @param alignment
-#' @param heal_list
-#' @param n_threads
-#' @param prog_ploidy
-#'
-#' @return
-#' @export
-#'
-#' @examples
-correct_cn_with_density <- function(densities, alignment, heal_list, n_threads, prog_ploidy=2){
-
-  polyploid_samples <- names(densities)
-  progenitors <- names(heal_list)
-
-  corrected_alignment <- foreach::foreach(smp=polyploid_samples)%do%{
-
-    corrected_aln_dt <- alignment[[smp]]
-    which_discord <- which(corrected_aln_dt$status=="discordant")
-
-    doParallel::registerDoParallel(n_threads)
-    corrected_discordant_list <- foreach::foreach(a=which_discord)%dopar%{
-
-      print(a)
-      row <- corrected_aln_dt[a, ]
-      valid_cn_at_anchor_list <- foreach::foreach(prog=progenitors)%do%{
-
-        cn_col_name <- paste0("cn_", prog)
-        bin_col_name <- paste0("bin_index_", prog)
-        bindex_vec <- as.numeric(unlist(strsplit(row[[bin_col_name]], ",")))
-
-        chr_vec <- heal_list[[prog]]$CN$chr[bindex_vec]
-        start_vec <- heal_list[[prog]]$CN$start[bindex_vec]
-
-        merged_dt <- merge(heal_list[[prog]]$bins, data.table::data.table(chr=chr_vec, start=start_vec))
-        col_keep <- c("gc_content", smp)
-        merged_dt <- merged_dt[, ..col_keep]
-        merged_dt$cn <- rep(row[[cn_col_name]], length(bindex_vec))
-
-        valid_cn_list <- foreach::foreach(i=1:nrow(merged_dt))%do%{
-
-          density_at_cn_list <- foreach::foreach(cn=names(densities[[smp]]))%do%{
-            x_idx <- which.min(abs(densities[[smp]][[cn]]$x - merged_dt$gc_content[i]))
-            y_idx <- which.min(abs(densities[[smp]][[cn]]$y - merged_dt[[smp]][i]))
-            dens_bin <-  densities[[smp]][[cn]]$z[x_idx, y_idx]
-            return(dens_bin)
-          }
-          names(density_at_cn_list) <- names(densities[[smp]])
-          density_at_cn <- unlist(density_at_cn_list)
-
-          current_cn_name <- paste0("cn_", merged_dt$cn[i])
-
-          if(length(intersect(current_cn_name, names(density_at_cn_list)))==0){
-
-            which_best <- which.max(density_at_cn_list)
-            valid_cn <- as.numeric(gsub("cn_", "", names(density_at_cn_list)[which_best]))
-            densities_valid <- unlist(density_at_cn_list[which_best])
-            return(data.table::data.table(cn=valid_cn, densities=densities_valid))
-
-          }else{
-
-            which_better_or_equal <- density_at_cn>=density_at_cn[current_cn_name]
-
-            valid_cn <- as.numeric(gsub("cn_", "", names(density_at_cn_list)[which_better_or_equal]))
-            densities_valid <- unlist(density_at_cn_list[which_better_or_equal])
-            return(data.table::data.table(cn=valid_cn, densities=densities_valid))
-          }
-        }
-
-        possible_cn <- unique(unlist(lapply(valid_cn_list, function(dt) dt$cn)))
-
-        best_density <- foreach::foreach(cn=possible_cn)%do%{
-          return(max(unlist(lapply(valid_cn_list, function(dt) {
-            return(dt$densities[dt$cn==cn])
-          }))))
-        }
-
-        return(data.table::data.table(cn=possible_cn, max_density=unlist(best_density)))
-      }
-
-      names(valid_cn_at_anchor_list) <- progenitors
-
-      cn_only_list <- lapply(valid_cn_at_anchor_list, function(dt) dt$cn)
-      all_combinations <- expand.grid(cn_only_list)
-      which_concordant <- rowSums(all_combinations)==prog_ploidy*length(progenitors)
-
-      concordant_combinations <- all_combinations[which_concordant, ]
-
-      if(sum(which_concordant)>1){
-
-        sum_density_list <- apply(concordant_combinations, 1, function(row){
-          density_sum <- 0
-          for(i in 1:length(row)){
-            prog <- names(row)[i]
-            which_cn_row <- valid_cn_at_anchor_list[[prog]]$cn==row[i]
-            density_sum <- density_sum + valid_cn_at_anchor_list[[prog]]$max_density[which_cn_row]
-          }
-
-        return(density_sum)
-
-        })
-
-        which_max_density_combination <- which.max(unlist(sum_density_list))
-        replacement_dt <- concordant_combinations[which_max_density_combination, ]
-        colnames(replacement_dt) <- paste0("cn_", colnames(replacement_dt))
-
-        for(col_name in colnames(replacement_dt)){
-          data.table::set(corrected_aln_dt, i = a, j = col_name, value = replacement_dt[[col_name]])
-        }
-        corrected_aln_dt[a, status :="corrected_multiple"]
-      }else if(sum(which_concordant)==1){
-
-        replacement_dt <- concordant_combinations
-        colnames(replacement_dt) <- paste0("cn_", colnames(replacement_dt))
-
-        for(col_name in colnames(replacement_dt)){
-          data.table::set(corrected_aln_dt, i = a, j = col_name, value = replacement_dt[[col_name]])
-        }
-        corrected_aln_dt[a, status :="corrected_single"]
-      }
-      return(corrected_aln_dt[a, ])
-
-    }
-    doParallel::stopImplicitCluster()
-
-    merge_dt <- data.table::rbindlist(corrected_discordant_list)
-    merge_dt <- merge(corrected_aln_dt, merge_dt, by=paste0("id_",progenitors), all.x=TRUE, suffixes = c("_original", "_corrected"))
-
-    col_names_change <- c(paste0("cn_", progenitors), "status")
-    for(col_name in col_names_change){
-      original_colname <- paste0(col_name, "_original")
-      corrected_colname <- paste0(col_name, "_corrected")
-      merge_dt[!is.na(get(corrected_colname)), (original_colname) := get(corrected_colname)]
-    }
-
-    colnames_remove <- grep("_corrected$", colnames(merge_dt), value=TRUE)
-    merge_dt[, (colnames_remove):= NULL]
-
-    colnames_rename <- grep("_original$", colnames(merge_dt), value=TRUE)
-    replacement <- sub("_original", "", colnames_rename)
-    data.table::setnames(merge_dt, colnames_rename, replacement)
-
-    return(merge_dt)
-  }
-
-  names(corrected_alignment) <- names(alignment)
-  return(corrected_alignment)
-}
-
-

@@ -8,7 +8,8 @@ filter_bins(
   heal_list,
   mappability_threshold = 0.9,
   gc_quantile = FALSE,
-  count_threshold = 3
+  count_threshold = 3,
+  replace_by_NA = TRUE
 )
 }
 \arguments{
@@ -20,7 +21,7 @@ filter_bins(
 
 \item{count_threshold}{How many standard deviations away from the count mean to consider a bin as outlier. Set to 'FALSE' for no count filtering (3 by default).}
 
-\item{replace_by_NA}{Should outliers count values be set to NA ('FALSE' by default). Otherwise outliers are set to the threshold defined by count_threshold.}
+\item{replace_by_NA}{Should outliers count values be set to NA ('TRUE' by default). Otherwise outliers are set to the threshold defined by count_threshold.}
 }
 \value{
 A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
