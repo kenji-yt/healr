@@ -9,7 +9,6 @@
 #' @return A data table with GC, mappability and count per bin.
 #' @export
 #'
-#' @examples
 parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names, bin_size) {
   counts_dt <- data.table::as.data.table(feature_count_list$counts)
   colnames(counts_dt) <- sample_names
