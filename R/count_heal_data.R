@@ -7,7 +7,6 @@
 #' @param bin_size Bin size.
 #'
 #' @return A data table with GC, mappability and count per bin.
-#' @export
 #'
 parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names, bin_size) {
   counts_dt <- data.table::as.data.table(feature_count_list$counts)
@@ -32,33 +31,6 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names, b
   data.table::setkey(out_dt, chr, start, gc_content, mappability)
 
   return(out_dt)
-}
-
-#' Parse feature count output for genes and merge to gc and mappability.
-#'
-#' @param gene_counts_list Feature counts output list.
-#' @param sample_names Sample names.
-#'
-#' @return A data table with GC, mappability and count per gene.
-#' @export
-#'
-parse_counts_genes <- function(gene_counts_list, sample_names) {
-  gene_count_dt <- data.table::as.data.table(gene_counts_list$counts)
-  colnames(gene_count_dt) <- sample_names
-
-  gene_count_dt$GeneID <- rownames(gene_counts_list$counts)
-
-  gene_count_dt <- merge(data.table::as.data.table(gene_counts_list$annotation), gene_count_dt, by = "GeneID")
-  colnames(gene_count_dt)[colnames(gene_count_dt) == "Chr"] <- "chr"
-  colnames(gene_count_dt)[colnames(gene_count_dt) == "Start"] <- "start"
-  colnames(gene_count_dt)[colnames(gene_count_dt) == "End"] <- "end"
-  colnames(gene_count_dt)[colnames(gene_count_dt) == "End"] <- "end"
-  colnames(gene_count_dt)[colnames(gene_count_dt) == "Length"] <- "length"
-  colnames(gene_count_dt)[colnames(gene_count_dt) == "Strand"] <- "strand"
-
-  data.table::setkey(gene_count_dt, GeneID, chr, start, end, length)
-
-  return(gene_count_dt)
 }
 
 
@@ -138,7 +110,7 @@ count_heal_data <- function(input_dir, n_threads = 1, bin_size, paired_end, full
     prog_dirs <- all_dirs[grepl(prog, all_dirs)]
     bam_paths <- list.files(prog_dirs, pattern = ".bam$", full.names = TRUE, recursive = TRUE)
 
-    feature_count_list <- Rsubread::featureCounts(bam_paths, annot.ext = anno_bins, isPairedEnd = paired_end, nthreads = n_threads, allowMultiOverlap = T)
+    feature_count_list <- Rsubread::featureCounts(bam_paths, annot.ext = anno_bins, isPairedEnd = paired_end, nthreads = n_threads, allowMultiOverlap = TRUE)
 
     sample_names <- basename(dirname(dirname(bam_paths)))
     if (sum(sample_names == "progenitors") > 0) { # give random name.
@@ -148,38 +120,8 @@ count_heal_data <- function(input_dir, n_threads = 1, bin_size, paired_end, full
     }
 
     count_dt <- parse_counts_bins(feature_count_list = feature_count_list, gc_dt = gc_dt, map_dt = map_dt, sample_names = sample_names, bin_size = bin_size)
-
-
-    # genes --------------------
-
-    # find & parse all annotations in input directory
-    annotations <- list.files(path = input_dir, pattern = "\\.gff$", full.names = TRUE, recursive = TRUE)
-    prog_anno <- unlist(lapply(strsplit(annotations, "/|\\\\"), function(v) {
-      v[length(v) - 1]
-    }))
-    names(annotations) <- prog_anno
-
-    # if there is 1 gene annotation files
-    if (sum(sort(prog_anno) == sort(progenitors)) == length(prog_anno)) {
-      genes_saf <- paste0(dirname(annotations[prog]), "/genes_", prog, ".saf")
-
-      Rgff::saf_from_gff(annotations[prog], outFile = genes_saf, features = c("gene"), forceOverwrite = TRUE)
-
-      gene_counts_list <- Rsubread::featureCounts(bam_paths, annot.ext = genes_saf, isPairedEnd = paired_end, nthreads = n_threads, allowMultiOverlap = TRUE)
-
-      genes_dt <- parse_counts_genes(gene_counts_list = gene_counts_list, sample_names = sample_names)
-
-      if (full_output == TRUE) {
-        feature_count_results <- list(bins = feature_count_list, genes = gene_counts_list)
-
-        return(list(bins = count_dt, genes = genes_dt, feature_count_results = feature_count_results))
-      } else {
-        return(list(bins = count_dt, genes = genes_dt))
-      }
-    } else {
-      cat(paste("NOTE: No annotations found, only inferring HE patterns."))
-      return(list(bins = count_dt))
-    }
+    
+    return(list(bins = count_dt))
   }
 
   names(counts) <- progenitors

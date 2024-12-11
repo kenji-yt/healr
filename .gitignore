@@ -5,3 +5,4 @@
 .DS_Store
 .quarto
 .healr.Rproj
+inst/doc

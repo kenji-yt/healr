@@ -1,6 +1,6 @@
 #' Infer copy number using Circular Binary Segmentation (from DNAcopy)
 #'
-#' @param counts Output list in heal format (such as output from count_heal_data() or filter_bins()).
+#' @param heal_list Output list in heal format (such as output from count_heal_data() or filter_bins()).
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param method Method to infered copy number in each segment ('median' or 'mean'. 'median' by default).
