@@ -109,7 +109,7 @@ get_conserved_anchors <- function(genespace_dir) {
 #'
 #' @return A list containing one data table per progenitor with anchors and overlapping bins.
 #'
-map_bins_to_anchors <- function(heal_list, genespace_dir, n_threads) {
+map_bins_to_anchors <- function(heal_list, genespace_dir, n_threads=1) {
   syn_hits_list <- parse_genespace_input(genespace_dir)
 
   sample_names <- unlist(lapply(heal_list, function(prog) {
@@ -192,7 +192,7 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_threads) {
 #' @return A data table with one row for each anchor set present in all progenitors. The bins overlapping each anchor are given along with a consensus copy number at the anchor based on these bins.
 #' @export
 #'
-get_heal_alignment <- function(heal_list, genespace_dir, n_threads, prog_ploidy = 2) {
+get_heal_alignment <- function(heal_list, genespace_dir, n_threads=1, prog_ploidy = 2) {
   cn_exist <- sum(names(heal_list[[1]]) == "CN") != 0
   if (cn_exist != TRUE) {
     cat("ERROR: no CN data. Exiting...")

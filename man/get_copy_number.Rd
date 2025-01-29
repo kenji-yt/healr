@@ -5,7 +5,7 @@
 \title{Infer copy number using Circular Binary Segmentation (from DNAcopy)}
 \usage{
 get_copy_number(
-  counts,
+  heal_list,
   n_threads = 1,
   prog_ploidy = 2,
   method = "median",
@@ -13,7 +13,7 @@ get_copy_number(
 )
 }
 \arguments{
-\item{counts}{Output list in heal format (such as output from count_heal_data() or filter_bins()).}
+\item{heal_list}{Output list in heal format (such as output from count_heal_data() or filter_bins()).}
 
 \item{n_threads}{Number of threads to use ('1' by default).}
 

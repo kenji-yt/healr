@@ -4,7 +4,7 @@
 \alias{map_bins_to_anchors}
 \title{Get the bins overlapping with each anchor gene.}
 \usage{
-map_bins_to_anchors(heal_list, genespace_dir, n_threads)
+map_bins_to_anchors(heal_list, genespace_dir, n_threads = 1)
 }
 \arguments{
 \item{heal_list}{Output list in heal format (such as output from count_heal_data()).}

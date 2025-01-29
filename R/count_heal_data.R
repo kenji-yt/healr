@@ -40,7 +40,7 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names, b
 #' @param n_threads Number of threads to use with featureCounts ('1' by default)
 #' @param bin_size Bin size.
 #' @param paired_end Logical: Is the data paired end.
-#' @param full_output Logical: Do you want to also get the full featureCounts output ('FALSE' by default).
+#' @param full_output Logical: Do you want to also get the full featureCounts output ('FALSE' by default). This can be usefull for debugging. 
 #'
 #' @return A list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
 #' @export
@@ -121,7 +121,12 @@ count_heal_data <- function(input_dir, n_threads = 1, bin_size, paired_end, full
 
     count_dt <- parse_counts_bins(feature_count_list = feature_count_list, gc_dt = gc_dt, map_dt = map_dt, sample_names = sample_names, bin_size = bin_size)
     
-    return(list(bins = count_dt))
+    if(full_output==FALSE){
+      return(list(bins = count_dt))
+    }else if(full_output==TRUE){
+      return(list(bins = count_dt, feature_counts_output=feature_count_list))
+    }
+    
   }
 
   names(counts) <- progenitors

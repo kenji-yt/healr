@@ -4,7 +4,7 @@
 \alias{get_heal_alignment}
 \title{Create heal alignment object.}
 \usage{
-get_heal_alignment(heal_list, genespace_dir, n_threads, prog_ploidy = 2)
+get_heal_alignment(heal_list, genespace_dir, n_threads = 1, prog_ploidy = 2)
 }
 \arguments{
 \item{heal_list}{Output list in heal format (such as output from count_heal_data()).}

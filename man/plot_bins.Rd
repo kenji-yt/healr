@@ -10,7 +10,7 @@ plot_bins(
   output_dir = FALSE,
   n_threads = 1,
   prog_ploidy = 2,
-  plot_cn = TRUE,
+  plot_cn = FALSE,
   add_bins = TRUE,
   colour_map = FALSE,
   specific_chr = FALSE,
@@ -18,7 +18,7 @@ plot_bins(
 )
 }
 \arguments{
-\item{heal_list}{Output list in heal format (such as output from count_heal_data())}
+\item{heal_list}{Output list in heal format (such as output from count_heal_data()).}
 
 \item{quick_view_sample}{The name of a sample to plot (as character)('FALSE' by default).}
 
@@ -28,7 +28,7 @@ plot_bins(
 
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default).}
 
-\item{plot_cn}{Logical: plot a line indicating infered copy number ('TRUE' by default in CN has been estimated).}
+\item{plot_cn}{Logical: plot a line indicating infered copy number ('FALSE' by default in CN has been estimated).}
 
 \item{add_bins}{Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).}
 

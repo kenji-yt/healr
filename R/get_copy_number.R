@@ -11,25 +11,25 @@
 #'
 #' @importFrom foreach %dopar%
 #' @importFrom foreach %do%
-get_copy_number <- function(counts, n_threads = 1, prog_ploidy = 2, method = "median", full_output = FALSE) {
+get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "median", full_output = FALSE) {
   if (intersect(method, c("median", "mean")) == 0 || length(method) != 1) {
     cat("ERROR: Invalid method input. Choose either 'median' or 'mean'")
     return()
   }
 
-  progenitors <- names(counts)
-  sample_name_per_prog <- lapply(counts, function(df) {
+  progenitors <- names(heal_list)
+  sample_name_per_prog <- lapply(heal_list, function(df) {
     setdiff(colnames(df$bins), c("chr", "start", "mappability", "gc_content", "end"))
   })
   samples <- unique(unlist(sample_name_per_prog))
 
-  sample_averages <- get_sample_stats(counts, method = method)
+  sample_averages <- get_sample_stats(heal_list, method = method)
 
   names(sample_averages) <- samples
 
 
   cn_list <- foreach::foreach(pr_name = progenitors) %do% {
-    prog <- counts[[pr_name]]$bins
+    prog <- heal_list[[pr_name]]$bins
 
     sample_current_prog <- unlist(sample_name_per_prog[[pr_name]])
 
@@ -56,9 +56,9 @@ get_copy_number <- function(counts, n_threads = 1, prog_ploidy = 2, method = "me
     data.table::setkey(cn_dt, chr, start, end, gc_content)
 
     if (full_output == TRUE) {
-      return(list(bins = counts[[pr_name]]$bins, genes = counts[[pr_name]]$genes, CN = cn_dt, DNAcopy = sgmnts))
+      return(list(bins = heal_list[[pr_name]]$bins, CN = cn_dt, DNAcopy = sgmnts))
     } else {
-      return(list(bins = counts[[pr_name]]$bins, genes = counts[[pr_name]]$genes, CN = cn_dt))
+      return(list(bins = heal_list[[pr_name]]$bins, CN = cn_dt))
     }
   }
 

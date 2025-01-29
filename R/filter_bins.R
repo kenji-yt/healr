@@ -23,7 +23,7 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FA
           df$bins[[smp]][df$bins[[smp]] > threshold_value] <- threshold_value
         }
       }
-      return(list(bins = df$bins, genes = df$genes))
+      return(list(bins = df$bins))
     })
     names(filtered_list) <- names(heal_list)
     heal_list <- filtered_list
@@ -65,7 +65,7 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FA
 
     filtered_df <- prog$bins[which_keep, ]
 
-    return(list(bins = filtered_df, genes = prog$genes))
+    return(list(bins = filtered_df))
   }
 
   if (count_threshold != FALSE) {

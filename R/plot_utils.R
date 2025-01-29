@@ -87,7 +87,7 @@ plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, 
           out_file <- paste0(ref_dir, "/", prog, "/", chr, ".png")
         }
 
-        cat("REMOVE THIS LATTER")
+        
         which_bin_rows <- heal_list[[prog]]$bins$chr == chr
         which_cn_rows <- heal_list[[prog]]$CN$chr == chr
 
@@ -171,6 +171,7 @@ plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, 
 #' @export
 #'
 plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, colour_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
+  
   if (!add_bins %in% c(FALSE, "ref", "alt")) {
     cat("ERROR: Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'alt'. Exiting..")
     return()
