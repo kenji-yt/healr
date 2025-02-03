@@ -14,11 +14,11 @@ knitr::opts_chunk$set(
 )
 ```
 ## Introduction
-The process of homoeologous exchange (HE) leads to reciprocal copy number variation between the subgenomes of an allopolyploid (REF). The **healr** package offers a suite of functions to extract meaningful HE related metrics from allopolyploid data using copy number analysis and synteny analysis. Inputs for **healr** are bam files (with whole-genome sequencing reads, either DNA or WGBS (whole genome bisulfite sequencing)) sorted by subgenome (for example using EAGLE-RC (Kuo et al., 2020)), synteny information between the subgenomes obtained using GENESPACE (Lovell et al., 2022) and measures of mappability from genmap (Pockrandt et al., 2020) and GC content, both evaluated within bins in each subgenome. 
+The process of homoeologous exchange (HE) leads to reciprocal copy number variation between the subgenomes of an allopolyploid (Mason & Wendel, 2020). The **healr** package offers a suite of functions to extract meaningful HE related metrics from allopolyploid whole-genome sequencing data using copy number analysis and synteny analysis. **healr** takes as input bam files (from regular or bisulfite treated DNA sequencing reads) sorted by subgenome (for example using EAGLE-RC (Kuo et al., 2020)), synteny information between the subgenomes obtained using GENESPACE (Lovell et al., 2022), measures of mappability from genmap (Pockrandt et al., 2020) averaged within bins and GC content within the same bins. 
 
-**healr** is part of a suite of tools comprising the HEAL (Homoeologous Exchange Automated Labelling) automated workflow (INSERT LINK SOON). HEAL strings together automated workflows for read-sorting ([snake-EAGLE-RC](https://github.com/kenji-yt/snake-EAGLE-RC)) and synteny inference ([snake-GENESPACE](https://github.com/kenji-yt/snake-GENESPACE)), tools for mappability and GC content calculation and **healr** into a single overarching analysis tool.
+**healr** is part of the HEAL (Homoeologous Exchange Automated Labelling) automated workflow (link here soon). HEAL strings together automated workflows for read-sorting ([snake-EAGLE-RC](https://github.com/kenji-yt/snake-EAGLE-RC)) and synteny inference ([snake-GENESPACE](https://github.com/kenji-yt/snake-GENESPACE)), tools for mappability and GC content calculation and **healr** into a single overarching HE analysis.
 
-To make HE inference easier and more reproducible we suggest using **healr** within HEAL. Users can then manually repeat and modify the final steps of the workflow in R using the **healr** functions shown below.
+To make your analysis easier and more reproducible we suggest using **healr** within HEAL. Users can then manually repeat and modify the final steps of the workflow in R using the **healr** functions shown below.
 
 You can install **healr** from bioconductor. Then you load and attach it normally.  
 ```{r setup}
@@ -28,43 +28,47 @@ library(healr)
 
 ## Input Data 
 
-You should have the following input directory: 
+*healr* requires the following input directory: 
 ```
 input_directory/
 ├── progenitors/
-│   ├── subgenome_1/
-│   │   ├── bin_definition_file.bed
-│   │   ├── mappability_in_bins_file.bed
-│   │   ├── gc_content_in_bins_file.bed
+│   ├── progenitor_1/
+│   │   ├── progenitor_1_bins.bed
+│   │   ├── progenitor_1_mappability.bed
+│   │   ├── progenitor_1_gc.bed
 │   │   └── any_progenitor_species_sample.bam
-│   ├── subgenome_2/
-│   │   ├── bin_definition_file.bed
-│   │   ├── mappability_in_bins_file.bed
-│   │   ├── gc_content_in_bins_file.bed
+│   ├── progenitor_2/
+│   │   ├── progenitor_2_bins.bed
+│   │   ├── progenitor_2_mappability.bed
+│   │   ├── progenitor_2_gc.bed
 │   │   └── any_progenitor_species_sample.bam
 │   └── etc...
 └── polyploids/
-    └── "data type" (either WGBS or DNA)/
-        ├── sample_1/
-        │   ├── subgenome_1/
-        │   │   └── subgenome_1_assigned_reads.bam
-        │   ├── subgenome_2/
-        │   │   └── subgenome_2_assigned_reads.bam
-        │   └── etc...
-        ├── sample_2/
-        │   ├── subgenome_1/
-        │   │   └── subgenome_1_assigned_reads.bam
-        │   ├── subgenome_2/
-        │   │   └── subgenome_2_assigned_reads.bam
-        │   └── etc...
-        └── etc...
+    ├── sample_1/
+    │   ├── progenitor_1/
+    │   │   └── progenitor_1_assigned_reads.bam
+    │   ├── progenitor_2/
+    │   │   └── progenitor_2_assigned_reads.bam
+    │   └── etc...
+    ├── sample_2/
+    │   ├── progenitor_1/
+    │   │   └── progenitor_1_assigned_reads.bam
+    │   ├── progenitor_2/
+    │   │   └── progenitor_2_assigned_reads.bam
+    │   └── etc...
+    └── etc...
 ```
-You can name the directories and files as you wish, except for the directories "polyploids" and "progenitors" which must keep these names, and the "data type" directory which must be called either "WGBS" or "DNA", depending on your input data type. The names of the progenitor/subgenome and polyploid sample directories will be used to name variables related to the samples in the R objects. 
-The bins definition file is a bed file containing the start and stop coordinates of each bin. You must use this file to extract GC content and average per base pair mappability values in bins. In HEAL, the bin definition file is create with "bedtools makewindow" (Quinlan & Hall, 2010). GC content is then counted in these bins using "bedtools nuc". Average per base pair mappability must also be computed in these bins. In HEAL, this is done using a custom awk script on genmap outputs. 
+It has two directories called "polyploids" and "progenitors". You can name the progenitor and polyploid sample directories as you wish, as long as each sample has one directory for each progenitor. 
+Note that the names you give to these directories will be used to name variables related to the samples and progenitors within the R objects and plots. It is therefore a good idea to name them appropriately.   
+Files ending in "bins.bed" are bed files defining the start and stop coordinates of each bin. You must use these files to extract GC content (files ending in "gc.bed") and average per base mappability within bins (files ending in "mappability.bed"). In HEAL, the "bins.bed" files are create with "bedtools makewindow" (Quinlan & Hall, 2010). GC content is then counted in these bins using "bedtools nuc". Average per base pair mappability must also be computed in these bins. In HEAL, this is done using a custom awk script on genmap outputs. 
+
+If you use HEAL, one of the outputs will be a *healr* input directory which you can then manually re-analyse. 
 
 ## Parsing the input directory
 
-The first step is to create a "heal list object" by parsing the input directory and counting reads in bins for each bam file using featureCounts (Liao et al., 2014). The heal list object is just a standard list with one item for each subgenome. These items are themselves lists with at least a "bins" item which is a data table containing the genomic position, GC content, average mappability and read count for each sample in bins. Later there will also be a "CN" item which is a data table with inferred copy number instead of read counts. You parse the input directory using count_heal_data().
+The first step in a **healr** analysis is to create a "heal list object" by parsing the input directory and counting reads in bins for each bam file using featureCounts (Liao et al., 2014). The heal list object is just a standard list with one item for each subgenome. These items are themselves lists with at least a "bins" item which is a data table containing the genomic position, GC content, average mappability and read count for each sample in bins. Later there will also be a "CN" item which is a data table with inferred copy number instead of read counts. 
+
+You parse the input directory using count_heal_data().
 ```{r, include = FALSE}
 input_directory <- "/srv/kenlab/kenji/heal_dirs/test_input_dir/"
 genespace_output_directory <- "/srv/kenlab/kenji/heal_dirs/test_genespace_dir/"
@@ -72,7 +76,7 @@ num_threads <- 2
 #par(mfrow = c(1, 2))
 source("/srv/kenlab/kenji/heal_dirs/rename_chromo.R")
 ```
-```{r count data, message = FALSE}
+```{r count data, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
 # input_directory <- "/path/to/input/directory"
 # num_threads <- number of threads you want to use for parrallel processing
 binSize <- 10000 # example bin size used to compute GC and mappability and defined in the files "bin_definition_file.bed"
@@ -86,14 +90,14 @@ count_list <- count_heal_data(input_dir = input_directory,
 name_old <- count_list
 count_list <- rename_it(count_list)
 ```
-The reads have now been counted in 10kb bins for each sample (as in "bin_definition_file.bed"). We also specified that the example data is paired-end and that we don't want the full featureCounts results, just the parsed count tables. 
+The reads have now been counted in 10kb bins for each sample (same as defined in the "*bins.bed" file). We also specified that the example data is paired-end and that we don't want the full featureCounts results, just the parsed count tables. 
 
 Here you can see the structure of the heal list object:
 ```{r list summary}
 summary(count_list)
 ```
 
-We can visualize the read counts using the plot_bins() function. We specify that we only wish to see the counts for the sample called "sample_1" and at every chromosome called "chr1" (multiple subgenomes might have a chromosome called "chr1"). We also manually set a vector of colors with which to plot each subgenome (here only two).
+You can visualize the read counts using the plot_bins() function. Here we specify that we only wish to see the counts for the sample called "sample_1" and at every chromosome called "chr1" (multiple subgenomes might have a chromosome called "chr1"). We also manually set a vector of colors with which to plot each subgenome (here only two).
 ```{r plot raw counts, fig.width=7, fig.height=5}
 plot_bins(heal_list = count_list,
           quick_view_sample = "sample_1",
@@ -104,11 +108,11 @@ _**Figure 1:** Raw read counts within 10kb bins over chromosome "chr1"._
 
 There are two subgenomes with a chromosome labelled "chr1" which is why two plots are shown. In fact the example data is that of a synthetic allotetraploid (Arabidopsis kamchatica: ID=HM_RS2K_G1_2) with diploid progenitors so there are only two subgenomes in total. 
 
-You can notice that counts at chromosome 1 of progenitor species 2 are very variable with visible chunks throughout the genome (Figure 1, second plot). This is symptomatic of copy number variation. For species 1 there are a few bins with extremely high count values, the rest of the variation is dwarfed by these and is not clearly visible.
+You can notice that counts at "chr1" of progenitor species 2 are very variable with visible chunks throughout the genome (Figure 1, second plot). This is symptomatic of copy number variation. For species 1 there are a few bins with extremely high count values, the rest of the variation is dwarfed by these and is not clearly visible.
 
 ## Filtering
 
-Region with low mappability, like the centromeres, will have low read counts although their copy number is normal. In other bins, the count might be "abnormally" high, this could be due to small scale duplications not captured by the assemblies, or other factors. We can see some of these bins in the subgenome from species 1 on chromosome 1. 
+Region with low mappability, like the centromeres, will have low read counts although their copy number is normal. In other bins, the count might be "abnormally" high, due to small scale duplications not captured by the assemblies, or other factors. We can see some of these bins on "chr1" of the species 1 subgenome. 
 
 It is therefore a good idea to exclude bins with average mappability below a certain threshold and with counts above a certain threshold. You can do this with the filter_bins() function.
 ```{r filtering}
@@ -117,6 +121,7 @@ filtered_list <- filter_bins(heal_list = count_list, mappability_threshold = 0.9
 
 Here we removed bins with average mappability below 0.9 and replace any count values 3 times the standard deviation above the mean count with NA. This is the default behavior of this function. 
 
+Let's plot the filtered data: 
 ```{r plot filtered counts, fig.width=7, fig.height=5}
 plot_bins(heal_list = filtered_list,
           quick_view_sample = "sample_1",
@@ -125,18 +130,18 @@ plot_bins(heal_list = filtered_list,
 ```
 _**Figure 2:** Filtered read counts within 10kb bins over chromosome "chr1"._
 
-Without the extremely high count bins in the subgenome from species 1, it becomes evident that it also displays strong signs of copy number variation. In fact, the patterns of count between species 1 chromosome 1 and species 2 chromosome 2 are fairly symmetrical. This suggests that the shared chromosome name ("chr1") of the two progenitor species reflects some equivalent genetic information and that HE is likely to be a driver of these copy number changes.
+Without the extremely high count bins in the subgenome from species 1, it becomes evident that it also displays strong signs of copy number variation. In fact, the patterns of count between species 1 chromosome 1 and species 2 chromosome 2 are fairly symmetrical. This suggests that the shared chromosome name ("chr1") of the two progenitor species reflects some equivalent genetic information and that HE is likely to be the main driver of these copy number changes.
 
-Note that filtering for these "outlier" bins will have an impact on copy number estimation. We noticed that leaving these high count values decreases the sensitivity of copy number inference. You can get a feel for why this is the case by noticing how signs of copy number variation were obscured in species 1 due to these high count bins being present, and how the signs became clear once these were filtered out (figure 1 and 2). The impact of filtering is therefore something to consider. 
+Note that filtering for these "outlier" bins will have an impact on copy number estimation. We noticed that leaving these high count values decreases the sensitivity of copy number inference. You can get a feel for why this is the case by noticing how signs of copy number variation were obscured in species 1 when these high count bins were present, and how the signs became clear once these were filtered out (figure 1 and 2). The impact of filtering is therefore something to consider. 
 
 
 ## Copy Number Inference
 
-We can now use the Circular Binary Segmentation (CBS) algorithm (Olshen et al., 2004) implemented in the DNAcopy package (Seshan & Olshen, 2010) to infer copy number. CBS segments the genome into regimes (successions of bins) inferred to have different underlying copy numbers. *healr* then assigns to each regime a copy number based on the mean per bin count of each regime. This is done by dividing the mean in each segment by the genome wide average per bin count (mean or median over both subgenomes). Assuming reciprocal copy number changes between subgenomes (so assuming HE is the main driver of copy number variation), this average should represent the per bin count level under expected "normal" ploidy (if the progenitors are diploid this is 2). The values obtained are therefore counts in terms of "normal" ploidy. Finally, multiplying these values by the expected "normal" ploidy (so by 2) gives an estimate of the copy number of each genomic regime. 
+We can now use the Circular Binary Segmentation (CBS) algorithm (Olshen et al., 2004) implemented in the DNAcopy package (Seshan & Olshen, 2010) to infer copy number. CBS segments the genome into regimes (successions of bins) inferred to have the same underlying copy numbers. *healr* then assigns to each regime a copy number based on the mean per bin count of each regime. This is done by dividing the mean in each segment by the genome wide average per bin count (mean or median over both subgenomes). Assuming reciprocal copy number changes between subgenomes (so assuming HE is the main driver of copy number variation), this average should represent the per bin count level under expected, "normal" ploidy. If the progenitors are diploid then this is 2. The values thus obtained are therefore counts in terms of "normal" ploidy. Finally, multiplying these values by the expected "normal" ploidy (so by 2 for diploid progenitors) gives an estimate of the copy number of each genomic regime. 
 
 Note that if there is extensive copy number variation not linked with HE, then the assigned copy number value might not be accurate. 
 
-We infer copy number using get_copy_number(). Here we specify that the genome wide median should be used and that the "normal" expected ploidy of the progenitors in 2. 
+You can infer copy number using get_copy_number(). Here we specify that the genome wide median should be used and that the "normal", expected ploidy of the progenitors in 2. 
 ```{r filter_oldname, include = FALSE}
 filtered_list <- filter_bins(heal_list = name_old, mappability_threshold = 0.9, count_threshold = 3)
 ```
@@ -149,26 +154,25 @@ cn_list <- get_copy_number(heal_list = filtered_list,
 ```{r rename cn, include = FALSE}
 cn_list <- rename_it(cn_list)
 ```
-The get_copy_number() function returns the input heal list with a new CN item for each subgenome. We can now plot the inferred copy number as a line and show normalized count values of the bins as points. 
+The get_copy_number() function returns the input heal list with a new CN item for each subgenome. We can now plot the inferred copy number as a line and show normalized count values of the bins as points, again using plot_bins(): 
 ```{r plot cn, fig.width=7, fig.height=5}
 plot_bins(heal_list = cn_list, quick_view_sample = "sample_1", specific_chr = "chr1", plot_cn = TRUE, color_map = c("purple3", "goldenrod3"))
 ```
 _**Figure 3:** Copy number inferred for 10kb bins over chromosome "chr1". The line shows copy number and the points show normalized read counts (divided by the median times the progenitors' ploidy)._
 
-It seems that our individual has extensive copy number variation (figure 3). We can summarize the copy number variation using the function summarize_cn().
+It seems that our individual has extensive copy number variation (figure 3). We can summarize the copy number variation using the function summarize_cn():
 ```{r summarize cn}
 summary_cn <- summarize_cn(heal_list = cn_list, n_threads = num_threads)
 summary_cn$sample_1$total_count_table 
 ```
-Here we have the distribution of copy number values over the whole genome. We see that less than half (~45%) of the genome has the expected copy number of 2. You can also get the same information over each subgenome and over each chromosome of each subgenome. 
-Another piece of information given is the run length encoded copy number sequence.
+Here we have the distribution of copy number values over the whole genome. We see that less than half (~45%) of the genome has the expected copy number of 2. The function also outputs this information over each subgenome and over each chromosome of each subgenome. It also outputs the length encoded copy number sequence:
 ```{r rle}
 summary_cn$sample_1$species_1$chr1$run_length_encoding
 ```
 
 ## Homoeologous Exchanges and Copy Number Variation
 
-In healthy diploids, or established allopolyploids, extensive copy number variation like what is seen in our example is not expected. However, in synthetic allopolyploids, and perhaps in any neoallopolyploid, extensive homoeologous exchange (HE) has been recorded (Mason & Wendel, 2020).
+In healthy diploids and established allopolyploids extensive copy number variation, like what we see in our example, is not expected. However, in synthetic allopolyploids and perhaps any neo-allopolyploid, extensive homoeologous exchange (HE) has been recorded (Mason & Wendel, 2020).
 
 HE leads to reciprocal copy number changes between homoeologous regions of the subgenomes. We can therefore infer which copy number changes are due to HE by identifying homoeologous regions between the subgenomes and looking for concordance between copy numbers in the regions. We define concordance as a sum of copy numbers equal to the expected ploidy of the organism. So for a tetraploid with diploid progenitors a total copy number of 4 is concordant. Concordance achieved by any combination except 2:2 might be due to a homoeologous exchange event. 
 

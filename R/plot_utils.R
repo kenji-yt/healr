@@ -7,14 +7,14 @@
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param plot_cn Logical: plot a line indicating infered copy number ('FALSE' by default in CN has been estimated).
 #' @param add_bins Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).
-#' @param colour_map A vector of colours for each progenitor. If "FALSE" the colours are choosen using rainbow().
+#' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
 #' @param return_list Logical: return a list of plots if quick_view_sample.
 #'
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, colour_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
+plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
   cn_exist <- unlist(lapply(heal_list, function(list) {
     list$CN
   }))
@@ -26,13 +26,13 @@ plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, 
   sample_averages <- get_sample_stats(heal_list)
   progenitors <- names(heal_list)
 
-  if (isFALSE(colour_map)) {
-    colour_map <- grDevices::rainbow(length(progenitors), s = 0.7)
-  } else if (length(colour_map) != length(progenitors)) {
-    cat("ERROR: Custom colour_map is not of correct length. It should match the number of subgenomes. Exiting..")
+  if (isFALSE(color_map)) {
+    color_map <- grDevices::rainbow(length(progenitors), s = 0.7)
+  } else if (length(color_map) != length(progenitors)) {
+    cat("ERROR: Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
     return()
   }
-  names(colour_map) <- progenitors
+  names(color_map) <- progenitors
 
   smp_type_map <- get_sample_stats(heal_list, sample_type = TRUE)
 
@@ -103,10 +103,10 @@ plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, 
           plot_df <- data.frame(start = x, counts = y_vec_pts, copy = y_vec_line, progenitor = rep(prog, length(y_vec_line)))
 
           bin_plot <- ggplot2::ggplot() +
-            ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, colour = progenitor), linewidth = 2) +
-            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, colour = progenitor), size = 1, alpha = 0.1) +
+            ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, color = progenitor), linewidth = 2) +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = progenitor), size = 1, alpha = 0.1) +
             ggplot2::theme_minimal() +
-            ggplot2::scale_color_manual(values = colour_map) +
+            ggplot2::scale_color_manual(values = color_map) +
             ggplot2::ylim(0, 8) +
             ggplot2::labs(title = paste(chr, smp), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
@@ -120,9 +120,9 @@ plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, 
           plot_df <- data.frame(start = x, counts = y_vec_pts, progenitor = rep(prog, length(y_vec_pts)))
 
           bin_plot <- ggplot2::ggplot() +
-            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, colour = progenitor), size = 1, alpha = 1) +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = progenitor), size = 1, alpha = 1) +
             ggplot2::theme_minimal() +
-            ggplot2::scale_color_manual(values = colour_map) +
+            ggplot2::scale_color_manual(values = color_map) +
             ggplot2::labs(title = paste(chr, smp), x = "Position", y = "Counts") +
             ggplot2::theme_bw()
 
@@ -163,14 +163,14 @@ plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, 
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param add_bins Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "alt" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
-#' @param colour_map A vector of colours for each progenitor. If "FALSE" the colours are choosen using rainbow().
+#' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
 #' @param return_list Logical: return a list of plots if quick_view_sample.
 #'
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, colour_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
+plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
   
   if (!add_bins %in% c(FALSE, "ref", "alt")) {
     cat("ERROR: Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'alt'. Exiting..")
@@ -183,13 +183,13 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, outp
 
   progenitors <- names(heal_list)
 
-  if (isFALSE(colour_map)) {
-    colour_map <- grDevices::rainbow(length(progenitors), s = 0.7)
-  } else if (length(colour_map) != length(progenitors)) {
-    cat("ERROR: Custom colour_map is not of correct length. It should match the number of subgenomes. Exiting..")
+  if (isFALSE(color_map)) {
+    color_map <- grDevices::rainbow(length(progenitors), s = 0.7)
+  } else if (length(color_map) != length(progenitors)) {
+    cat("ERROR: Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
     return()
   }
-  names(colour_map) <- progenitors
+  names(color_map) <- progenitors
 
   if (quick_view_sample != FALSE) {
     if (sum(polyploid_samples == quick_view_sample) == 0) {
@@ -301,10 +301,10 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, outp
           pts_df <- data.frame(start = x_vec_pts, points = y_vec_pts, subgenome = subgnm_group)
 
           bin_plot <- ggplot2::ggplot() +
-            ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, colour = subgenome), linewidth = 2) +
-            ggplot2::geom_point(data = pts_df, ggplot2::aes(x = start, y = points, colour = subgenome), size = 1, alpha = 0.1) +
+            ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, color = subgenome), linewidth = 2) +
+            ggplot2::geom_point(data = pts_df, ggplot2::aes(x = start, y = points, color = subgenome), size = 1, alpha = 0.1) +
             ggplot2::theme_minimal() +
-            ggplot2::scale_color_manual(values = colour_map) +
+            ggplot2::scale_color_manual(values = color_map) +
             ggplot2::ylim(0, 8) +
             ggplot2::labs(title = paste(chr, ref, smp), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
@@ -316,9 +316,9 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, outp
           }
         } else {
           aln_plot <- ggplot2::ggplot() +
-            ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, colour = subgenome), linewidth = 2) +
+            ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, color = subgenome), linewidth = 2) +
             ggplot2::theme_minimal() +
-            ggplot2::scale_color_manual(values = colour_map) +
+            ggplot2::scale_color_manual(values = color_map) +
             ggplot2::ylim(0, 8) +
             ggplot2::labs(title = paste(chr, smp, ref), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
@@ -361,7 +361,7 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, outp
 #' @param alignment A heal alignment object created with get_heal_alignment().
 #' @param corrected_alignment A density corrected alignment ('FALSE' by default). If one is given and show_discordant==TRUE then the new state of corrected points is shown above the previous state.
 #' @param ylim_max Maximum ylim value ('FALSE' by default). If FALSE then the value is set for each sample as 3 times the standard deviation above the mean.
-#' @param colour_vec A vector of colours for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colours are choosen using rainbow().
+#' @param color_vec A vector of colors for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colors are choosen using rainbow().
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default)
 #' @param n_threads Number of threads to use ('1' by default).
 #'
@@ -369,7 +369,7 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, outp
 #' @export
 #'
 #' @importFrom data.table :=
-plot_densities <- function(densities, quick_view_sample = FALSE, output_dir = FALSE, show_discordant = FALSE, heal_list = FALSE, alignment = FALSE, corrected_alignment = FALSE, ylim_max = FALSE, colour_vec = FALSE, prog_ploidy = 2, n_threads = 1) {
+plot_densities <- function(densities, quick_view_sample = FALSE, output_dir = FALSE, show_discordant = FALSE, heal_list = FALSE, alignment = FALSE, corrected_alignment = FALSE, ylim_max = FALSE, color_vec = FALSE, prog_ploidy = 2, n_threads = 1) {
   is_align_and_count_data <- is.list(alignment) & is.list(heal_list)
   if (show_discordant == TRUE & !is_align_and_count_data) {
     cat("ERROR: show_discordant is TRUE but no valid heal_list or aligment provided. Exiting..")
@@ -417,21 +417,21 @@ plot_densities <- function(densities, quick_view_sample = FALSE, output_dir = FA
 
     cn_labels <- names(densities[[smp]])
 
-    if (isFALSE(colour_vec)) {
-      colour_vec <- grDevices::rainbow(n = length(cn_labels), s = 0.7, v = 1)
+    if (isFALSE(color_vec)) {
+      color_vec <- grDevices::rainbow(n = length(cn_labels), s = 0.7, v = 1)
     } else {
-      if (length(cn_labels) != length(colour_vec)) {
-        cat("ERROR: Colour vector length not matching number of copy number categories. Exiting..")
+      if (length(cn_labels) != length(color_vec)) {
+        cat("ERROR: color vector length not matching number of copy number categories. Exiting..")
         return()
       }
     }
 
-    names(colour_vec) <- cn_labels
+    names(color_vec) <- cn_labels
 
-    graphics::contour(densities[[smp]][[cn_labels[1]]], ylim = c(-5, ylim_max), col = colour_vec[cn_labels[1]], main = smp)
+    graphics::contour(densities[[smp]][[cn_labels[1]]], ylim = c(-5, ylim_max), col = color_vec[cn_labels[1]], main = smp)
 
     for (i in 2:length(cn_labels)) {
-      graphics::contour(densities[[smp]][[cn_labels[i]]], ylim = c(0, ylim_max), col = colour_vec[cn_labels[i]], add = TRUE)
+      graphics::contour(densities[[smp]][[cn_labels[i]]], ylim = c(0, ylim_max), col = color_vec[cn_labels[i]], add = TRUE)
     }
 
     if (show_discordant == TRUE) {
@@ -465,10 +465,10 @@ plot_densities <- function(densities, quick_view_sample = FALSE, output_dir = FA
 
       points_dt[, is_allowed := cn %in% cn_labels]
 
-      colour_vec[["other"]] <- "black"
+      color_vec[["other"]] <- "black"
       points_dt$cn[points_dt$is_allowed == FALSE] <- "other"
 
-      graphics::points(points_dt$gc_content, points_dt[[smp]], col = colour_vec[points_dt$cn], pch = 16, cex = 0.9)
+      graphics::points(points_dt$gc_content, points_dt[[smp]], col = color_vec[points_dt$cn], pch = 16, cex = 0.9)
 
       if (is.list(corrected_alignment) == TRUE) {
         which_corrected <- grep("corrected_", corrected_alignment[[smp]]$status)
@@ -523,11 +523,11 @@ plot_densities <- function(densities, quick_view_sample = FALSE, output_dir = FA
           }
         }
 
-        graphics::points(points_dt$gc_content[correction_improved_bin_density], points_dt$count[correction_improved_bin_density], col = colour_vec[points_dt$cn_corrected[correction_improved_bin_density]], pch = 18, cex = 0.6)
+        graphics::points(points_dt$gc_content[correction_improved_bin_density], points_dt$count[correction_improved_bin_density], col = color_vec[points_dt$cn_corrected[correction_improved_bin_density]], pch = 18, cex = 0.6)
       }
     }
-    # reinitialize colour_vec
-    colour_vec <- colour_vec[names(colour_vec) != "other"]
+    # reinitialize color_vec
+    color_vec <- color_vec[names(color_vec) != "other"]
 
     if (output_dir != FALSE) {
       grDevices::dev.off()
@@ -542,7 +542,7 @@ plot_densities <- function(densities, quick_view_sample = FALSE, output_dir = FA
 #' @param alignment A heal alignment object created with get_heal_alignment().
 #' @param view_samples A vector of sample names to plot (as character)('FALSE' by default).
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
-#' @param color The colour of the points ("blue4" by default).
+#' @param color The color of the points ("blue4" by default).
 #' @param alpha The transparency of the points (0.1 by default).
 #' @param width The jitter of points along the x axis.
 #' @param height The jitter of points along the x axis.
