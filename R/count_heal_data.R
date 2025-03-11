@@ -4,11 +4,10 @@
 #' @param gc_dt GC content data table.
 #' @param map_dt Mappability  data table.
 #' @param sample_names Sample names.
-#' @param bin_size Bin size.
 #'
 #' @return A data table with GC, mappability and count per bin.
 #'
-parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names, bin_size) {
+parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names) {
   counts_dt <- data.table::as.data.table(feature_count_list$counts)
   colnames(counts_dt) <- sample_names
 
@@ -17,7 +16,8 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names, b
   start <- feature_count_list$annotation$Start
   end <- feature_count_list$annotation$End
   length <- feature_count_list$annotation$Length
-
+  
+  bin_size <- median(feature_count_list$annotation$Length)
 
   anno_dt <- data.table::data.table(chr = chr[length == bin_size], start = start[length == bin_size] - 1, end = end[length == bin_size])
 
@@ -38,7 +38,6 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names, b
 #'
 #' @param input_dir A healr input directory (see details).
 #' @param n_threads Number of threads to use with featureCounts ('1' by default)
-#' @param bin_size Bin size.
 #' @param paired_end Logical: Is the data paired end.
 #' @param full_output Logical: Do you want to also get the full featureCounts output ('FALSE' by default). This can be usefull for debugging. 
 #'
@@ -47,7 +46,7 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names, b
 #'
 #' @importFrom foreach %do%
 #' @importFrom utils write.table
-count_heal_data <- function(input_dir, n_threads = 1, bin_size, paired_end, full_output = FALSE) {
+count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = FALSE) {
   prog_dir <- list.files(path = input_dir, pattern = "progenitors", full.names = TRUE)
   poly_dir <- list.files(path = input_dir, pattern = "polyploids", full.names = TRUE)
 
@@ -119,7 +118,7 @@ count_heal_data <- function(input_dir, n_threads = 1, bin_size, paired_end, full
       sample_names[sample_names == prog] <- basename(dirname(bam_paths))[sample_names == prog]
     }
 
-    count_dt <- parse_counts_bins(feature_count_list = feature_count_list, gc_dt = gc_dt, map_dt = map_dt, sample_names = sample_names, bin_size = bin_size)
+    count_dt <- parse_counts_bins(feature_count_list = feature_count_list, gc_dt = gc_dt, map_dt = map_dt, sample_names = sample_names)
     
     if(full_output==FALSE){
       return(list(bins = count_dt))

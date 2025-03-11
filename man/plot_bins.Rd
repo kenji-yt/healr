@@ -6,13 +6,13 @@
 \usage{
 plot_bins(
   heal_list,
-  quick_view_sample = FALSE,
+  view_sample = FALSE,
   output_dir = FALSE,
   n_threads = 1,
   prog_ploidy = 2,
   plot_cn = FALSE,
   add_bins = TRUE,
-  colour_map = FALSE,
+  color_map = FALSE,
   specific_chr = FALSE,
   return_list = FALSE
 )
@@ -20,7 +20,7 @@ plot_bins(
 \arguments{
 \item{heal_list}{Output list in heal format (such as output from count_heal_data()).}
 
-\item{quick_view_sample}{The name of a sample to plot (as character)('FALSE' by default).}
+\item{view_sample}{The name of a sample to plot (as character)('FALSE' by default).}
 
 \item{output_dir}{The name of a directory to write all plots to. Will create one if nonexistent.}
 
@@ -32,11 +32,11 @@ plot_bins(
 
 \item{add_bins}{Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).}
 
-\item{colour_map}{A vector of colours for each progenitor. If "FALSE" the colours are choosen using rainbow().}
+\item{color_map}{A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().}
 
 \item{specific_chr}{A vector of characters indicating which chromosomes to plot (plots all by default).}
 
-\item{return_list}{Logical: return a list of plots if quick_view_sample.}
+\item{return_list}{Logical: return a list of plots if view_sample.}
 }
 \value{
 Either nothing or a list of plots.

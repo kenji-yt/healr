@@ -14,11 +14,12 @@ knitr::opts_chunk$set(
 )
 ```
 ## Introduction
-The process of homoeologous exchange (HE) leads to reciprocal copy number variation between the subgenomes of an allopolyploid (Mason & Wendel, 2020). The **healr** package offers a suite of functions to extract meaningful HE related metrics from allopolyploid whole-genome sequencing data using copy number analysis and synteny analysis. **healr** takes as input bam files (from regular or bisulfite treated DNA sequencing reads) sorted by subgenome (for example using EAGLE-RC (Kuo et al., 2020)), synteny information between the subgenomes obtained using GENESPACE (Lovell et al., 2022), measures of mappability from genmap (Pockrandt et al., 2020) averaged within bins and GC content within the same bins. 
 
-**healr** is part of the HEAL (Homoeologous Exchange Automated Labelling) automated workflow (link here soon). HEAL strings together automated workflows for read-sorting ([snake-EAGLE-RC](https://github.com/kenji-yt/snake-EAGLE-RC)) and synteny inference ([snake-GENESPACE](https://github.com/kenji-yt/snake-GENESPACE)), tools for mappability and GC content calculation and **healr** into a single overarching HE analysis.
+  Homoeologous exchange (HE) leads to reciprocal copy number variation between the subgenomes of an allopolyploid (Mason & Wendel, 2020). The **healr** package offers a suite of functions to extract HE related metrics from allopolyploid whole-genome sequencing data. It does this using copy number and synteny analysis. **healr** takes as input bam files sorted by subgenome (for example using EAGLE-RC (Kuo et al., 2020)), synteny information between the subgenomes obtained using GENESPACE (Lovell et al., 2022), measures of mappability averaged within bins and GC content within the same bins. <br>
 
-To make your analysis easier and more reproducible we suggest using **healr** within HEAL. Users can then manually repeat and modify the final steps of the workflow in R using the **healr** functions shown below.
+  **healr** is part of the HEAL (Homoeologous Exchange Automated Labelling) workflow (link here soon). HEAL strings together automated workflows for read-sorting ([snake-EAGLE-RC](https://github.com/kenji-yt/snake-EAGLE-RC)) and synteny analysis ([snake-GENESPACE](https://github.com/kenji-yt/snake-GENESPACE)), tools for mappability and GC content calculation and **healr** into a single overarching HE analysis.<br>
+
+  To make your analysis easier and more reproducible we suggest using **healr** within HEAL. You can then manually repeat and modify the final steps of the workflow in R using the **healr** functions shown below.<br>
 
 You can install **healr** from bioconductor. Then you load and attach it normally.  
 ```{r setup}
@@ -26,9 +27,10 @@ You can install **healr** from bioconductor. Then you load and attach it normall
 library(healr)
 ```
 
+
 ## Input Data 
 
-*healr* requires the following input directory: 
+**healr** requires the following input directory: 
 ```
 input_directory/
 ├── progenitors/
@@ -36,12 +38,12 @@ input_directory/
 │   │   ├── progenitor_1_bins.bed
 │   │   ├── progenitor_1_mappability.bed
 │   │   ├── progenitor_1_gc.bed
-│   │   └── any_progenitor_species_sample.bam
+│   │   └── any_progenitor_1_sample.bam
 │   ├── progenitor_2/
 │   │   ├── progenitor_2_bins.bed
 │   │   ├── progenitor_2_mappability.bed
 │   │   ├── progenitor_2_gc.bed
-│   │   └── any_progenitor_species_sample.bam
+│   │   └── any_progenitor_2_sample.bam
 │   └── etc...
 └── polyploids/
     ├── sample_1/
@@ -58,31 +60,33 @@ input_directory/
     │   └── etc...
     └── etc...
 ```
-It has two directories called "polyploids" and "progenitors". You can name the progenitor and polyploid sample directories as you wish, as long as each sample has one directory for each progenitor. 
-Note that the names you give to these directories will be used to name variables related to the samples and progenitors within the R objects and plots. It is therefore a good idea to name them appropriately.   
-Files ending in "bins.bed" are bed files defining the start and stop coordinates of each bin. You must use these files to extract GC content (files ending in "gc.bed") and average per base mappability within bins (files ending in "mappability.bed"). In HEAL, the "bins.bed" files are create with "bedtools makewindow" (Quinlan & Hall, 2010). GC content is then counted in these bins using "bedtools nuc". Average per base pair mappability must also be computed in these bins. In HEAL, this is done using a custom awk script on genmap outputs. 
 
-If you use HEAL, one of the outputs will be a *healr* input directory which you can then manually re-analyse. 
+  The input directory must contain two directories called "polyploids" and "progenitors". 
+You can name the progenitor and polyploid sample directories as you wish, as long as each polyploid sample directory contains one directory named after each progenitor. Note that the names you give to these directories will be used to name variables related to the samples and progenitors within the R objects and plots. It is therefore a good idea to name them appropriately.<br>
+
+  The progenitor directories must contain files ending in "bins.bed". These are bed files defining the start and stop coordinates of each bin. You must use these files to extract GC content into files ending in "gc.bed". Average per base mappability within bins must also be computed according to the "bins.bed" file. The average mappability in bins must end with "mappability.bed".<br>
+
+  In HEAL, the "bins.bed" files are create with "bedtools makewindow" (Quinlan & Hall, 2010). GC content is then counted in these bins using "bedtools nuc". Average per base pair mappability must also be computed in these bins. Per base mappability is first obtained using genmap (Pockrandt et al., 2020). Then, it is averaged within bins using a custom awk script on genmap outputs.<br>
+
+If you use HEAL, one of the outputs will be a *healr* input directory which you can then manually re-analyse.<br>
 
 ## Parsing the input directory
 
-The first step in a **healr** analysis is to create a "heal list object" by parsing the input directory and counting reads in bins for each bam file using featureCounts (Liao et al., 2014). The heal list object is just a standard list with one item for each subgenome. These items are themselves lists with at least a "bins" item which is a data table containing the genomic position, GC content, average mappability and read count for each sample in bins. Later there will also be a "CN" item which is a data table with inferred copy number instead of read counts. 
+  The first step in a **healr** analysis is to create a "heal-list" object. This is done using the count_heal_data() function which parses the input directory and counts reads in bins for each bam file using featureCounts (Liao et al., 2014). The heal-list object is just a standard list with one item for each subgenome. These items are themselves lists containing at least a "bins" item. The "bins" item is a data table containing the genomic position, GC content, average mappability and read count for each sample in bins. Later there will also be a "CN" item which is a data table with inferred copy number instead of read counts.<br>
 
-You parse the input directory using count_heal_data().
+Let's parse an example input directory:
 ```{r, include = FALSE}
-input_directory <- "/srv/kenlab/kenji/heal_dirs/test_input_dir/"
+input_directory <- "/srv/kenlab/kenji/heal_dirs/healr/vignettes/example_input_dir/"
 genespace_output_directory <- "/srv/kenlab/kenji/heal_dirs/test_genespace_dir/"
 num_threads <- 2
 #par(mfrow = c(1, 2))
 source("/srv/kenlab/kenji/heal_dirs/rename_chromo.R")
 ```
-```{r count data, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+```{r count data, message=FALSE, warning=FALSE}
 # input_directory <- "/path/to/input/directory"
 # num_threads <- number of threads you want to use for parrallel processing
-binSize <- 10000 # example bin size used to compute GC and mappability and defined in the files "bin_definition_file.bed"
 count_list <- count_heal_data(input_dir = input_directory,
                               n_threads= num_threads,
-                              bin_size = binSize,
                               paired_end = TRUE,
                               full_output = FALSE)
 ```
@@ -90,58 +94,63 @@ count_list <- count_heal_data(input_dir = input_directory,
 name_old <- count_list
 count_list <- rename_it(count_list)
 ```
-The reads have now been counted in 10kb bins for each sample (same as defined in the "*bins.bed" file). We also specified that the example data is paired-end and that we don't want the full featureCounts results, just the parsed count tables. 
+The reads have now been counted in the bins defined in the "*bins.bed" file (here 10 kbp bins). We also specified that the example data is paired-end and that we don't want the full featureCounts results, just the parsed count tables.<br>
 
-Here you can see the structure of the heal list object:
+Here you can see the structure of the heal-list object:
 ```{r list summary}
 summary(count_list)
 ```
-
-You can visualize the read counts using the plot_bins() function. Here we specify that we only wish to see the counts for the sample called "sample_1" and at every chromosome called "chr1" (multiple subgenomes might have a chromosome called "chr1"). We also manually set a vector of colors with which to plot each subgenome (here only two).
+You can visualize the read counts using the plot_bins() function. Here we specify that we only wish to see the counts for the sample called "sample_1" and at every chromosome called "chr1" (multiple subgenomes might have a chromosome called "chr1"). We also manually set a vector of colors with which to plot each subgenome (here only two).<br>
 ```{r plot raw counts, fig.width=7, fig.height=5}
 plot_bins(heal_list = count_list,
-          quick_view_sample = "sample_1",
+          view_sample = "sample_1",
           specific_chr = "chr1",
           color_map = c("purple3", "goldenrod3"))
 ```
-_**Figure 1:** Raw read counts within 10kb bins over chromosome "chr1"._
+_**Figure 1:** Raw read counts within 10kb bins over chromosome "chr1"._<br><br>
 
-There are two subgenomes with a chromosome labelled "chr1" which is why two plots are shown. In fact the example data is that of a synthetic allotetraploid (Arabidopsis kamchatica: ID=HM_RS2K_G1_2) with diploid progenitors so there are only two subgenomes in total. 
+There are two subgenomes with a chromosome labelled "chr1" which is why two plots are shown. In fact our example data is that of a synthetic allotetraploid with diploid progenitors (Arabidopsis kamchatica: ID=HM_RS2K_G1_2) so there are only two subgenomes in total.<br>
 
-You can notice that counts at "chr1" of progenitor species 2 are very variable with visible chunks throughout the genome (Figure 1, second plot). This is symptomatic of copy number variation. For species 1 there are a few bins with extremely high count values, the rest of the variation is dwarfed by these and is not clearly visible.
+Notice that counts at "chr1" of progenitor species 2 are very variable with visible chunks throughout the genome (Figure 1, second plot). This is symptomatic of large scale copy number variation. For species 1 there are a few bins with extremely high count values, the rest of the variation is dwarfed by these and is not clearly visible.<br>
 
 ## Filtering
 
-Region with low mappability, like the centromeres, will have low read counts although their copy number is normal. In other bins, the count might be "abnormally" high, due to small scale duplications not captured by the assemblies, or other factors. We can see some of these bins on "chr1" of the species 1 subgenome. 
+Region with low mappability, like the centromeres, will have low read counts even if their copy number is normal. In other bins, the count might be "abnormally" high, due to small scale duplications not captured by the assemblies, or other factors. We can see such high count bins on "chr1" of the species 1 subgenome.<br>
 
 It is therefore a good idea to exclude bins with average mappability below a certain threshold and with counts above a certain threshold. You can do this with the filter_bins() function.
 ```{r filtering}
-filtered_list <- filter_bins(heal_list = count_list, mappability_threshold = 0.9, count_threshold = 3)
+filtered_list <- filter_bins(heal_list = count_list,
+                             mappability_threshold = 0.9,
+                             count_threshold = 3)
 ```
-
-Here we removed bins with average mappability below 0.9 and replace any count values 3 times the standard deviation above the mean count with NA. This is the default behavior of this function. 
+Here we removed bins with average per base mappability below 0.9 and replace any count values 3 times the standard deviation above the mean with NA. This is the default behavior of this function. <br>
 
 Let's plot the filtered data: 
-```{r plot filtered counts, fig.width=7, fig.height=5}
+```{r plot filtered counts, fig.width=7, fig.height=5, warning=FALSE}
 plot_bins(heal_list = filtered_list,
-          quick_view_sample = "sample_1",
+          view_sample = "sample_1",
           specific_chr = "chr1",
           color_map = c("purple3", "goldenrod3"))
 ```
-_**Figure 2:** Filtered read counts within 10kb bins over chromosome "chr1"._
+_**Figure 2:** Filtered read counts within 10kb bins over chromosome "chr1"._<br><br>
 
-Without the extremely high count bins in the subgenome from species 1, it becomes evident that it also displays strong signs of copy number variation. In fact, the patterns of count between species 1 chromosome 1 and species 2 chromosome 2 are fairly symmetrical. This suggests that the shared chromosome name ("chr1") of the two progenitor species reflects some equivalent genetic information and that HE is likely to be the main driver of these copy number changes.
+Notice how bins around the centromeres have been filtered out. The filtering also removed the extremely high count bins from the species 1 subgenome. It is now evident that the species 1 subgenome also displays strong signs of copy number variation. In fact, the patterns of count between species 1 chromosome 1 and species 2 chromosome 1 are fairly symmetrical. This suggests that the shared chromosome name ("chr1") of the two progenitor species reflects some equivalence in genetic information and that HE is likely to be the main driver of these copy number changes.<br>
 
-Note that filtering for these "outlier" bins will have an impact on copy number estimation. We noticed that leaving these high count values decreases the sensitivity of copy number inference. You can get a feel for why this is the case by noticing how signs of copy number variation were obscured in species 1 when these high count bins were present, and how the signs became clear once these were filtered out (figure 1 and 2). The impact of filtering is therefore something to consider. 
+Note that filtering for "outlier" bins will have an impact on copy number estimation. We noticed that leaving high count outliers decreases the sensitivity of copy number inference. You can get a feel for why this is the case by remembering how signs of copy number variation were obscured in species 1 when these high count bins were present, and how the signs became clear once these were filtered out (figure 1 and 2). The impact of filtering is therefore something to consider. <br>
+
+
+## GC Content Normalization
+
+GC content is known to affect read counts (Benjamini & Speed, 2012). It is therefore common to perform GC content normalization prior to copy number analysis. We have not yet implemented functions for this, but hope to do so soon. 
+<**TEMPORARY NOTE:** I need to get some DNA seq data as GC normalization does not work well with my WGBS testing data.>    
+Note that for bisulfite treated data the relationship between GC content and read counts depends additionally on the methylation state of the cytosines. Standard GC normalization approaches are therefore not suitable for WGBS data. We are not aware of any viable alternative to date (see [here](https://github.com/chrisamiller/readDepth/issues/16)).<br>
 
 
 ## Copy Number Inference
 
-We can now use the Circular Binary Segmentation (CBS) algorithm (Olshen et al., 2004) implemented in the DNAcopy package (Seshan & Olshen, 2010) to infer copy number. CBS segments the genome into regimes (successions of bins) inferred to have the same underlying copy numbers. *healr* then assigns to each regime a copy number based on the mean per bin count of each regime. This is done by dividing the mean in each segment by the genome wide average per bin count (mean or median over both subgenomes). Assuming reciprocal copy number changes between subgenomes (so assuming HE is the main driver of copy number variation), this average should represent the per bin count level under expected, "normal" ploidy. If the progenitors are diploid then this is 2. The values thus obtained are therefore counts in terms of "normal" ploidy. Finally, multiplying these values by the expected "normal" ploidy (so by 2 for diploid progenitors) gives an estimate of the copy number of each genomic regime. 
+We can now perform copy number analysis using the Circular Binary Segmentation (CBS) algorithm (Olshen et al., 2004) implemented in the DNAcopy package (Seshan & Olshen, 2010). CBS segments the genome into regimes (successions of bins) inferred to have the same underlying copy number. **healr** then assigns to each regime a copy number based on the mean per bin count of each regime. This is done by dividing the mean in each segment by the genome wide average per bin count (mean or median over all subgenomes). Assuming no significant gain or loss of genetic information, this average should represent the per bin count level under normal, expected ploidy. If the progenitors are diploid then this is 2. The values obtained by this division are therefore in units of normal ploidy. Multiplying these values by the expected normal ploidy (so by 2 for diploid progenitors) thus gives an estimate of the copy number of each genomic regime.<br> 
 
-Note that if there is extensive copy number variation not linked with HE, then the assigned copy number value might not be accurate. 
-
-You can infer copy number using get_copy_number(). Here we specify that the genome wide median should be used and that the "normal", expected ploidy of the progenitors in 2. 
+You can infer copy number using get_copy_number(). Here we specify that the genome wide median should be used and that the normal ploidy of the progenitors is 2. 
 ```{r filter_oldname, include = FALSE}
 filtered_list <- filter_bins(heal_list = name_old, mappability_threshold = 0.9, count_threshold = 3)
 ```
@@ -154,137 +163,159 @@ cn_list <- get_copy_number(heal_list = filtered_list,
 ```{r rename cn, include = FALSE}
 cn_list <- rename_it(cn_list)
 ```
-The get_copy_number() function returns the input heal list with a new CN item for each subgenome. We can now plot the inferred copy number as a line and show normalized count values of the bins as points, again using plot_bins(): 
-```{r plot cn, fig.width=7, fig.height=5}
-plot_bins(heal_list = cn_list, quick_view_sample = "sample_1", specific_chr = "chr1", plot_cn = TRUE, color_map = c("purple3", "goldenrod3"))
+The get_copy_number() function returns the input heal-list with a new CN item for each subgenome. We can now plot the inferred copy number as a line and show normalized count values of the bins as points, again using plot_bins(): 
+```{r plot cn, fig.width=7, fig.height=5, warning=FALSE, message=FALSE}
+plot_bins(heal_list = cn_list,
+          view_sample = "sample_1",
+          specific_chr = "chr1",
+          plot_cn = TRUE,
+          color_map = c("purple3", "goldenrod3"))
 ```
-_**Figure 3:** Copy number inferred for 10kb bins over chromosome "chr1". The line shows copy number and the points show normalized read counts (divided by the median times the progenitors' ploidy)._
+_**Figure 3:** Copy number inferred for 10kb bins over chromosome "chr1". The line shows copy number and the points show normalized read counts (divided by the median times the progenitors' ploidy)._<br><br>
 
 It seems that our individual has extensive copy number variation (figure 3). We can summarize the copy number variation using the function summarize_cn():
 ```{r summarize cn}
-summary_cn <- summarize_cn(heal_list = cn_list, n_threads = num_threads)
+summary_cn <- summarize_cn(heal_list = cn_list,
+                           n_threads = num_threads)
 summary_cn$sample_1$total_count_table 
 ```
-Here we have the distribution of copy number values over the whole genome. We see that less than half (~45%) of the genome has the expected copy number of 2. The function also outputs this information over each subgenome and over each chromosome of each subgenome. It also outputs the length encoded copy number sequence:
+Here we have the distribution of copy number values over the whole genome. We see that less than half (~45%) of the genome has the expected copy number of 2. The function also outputs this information over each subgenome and over each chromosome of each subgenome. It also outputs the length-run encoded copy number sequence:
 ```{r rle}
-summary_cn$sample_1$species_1$chr1$run_length_encoding
+summary_cn$sample_1$species_1$chr2$run_length_encoding
 ```
+
 
 ## Homoeologous Exchanges and Copy Number Variation
 
-In healthy diploids and established allopolyploids extensive copy number variation, like what we see in our example, is not expected. However, in synthetic allopolyploids and perhaps any neo-allopolyploid, extensive homoeologous exchange (HE) has been recorded (Mason & Wendel, 2020).
+HE leads to reciprocal copy number changes between homoeologous regions of the subgenomes. We can therefore infer which copy number changes are due to HE by identifying homoeologous regions between the subgenomes and looking for concordance between copy number changes in these regions. We define concordance as a sum of copy numbers equal to the expected ploidy of the polyploid. So for a tetraploid with diploid progenitors a total copy number of 4 is concordant. In that case, concordance achieved by any combination other than 2 copies from one progenitor and 2 from the other might be due to HE.<br>
 
-HE leads to reciprocal copy number changes between homoeologous regions of the subgenomes. We can therefore infer which copy number changes are due to HE by identifying homoeologous regions between the subgenomes and looking for concordance between copy numbers in the regions. We define concordance as a sum of copy numbers equal to the expected ploidy of the organism. So for a tetraploid with diploid progenitors a total copy number of 4 is concordant. Concordance achieved by any combination except 2:2 might be due to a homoeologous exchange event. 
+HE occurs between homoeologous regions, or regions of sufficient similarity that they could pair at meiosis and recombine. Synteny analysis allows us to identify such regions between genomes.The workflow tool GENESPACE finds these regions using conserved gene order (collinearity) between the genomes. These collinear genes are called "anchors".<br>
 
-HE occurs between homoeologous regions, or regions of sufficient similarity that they could pair at meiosis and recombine. Synteny analysis allows us to identify such regions between genomes. The workflow tool GENESPACE finds these regions using conserved ortholog gene order between two genomes. The orthologs used by GENESPACE to infer synteny are called "anchors". These are orthologs involved in a colinear string of genes but also fitting a few additional criteria. For example, they are unique representatives when tandem repeats lead to multiple orthologs. 
-In **healr**, the mapping between subgenomes is only done at the level of anchors, as bins without anchors cannot be directly mapped between subgenomes. We further consider only anchors with orthologs in all subgenomes (in a polyploid with two progenitors this would be all anchors, but with more progenitors it is not necessarily the case). 
-We therefore find ourselves in a situation where copy number is infered at the level of bins, while homoeology is infered at the level of anchor genes. **healr** deals with this by assigning copy number to anchors based on the bins overlapping with the anchors. For anchors overlapping with a single bin, or multiple bins of the same copy number, this is straightforward. For anchors overlapping multiple bins with different copy numbers, we assign to the anchors the copy numbers which lead to the lowest divergence from concordance. If multiple copy number combinations have equal divergence from concordance, the copy number combination with longest overlap length between anchors and bins is taken. The decision to take the combination closest to concordance is ultimately based on an assumption that copy number changes are primarily driven by HE. This might not be the case and could potential inflate the concordance artificially. **healr** records which method was used to assign a copy number to each anchor set (a group of anchors orthologous to each other between subgenomes) so you can inspect certain decisions. 
+In **healr**, the mapping between subgenomes is done only at the level of anchors, as bins without anchors cannot be directly mapped between subgenomes. We further consider only anchors with orthologs in all subgenomes (in a polyploid with two subgenomes this would be all anchors, but with more subgenomes it is not necessarily the case). <br>
+We now find ourselves in a situation where copy number is inferred at the level of bins, while homoeology is inferred at the level of anchor genes. **healr** deals with this by assigning a copy number to anchors based on the bins they overlap with. For anchors overlapping with a single bin, or with multiple bins of the same copy number, this is straightforward. For anchors overlapping with multiple bins of different copy numbers, **healr** assigns the copy numbers which lead to the lowest divergence from concordance. If multiple copy number combinations have equal divergence from concordance, the copy number combination with longest overlap length between anchors and bins is taken.<br>
 
-You should have a directory containing the syntenicHits directory produced as an output of GENESPACE. 
+The decision to take the combination closest to concordance is ultimately based on an assumption that copy number changes are primarily driven by HE. This might not be the case and could potential inflate concordance artificially. **healr** records which method was used to assign copy numbers to anchor sets to allow for further verification.<br>
+
+You should have a directory containing the syntenicHits directory produced as an output of GENESPACE. You can use the function get_heal_alignment() to extract the anchor sets and assign them copy numbers:
 ```{r alignment}
 # genespace_output_dir <- path/to/genespace/output 
-alignment_list <- get_heal_alignment(heal_list = cn_list, genespace_dir = genespace_output_directory, n_threads = num_threads)
+alignment_list <- get_heal_alignment(heal_list = cn_list,
+                                     genespace_dir = genespace_output_directory,
+                                     n_threads = num_threads)
 head(alignment_list[[1]])
 ```
-The output is a list with one item per polyploid sample. Each item is a data table with one row per anchor set and the copy number, anchor ID and location for each subgenome. It also has a column called method and a column called status. Method gives information regarding how the copy number was assigned to the genes. The possible values are "unique" if the genes overlapped only one copy number, "multiple_unique" if there was overlap with multiple copy number values but a unique most concordant combination and "multiple_overlap" if there was multiple equally concordant combinations of copy numbers and the combination maximizing overlap was taken. Status is whether the set of anchors is "concordant" or "discordant".   
+The output is a list with one item per polyploid sample. Each item is a data table with one row per anchor set and the copy number, anchor ID and location for each subgenome. It also has a column called method and a column called status. Method gives information regarding how the copy number was assigned to the anchors. The possible values are "unique", if the genes overlapped only one copy number, "multiple_unique", if there was overlap with multiple copy number values but a unique most concordant combination, and "multiple_overlap", if there was multiple equally concordant combinations of copy numbers and the combination maximizing overlap was taken. Status is whether the copy numers at the set of anchors is "concordant" or "discordant".<br> 
 
-
-We can plot the anchor sets along a reference subgenome using plot_alignment(). This takes each subgenome independantly and plots copy number along that genome. Then, the copy number from the orthologous anchor genes of the other subgenome(s) are added at the position of the reference subgenomes' anchor.  
+You can plot the anchor sets along a reference subgenome using plot_alignment(). This takes each subgenome independently and plots copy number along that subgenome. Then, the copy number from the orthologous anchors of the other subgenome(s) are added at the position of the reference subgenomes' anchor. In other words, it will plot the syntenic anchors according to one progenitors gene order. 
 ```{r plot align, fig.width=7, fig.height=5}
-plot_alignment(heal_list = cn_list, alignment = alignment_list, quick_view_sample = "sample_1", specific_chr = c("chr1", "chr2"), color_map = c("purple3", "goldenrod3"))
+plot_alignment(heal_list = cn_list,
+               alignment = alignment_list,
+               view_sample = "sample_1",
+               specific_chr = c("chr1", "chr2"),
+               color_map = c("purple3", "goldenrod3"))
 ```
-This clearly reveals that, in this sample, many copy number changes are reciprocal and therefore well explained as being caused by homoeologous exchanges. 
+_**Figure 4:** Copy number for anchor gene pairs along the two subgenomes. Color indicates the subgenome for which the copy number is shown. The reference subgenome for a given plot is indicated in the top left corner of each plot._<br><br>
+
+It is clear that, in this sample, many copy number changes are reciprocal between the subgenomes.<br>
 
 If there are only two progenitors we can visualize the distribution of copy numbers of all anchor sets as a heat map using plot_heal_heat_map().
 ```{r heatmap, fig.width=7}
-plot_heal_heat_map(alignment_list, view_samples = "sample_1")
+plot_heal_heat_map(alignment_list,
+                   view_samples = "sample_1")
 ```
-_**Figure 4:** Heat map showing the number of anchor sets in each observed combination of copy numbers._
+_**Figure 5:** Heat map showing the number of anchor sets in each observed combination of copy numbers._<br><br>
 
-Most of the pairs are concordant. This is strong evidence for an HE driven process of copy number variation in this sample. 
+Again we can see that, at the genome wide level, most of the anchor pairs are concordant.
+As a reminder, all we did here is assign copy numbers to genes and then assign genes to each other based on sequence similarity and collinearity. The near perfect correspondence between copy numbers strongly suggests that homoeologous exchange is responsible for the observed copy number changes. Reciprocally, it also serves as a confirmation for our copy number and synteny analyses.<br>
 
-We can also summarize the alignment using summarize_aln().  
+You can also summarize the alignment using summarize_aln():  
 ```{r summarize aln}
-summary_aln <- summarize_aln(alignment = alignment_list, n_threads = num_threads)
+summary_aln <- summarize_aln(alignment = alignment_list,
+                             n_threads = num_threads)
 summary_aln$sample_1$total_summary_dt
 ```
-This function outputs a list for each polyploid sample with the genome-wide distribution of ratios and the distribution over each chromosome, as well as a run length encoded style data table of runs of copy number combinations. Above we showed the genome-wide distribution.  
+This function outputs a list for each polyploid sample with the genome-wide distribution of ratios and the distribution over each chromosome, as well as a run-length encoded style data table of runs of copy number combinations. Above we showed the genome-wide distribution.<br> 
 
-**Note:** The number of base pairs under each ratio and the percentage these amount to are not directly measures along the whole genome but just between all intervals of a given ratio. The range between the starting position of the first gene in a run of copy number ratio and the end position of the last gene in that run is taken as the span, in base pairs, of a given copy number interval. The percentage is then calculated as the percentage over all these spans, not over the entire genome.   
+**Note:** The number of base pairs under each ratio and the percentage these amount to are not directly measures along the whole genome but just between all intervals of a given ratio. The range between the starting position of the first gene in a run of copy number ratio and the end position of the last gene in that run is taken as the span, in base pairs, of a given copy number interval. The percentage is then calculated as the percentage over all these spans, not over the entire genome.<br>   
 
-Anyways, one can notice from the summary above that the only copy numbers combinations seen above 1% are concordant ones. It seems like there is a bias towards species 1 in the 3 to 1 ratio, but then there is a bias towards species 2 in the 4 to 0 ratio. Whatever this means is unclear, but there is surely some interesting underlying biological knowledge that can be gleaned from these results, especially if we start looking at the specific physical distribution of these exchanges. 
+One can notice from the summary above that the only copy numbers combinations above 1% are concordant ones. There seems to be bias towards species 1 in the 3 to 1 ratio, and a bias towards species 2 in the 4 to 0 ratio. It is unclear what to make of this specific result, and whether it is relevant or significant at all. However, there is surely some interesting biological insights that can be gleaned from these results, especially once we start looking at the specific physical distribution of these exchanges.<br>
 
 
-## Improving Copy Number Inference
+## Future directions 
 
-Amongst the discordant anchors it is possible that some, for example at the edges or within short copy number spans, are simply due to erroneous copy number inference. Strong genome-wide concordance suggests that copy number at one gene strongly predicts copy number at its syntenic homoeolog. We might therefore leverage this information to improve copy number inference. 
+In the present version, not all genes are assigned a copy number. This information is only available for anchor genes. Anchor genes are the most likely to share functions between subgenomes and be true orthologs. However, the ratio of copy numbers between paralogs or orthologs no longer in collinear positions can still be of interest. One might also miss some copy number changes when only considering anchors. Therefore, future versions shouls evaluate copy number for all genes. 
+Finally, the current version does not explicitly quantify HE. In the future it would be interesting to return inferred numbers of HE events between two related individuals. This would help us quantify rates of HE through time. Such an inference might take inspiration from nucleotide or codon substitution models, with the fixation of one subgenome being a sink state in selfing organisms. <br>
 
-Here, we propose a rudimentary attempt at such a correction. We start with the assumption that anchor sets which are overlapping unique copy numbers (method="unique") and are concordant (status="concordant") are overlapping bins for which copy number has been correctly inferred. If there is a lot of concordance between the anchors, the vast majority of this concordance is unlikely to be due to chance, thereby justifying our assumption. If your data is not very concordant, then this assumption is no longer justified. What we then do is to take all the bins assumed to have been correctly assigned a copy number and use these to estimate the probability density functions of their respective copy number classes. We only do this for copy number classes capable of being involved in a concordant set, so for allotetraploids with diploid progenitors these are copy numbers 0 to 4. 
-We estimate these densities in two dimensions: read counts and GC content, using multivariate kernel density estimation with the function kde2d from the package MASS (Venables & Ripley, 2002). The reason for using these two variables is that read counts is known to be affected by GC content (Benjamini & Speed, 2012). In fact, those familiar with copy number analysis might have wondered why we did not perform any GC content correction prior to copy number inference. The reason for this is that many synthetic polyploid studies produced whole-genome data only for the purpose of methylation analysis and therefore only as WGBS data. In such bisulfite treated data the relationship between GC and read counts depends additionally on the methylation state of the GCs (see [here](https://github.com/chrisamiller/readDepth/issues/16#event-13151257742)). There is no longer a consistent relationship and classic normalization methods based on "healthy" samples or leoss regression do not perform well anymore. If the data is not bisulfite treated, then GC normalization could also be applied, further improving the outcome. Here, we still use GC content but minimize assumptions on the underlying distribution of the trend between GC and read count. However, we still consider that the whole genome of a given sample has the same level of methylation over all so that we can build empirical density distributions using information from the whole genome (NOTE TO SELF: why does loess regression not work???).
 
-We infer these empirical densities using get_concordant_density(). Then we plot the densities using plot_densities(). 
+## Bonus: Improving Copy Number Inference
+
+  Non-HE copy number changes result in discordant anchor sets. However, some anchor sets might appear discordant due to erroneous copy number inference. Strong genome-wide concordance suggests that copy number at one gene strongly predicts copy number at its collinear homoeolog (its partner in an anchor set). This information could therefore be leveraged to improve copy number inference. <br>
+
+  Here, we propose a rudimentary attempt at such a correction. We start with the assumption that anchor sets which are overlapping unique copy numbers (method="unique") and are concordant (status="concordant") are overlapping bins for which copy number has been correctly inferred. If there is a lot of concordance between the anchors, the vast majority of this concordance is unlikely to be due to chance, thereby justifying our assumption. We then take these bins, assumed to have been correctly assigned a copy number, and use them to estimate the probability density functions of their respective copy number classes. We only do this for copy number classes capable of being involved in a concordant set, so for allotetraploids with diploid progenitors these are copy numbers 0 to 4. 
+We estimate these densities in two dimensions: read counts and GC content, using multivariate kernel density estimation with the function kde2d from the package MASS (Venables & Ripley, 2002). This should account for any leftover relationship between GC and counts not corrected for during GC normalization. It also means that this correction is not recommended for WGBS data. You can infer these empirical densities using get_concordant_density(). Then you can plot the densities using plot_densities(). 
 ```{r density plots raw, fig.width=7, fig.height=7}
-dens <- get_concordant_density(alignment=alignment_list, heal_list = cn_list, n_threads = num_threads) # infer densities
-plot_densities(densities = dens, quick_view_sample = "sample_1", heal_list = cn_list)
+dens <- get_concordant_density(alignment=alignment_list,
+                               heal_list = cn_list,
+                               n_threads = num_threads) # infer densities
+plot_densities(densities = dens,
+               view_sample = "sample_1",
+               heal_list = cn_list)
 ```
-_**Figure 5:** Contour plots showing the estimated densities along GC content and counts for bins assigned to different copy number classes._
+_**Figure 6:** Contour plots showing estimated probability densities along GC content and counts for bins assigned to different copy number classes._<br><br>
 
-We can then go over each discordant anchor set and verify if any of the overlapping bins can be assigned to a different copy number based on the density of each copy number class at the GC and count values of these bins. If any copy number classes have higher density and that these higher density copy numbers lead to a concordant combination, then the anchors' copy number is updated to become concordant. If there are several higher density concordant combinations, the one with highest summed density is taken. In this way, discordance potentially attributable to erroneous copy number inference might be corrected. Since the change is ultimately based on density, the copy number at the corrected anchors is still more plausible given the genome wide distribution of counts by GC content. One potential caveat is that copy number then loses the local context of the bin, something used by Circular Binary Segmentation (DOES IT?). Of course it might also slightly artificially inflate concordance levels by introducing false 'positives'. Regardless, we offer the possibility to perform such a correction with the data. The decision to apply it is left to the users. 
 
-We perform the correction using correct_cn_with_density(). It is then possible to add the bins overlapping with discordant anchors on the density plots using 'show_discordant = TRUE'. These are colored according to their assigned copy number. If we provide a 'corrected_alignment', then the bins used to correct the overlapping anchor are shown with an additional smaller point indicating the corrected copy number class.   
+
+<**TEMPORARY NOTE:** Here I use WGBS data as I don't have anything else to test on right now. This is not ideal.><br>
+
+  We can then go over each discordant anchor set and verify if any of the overlapping bins can be assigned to a different copy number based on the density of each copy number class at the GC and count values of these bins. If any copy number classes have higher densities and that these higher density classes lead to a concordant combination, then the anchors' copy number is updated to the concordant one(s). If there are several higher density concordant combinations, the one with highest summed density is taken. This updated copy number is considered plausible given genome wide distribution of counts by GC content in each copy number class. In this way, discordance attributable to erroneous copy number inference might be corrected. 
+One potential caveat is that copy number then loses the local context of the bin, something which is used by Circular Binary Segmentation. Ultimately, this correction runs into the risk of artificially inflating concordance by introducing false 'positives'.The decision to apply it is therefore left to the users. <br>
+
+You can perform the correction using correct_cn_with_density(). It is then possible to add the bins overlapping with discordant anchors on the density plots using 'show_discordant = TRUE'. These are colored according to their assigned copy number. If we provide a 'corrected_alignment', then the bins used to correct the overlapping anchor are shown with an additional smaller point indicating their corrected copy number class.
 ```{r correction and ploting, fig.width=7, fig.height=7}
 corrected_alignment_list <- correct_cn_with_density(densities = dens, alignment = alignment_list, heal_list = cn_list, n_threads = num_threads)
-plot_densities(densities = dens, quick_view_sample = "sample_1", show_discordant = TRUE, heal_list = cn_list, alignment = alignment_list, corrected_alignment = corrected_alignment_list)
+plot_densities(densities = dens, view_sample = "sample_1", show_discordant = TRUE, heal_list = cn_list, alignment = alignment_list, corrected_alignment = corrected_alignment_list)
 ```
-_**Figure 6:** Contour plots showing the estimated densities with discordant and corrected bins added. Each point is a bin overlapping a discordant anchor set. The color of the point represents the assigned copy number. Corrected bins have a smaller point overlaid with the color to which the overlapping anchor was changed to._
-
+_**Figure 7:** Contour plots showing the estimated densities with discordant and corrected bins added. Each point is a bin overlapping a discordant anchor set. The color of the point represents the assigned copy number. Corrected bins have a smaller point overlaid with the color to which the overlapping anchor was changed to._<br><br>
 
 Let's see how these corrections look like along the genomes.
-```{r plot correct, fig.width=7, fig.height=5}
+```{r plot correct, fig.width=7, fig.height=5, warning=FALSE}
 par(mfrow=c(2,2))
 plot_alignment(heal_list = cn_list,
                alignment = alignment_list,
-               quick_view_sample = "sample_1",
-               specific_chr = c("chr3"),
+               view_sample = "sample_1",
+               specific_chr = c("chr2"),
                add_bins = "alt",
                color_map = c("purple3", "goldenrod3"))
 plot_alignment(heal_list = cn_list,
                alignment = corrected_alignment_list,
-               quick_view_sample = "sample_1",
-               specific_chr = c("chr3"),
+               view_sample = "sample_1",
+               specific_chr = c("chr2"),
                add_bins = "alt",
                color_map = c("purple3", "goldenrod3"))
 ```
+_**Figure 8:** Corrected alignments for chromosome 3 over both subgenomes._<br>
 
-Here the outcome is not markedly better, but the information might still be more accurate for the corrected genes. 
-
-## Future directions 
-
-In the present version, not all genes are assigned a copy number, let alone a copy number ratio to any potential orthologs. This information is only available for anchor genes. 
-In the future we could assign a copy number to the non-anchor genes too. This might reveal copy number changes in inter-anchor regions. Currently, copy number changes occuring after one anchor and reverting back before the next anchor are undetectable. Information about HE could therefore be lost in that manner. 
-Finally, the present tool does not explicitly infer HE. That is, it does not return an infered number of HE events between two related indivuals for example. Such inference would be benefic and could take inspiration from nucleotide or codon substitution models, with the fixation of one subgenome being a sink state in selfing organisms. 
 
 ## References
 
-Benjamini, Y., & Speed, T. P. (2012). Summarizing and correcting the GC content bias in high-throughput sequencing. Nucleic Acids Research, 40(10). https://doi.org/10.1093/nar/gks001
+- Benjamini, Y., & Speed, T. P. (2012). Summarizing and correcting the GC content bias in high-throughput sequencing. Nucleic Acids Research, 40(10). https://doi.org/10.1093/nar/gks001
 
-Kuo, T. C. Y., Hatakeyama, M., Tameshige, T., Shimizu, K. K., & Sese, J. (2020). Homeolog expression quantification methods for allopolyploids. In Briefings in Bioinformatics (Vol. 21, Issue 2, pp. 395–407). Oxford University Press. https://doi.org/10.1093/bib/bby121
+- Kuo, T. C. Y., Hatakeyama, M., Tameshige, T., Shimizu, K. K., & Sese, J. (2020). Homeolog expression quantification methods for allopolyploids. In Briefings in Bioinformatics (Vol. 21, Issue 2, pp. 395–407). Oxford University Press. https://doi.org/10.1093/bib/bby121
 
-Li, H., Handsaker, B., Wysoker, A., Fennell, T., Ruan, J., Homer, N., Marth, G., Abecasis, G., & Durbin, R. (2009). The Sequence Alignment/Map format and SAMtools. Bioinformatics, 25(16), 2078–2079. https://doi.org/10.1093/bioinformatics/btp352
+- Li, H., Handsaker, B., Wysoker, A., Fennell, T., Ruan, J., Homer, N., Marth, G., Abecasis, G., & Durbin, R. (2009). The Sequence Alignment/Map format and SAMtools. Bioinformatics, 25(16), 2078–2079. https://doi.org/10.1093/bioinformatics/btp352
 
-Liao, Y., Smyth, G. K., & Shi, W. (2014). FeatureCounts: An efficient general purpose program for assigning sequence reads to genomic features. Bioinformatics, 30(7), 923–930. https://doi.org/10.1093/bioinformatics/btt656
+- Liao, Y., Smyth, G. K., & Shi, W. (2014). FeatureCounts: An efficient general purpose program for assigning sequence reads to genomic features. Bioinformatics, 30(7), 923–930. https://doi.org/10.1093/bioinformatics/btt656
 
-Lovell, J. T., Sreedasyam, A., Schranz, M. E., Wilson, M., Carlson, J. W., Harkess, A., Emms, D., Goodstein, D. M., & Schmutz, J. (2022). GENESPACE tracks regions of interest and gene copy number variation across multiple genomes.
+- Lovell, J. T., Sreedasyam, A., Schranz, M. E., Wilson, M., Carlson, J. W., Harkess, A., Emms, D., Goodstein, D. M., & Schmutz, J. (2022). GENESPACE tracks regions of interest and gene copy number variation across multiple genomes.
 
-Mason, A. S., & Wendel, J. F. (2020). Homoeologous Exchanges, Segmental Allopolyploidy, and Polyploid Genome Evolution. In Frontiers in Genetics (Vol. 11). Frontiers Media S.A. https://doi.org/10.3389/fgene.2020.01014
+- Mason, A. S., & Wendel, J. F. (2020). Homoeologous Exchanges, Segmental Allopolyploidy, and Polyploid Genome Evolution. In Frontiers in Genetics (Vol. 11). Frontiers Media S.A. https://doi.org/10.3389/fgene.2020.01014
 
-Pockrandt, C., Alzamel, M., Iliopoulos, C. S., & Reinert, K. (2020). GenMap: Ultra-fast computation of genome mappability. Bioinformatics, 36(12), 3687–3692. https://doi.org/10.1093/bioinformatics/btaa222
+- Pockrandt, C., Alzamel, M., Iliopoulos, C. S., & Reinert, K. (2020). GenMap: Ultra-fast computation of genome mappability. Bioinformatics, 36(12), 3687–3692. https://doi.org/10.1093/bioinformatics/btaa222
 
-Quinlan, A. R., & Hall, I. M. (2010). BEDTools: A flexible suite of utilities for comparing genomic features. Bioinformatics, 26(6), 841–842. https://doi.org/10.1093/bioinformatics/btq033
+- Quinlan, A. R., & Hall, I. M. (2010). BEDTools: A flexible suite of utilities for comparing genomic features. Bioinformatics, 26(6), 841–842. https://doi.org/10.1093/bioinformatics/btq033
 
-Seshan, V. E., & Olshen, A. B. (2010). DNAcopy: A Package for Analyzing DNA Copy Data. http://www.nature.com/ng/journal/v29/n3/suppinfo/ng754_S1.html
+- Seshan, V. E., & Olshen, A. B. (2010). DNAcopy: A Package for Analyzing DNA Copy Data. http://www.nature.com/ng/journal/v29/n3/suppinfo/ng754_S1.html
 
-Venables WN, Ripley BD (2002). Modern Applied Statistics with S, Fourth edition. Springer, New York. ISBN 0-387-95457-0, Venables WN, Ripley BD (2002). Modern Applied Statistics with S, Fourth edition. Springer, New York. ISBN 0-387-95457-0,
+- Venables WN, Ripley BD (2002). Modern Applied Statistics with S, Fourth edition. Springer, New York. ISBN 0-387-95457-0. 
 
-Wu, Y., Lin, F., Zhou, Y., Wang, J., Sun, S., Wang, B., Zhang, Z., Li, G., Lin, X., Wang, X., Sun, Y., Dong, Q., Xu, C., Gong, L., Wendel, J. F., Zhang, Z., & Liu, B. (2021). Genomic mosaicism due to homoeologous exchange generates extensive phenotypic diversity in nascent allopolyploids. National Science Review, 8(5). https://doi.org/10.1093/nsr/nwaa277
-
+- Wu, Y., Lin, F., Zhou, Y., Wang, J., Sun, S., Wang, B., Zhang, Z., Li, G., Lin, X., Wang, X., Sun, Y., Dong, Q., Xu, C., Gong, L., Wendel, J. F., Zhang, Z., & Liu, B. (2021). Genomic mosaicism due to homoeologous exchange generates extensive phenotypic diversity in nascent allopolyploids. National Science Review, 8(5). https://doi.org/10.1093/nsr/nwaa277ß

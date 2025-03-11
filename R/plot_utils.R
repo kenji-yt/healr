@@ -1,7 +1,7 @@
 #' Plotting function for heal_list.
 #'
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
-#' @param quick_view_sample The name of a sample to plot (as character)('FALSE' by default).
+#' @param view_sample The name of a sample to plot (as character)('FALSE' by default).
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
@@ -9,12 +9,12 @@
 #' @param add_bins Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
-#' @param return_list Logical: return a list of plots if quick_view_sample.
+#' @param return_list Logical: return a list of plots if view_sample.
 #'
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
+plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
   cn_exist <- unlist(lapply(heal_list, function(list) {
     list$CN
   }))
@@ -36,22 +36,22 @@ plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, 
 
   smp_type_map <- get_sample_stats(heal_list, sample_type = TRUE)
 
-  if (quick_view_sample != FALSE) {
-    if (sum(names(sample_averages) == quick_view_sample) == 0) {
-      cat("ERROR: Sample name not recognized for quick view of alignment. Exiting..")
+  if (view_sample != FALSE) {
+    if (sum(names(sample_averages) == view_sample) == 0) {
+      cat("ERROR: Sample name not recognized for viewing of alignment. Exiting..")
       return()
     }
 
     if (output_dir == FALSE) {
-      cat(paste0("Quickly plotting for ", quick_view_sample, ". \n"))
+      cat(paste0("Plotting for ", view_sample, ". \n"))
     } else {
-      cat(paste0("Saving ", quick_view_sample, "to ", output_dir, "."))
+      cat(paste0("Saving ", view_sample, "to ", output_dir, "."))
     }
-    samples <- quick_view_sample
+    samples <- view_sample
 
-    smp_type_map <- smp_type_map[smp_type_map$sample == quick_view_sample, ]
+    smp_type_map <- smp_type_map[smp_type_map$sample == view_sample, ]
   } else if (output_dir == FALSE) {
-    cat("ERROR: no output directory and no 'quick_view_sample' set. One must be set.")
+    cat("ERROR: no output directory and no 'view_sample' set. One must be set.")
     return()
   } else {
     cat(paste0("Saving all samples and chromosomes to ", output_dir, "."))
@@ -134,7 +134,7 @@ plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, 
         }
       }
       doParallel::stopImplicitCluster()
-      if (quick_view_sample != FALSE) {
+      if (view_sample != FALSE) {
         if (return_list == TRUE) {
           names(plot_list) <- chromo
           return(plot_list)
@@ -144,7 +144,7 @@ plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, 
       }
     }
   }
-  if (quick_view_sample != FALSE) {
+  if (view_sample != FALSE) {
     if (return_list == TRUE) {
       names(plot_prog_list) <- current_prog
       return(plot_prog_list)
@@ -158,19 +158,19 @@ plot_bins <- function(heal_list, quick_view_sample = FALSE, output_dir = FALSE, 
 #'
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
 #' @param alignment A heal alignment object created with get_heal_alignment().
-#' @param quick_view_sample The name of a sample to plot (as character)('FALSE' by default).
+#' @param view_sample The name of a sample to plot (as character)('FALSE' by default).
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param add_bins Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "alt" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
-#' @param return_list Logical: return a list of plots if quick_view_sample.
+#' @param return_list Logical: return a list of plots if view_sample.
 #'
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
+plot_alignment <- function(heal_list, alignment, view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
   
   if (!add_bins %in% c(FALSE, "ref", "alt")) {
     cat("ERROR: Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'alt'. Exiting..")
@@ -191,21 +191,21 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, outp
   }
   names(color_map) <- progenitors
 
-  if (quick_view_sample != FALSE) {
-    if (sum(polyploid_samples == quick_view_sample) == 0) {
-      cat("ERROR: Sample name not recognized (or not polyploid) for quick view of alignment. Exiting..")
+  if (view_sample != FALSE) {
+    if (sum(polyploid_samples == view_sample) == 0) {
+      cat("ERROR: Sample name not recognized (or not polyploid) for viewing of alignment. Exiting..")
       return()
     }
 
     if (output_dir == FALSE) {
-      cat(paste0("Quickly plotting for ", quick_view_sample, ". \n"))
+      cat(paste0("Plotting for ", view_sample, ". \n"))
     } else {
-      cat(paste0("Saving ", quick_view_sample, "to ", output_dir, "."))
+      cat(paste0("Saving ", view_sample, "to ", output_dir, "."))
     }
 
-    polyploid_samples <- quick_view_sample
+    polyploid_samples <- view_sample
   } else if (output_dir == FALSE) {
-    cat("ERROR: no output directory and no 'quick_view_sample' set. One must be set. Exiting..")
+    cat("ERROR: no output directory and no 'view_sample' set. One must be set. Exiting..")
     return()
   } else {
     cat(paste0("Plotting all samples and chromosomes to ", output_dir, "."))
@@ -332,7 +332,7 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, outp
       }
       doParallel::stopImplicitCluster()
 
-      if (quick_view_sample != FALSE) {
+      if (view_sample != FALSE) {
         if (return_list == TRUE) {
           names(plot_list) <- chromo
           return(plot_list)
@@ -342,7 +342,7 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, outp
       }
     }
   }
-  if (quick_view_sample != FALSE) {
+  if (view_sample != FALSE) {
     if (return_list == TRUE) {
       names(plot_ref_list) <- progenitors
       return(plot_ref_list)
@@ -354,7 +354,7 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, outp
 #' Plot empirical concordant densities
 #'
 #' @param densities A list of densities for each polyploid sample (output from get_concordant_density()).
-#' @param quick_view_sample The name of a sample to plot (as character)('FALSE' by default).
+#' @param view_sample The name of a sample to plot (as character)('FALSE' by default).
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param show_discordant Logical defining if bins involved in a discordant anchor set should be added on the plot.
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
@@ -369,7 +369,7 @@ plot_alignment <- function(heal_list, alignment, quick_view_sample = FALSE, outp
 #' @export
 #'
 #' @importFrom data.table :=
-plot_densities <- function(densities, quick_view_sample = FALSE, output_dir = FALSE, show_discordant = FALSE, heal_list = FALSE, alignment = FALSE, corrected_alignment = FALSE, ylim_max = FALSE, color_vec = FALSE, prog_ploidy = 2, n_threads = 1) {
+plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, show_discordant = FALSE, heal_list = FALSE, alignment = FALSE, corrected_alignment = FALSE, ylim_max = FALSE, color_vec = FALSE, prog_ploidy = 2, n_threads = 1) {
   is_align_and_count_data <- is.list(alignment) & is.list(heal_list)
   if (show_discordant == TRUE & !is_align_and_count_data) {
     cat("ERROR: show_discordant is TRUE but no valid heal_list or aligment provided. Exiting..")
@@ -379,17 +379,17 @@ plot_densities <- function(densities, quick_view_sample = FALSE, output_dir = FA
   polyploid_samples <- names(densities)
   progenitors <- names(heal_list)
 
-  if (quick_view_sample != FALSE) {
+  if (view_sample != FALSE) {
     n_threads <- 1
-    if (sum(polyploid_samples == quick_view_sample) == 0) {
-      cat("ERROR: Sample name not recognized (or not polyploid) for quick view of alignment. Exiting..")
+    if (sum(polyploid_samples == view_sample) == 0) {
+      cat("ERROR: Sample name not recognized (or not polyploid) for viewing of alignment. Exiting..")
       return()
     }
 
-    cat(paste0("Quickly plotting for ", quick_view_sample, ". \n"))
-    polyploid_samples <- quick_view_sample
+    cat(paste0("Plotting for ", view_sample, ". \n"))
+    polyploid_samples <- view_sample
   } else if (output_dir == FALSE) {
-    cat("ERROR: no output directory and no 'quick_view_sample' set. One must be set. Exiting..")
+    cat("ERROR: no output directory and no 'view_sample' set. One must be set. Exiting..")
     return()
   } else {
     cat(paste0("Plotting all samples and chromosomes to ", output_dir, "."))
@@ -556,11 +556,11 @@ plot_linear_alignment <- function(alignment, view_samples = FALSE, output_dir = 
 
   if (!isFALSE(view_samples)) {
     if (length(intersect(polyploid_samples, view_samples)) == 0) {
-      cat("ERROR: Sample names not recognized (or not polyploid) for quick view of alignment. Exiting..")
+      cat("ERROR: Sample names not recognized (or not polyploid) for viewing of alignment. Exiting..")
       return()
     }
 
-    cat(paste("Quickly plotting for:", view_samples, " \n"))
+    cat(paste("Plotting for:", view_samples, " \n"))
     polyploid_samples <- view_samples
   } else if (isFALSE(output_dir)) {
     cat("ERROR: no output directory and no 'view_samples' set. One must be set. Exiting..")
@@ -618,11 +618,11 @@ plot_heal_heat_map <- function(alignment, view_samples = FALSE, output_dir = FAL
 
   if (!isFALSE(view_samples)) {
     if (length(intersect(polyploid_samples, view_samples)) == 0) {
-      cat("ERROR: Sample names not recognized (or not polyploid) for quick view of alignment. Exiting..")
+      cat("ERROR: Sample names not recognized (or not polyploid) for viewing of alignment. Exiting..")
       return()
     }
 
-    cat(paste("Quickly plotting for:", view_samples, " \n"))
+    cat(paste("Plotting for:", view_samples, " \n"))
     polyploid_samples <- view_samples
   } else if (isFALSE(output_dir)) {
     cat("ERROR: no output directory and no 'view_samples' set. One must be set. Exiting..")

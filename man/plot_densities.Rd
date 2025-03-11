@@ -6,14 +6,14 @@
 \usage{
 plot_densities(
   densities,
-  quick_view_sample = FALSE,
+  view_sample = FALSE,
   output_dir = FALSE,
   show_discordant = FALSE,
   heal_list = FALSE,
   alignment = FALSE,
   corrected_alignment = FALSE,
   ylim_max = FALSE,
-  colour_vec = FALSE,
+  color_vec = FALSE,
   prog_ploidy = 2,
   n_threads = 1
 )
@@ -21,7 +21,7 @@ plot_densities(
 \arguments{
 \item{densities}{A list of densities for each polyploid sample (output from get_concordant_density()).}
 
-\item{quick_view_sample}{The name of a sample to plot (as character)('FALSE' by default).}
+\item{view_sample}{The name of a sample to plot (as character)('FALSE' by default).}
 
 \item{output_dir}{The name of a directory to write all plots to. Will create one if nonexistent.}
 
@@ -35,7 +35,7 @@ plot_densities(
 
 \item{ylim_max}{Maximum ylim value ('FALSE' by default). If FALSE then the value is set for each sample as 3 times the standard deviation above the mean.}
 
-\item{colour_vec}{A vector of colours for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colours are choosen using rainbow().}
+\item{color_vec}{A vector of colors for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colors are choosen using rainbow().}
 
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default)}
 

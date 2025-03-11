@@ -21,7 +21,7 @@ plot_linear_alignment(
 
 \item{output_dir}{The name of a directory to write all plots to. Will create one if nonexistent.}
 
-\item{color}{The colour of the points ("blue4" by default).}
+\item{color}{The color of the points ("blue4" by default).}
 
 \item{alpha}{The transparency of the points (0.1 by default).}
 

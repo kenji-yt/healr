@@ -4,24 +4,16 @@
 \alias{count_heal_data}
 \title{Counts reads and combines results with GC and mappability information.}
 \usage{
-count_heal_data(
-  input_dir,
-  n_threads = 1,
-  bin_size,
-  paired_end,
-  full_output = FALSE
-)
+count_heal_data(input_dir, n_threads = 1, paired_end, full_output = FALSE)
 }
 \arguments{
 \item{input_dir}{A healr input directory (see details).}
 
 \item{n_threads}{Number of threads to use with featureCounts ('1' by default)}
 
-\item{bin_size}{Bin size.}
-
 \item{paired_end}{Logical: Is the data paired end.}
 
-\item{full_output}{Logical: Do you want to also get the full featureCounts output ('FALSE' by default).}
+\item{full_output}{Logical: Do you want to also get the full featureCounts output ('FALSE' by default). This can be usefull for debugging.}
 }
 \value{
 A list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.

@@ -7,12 +7,12 @@
 plot_alignment(
   heal_list,
   alignment,
-  quick_view_sample = FALSE,
+  view_sample = FALSE,
   output_dir = FALSE,
   n_threads = 1,
   add_bins = FALSE,
   prog_ploidy = 2,
-  colour_map = FALSE,
+  color_map = FALSE,
   specific_chr = FALSE,
   return_list = FALSE
 )
@@ -22,7 +22,7 @@ plot_alignment(
 
 \item{alignment}{A heal alignment object created with get_heal_alignment().}
 
-\item{quick_view_sample}{The name of a sample to plot (as character)('FALSE' by default).}
+\item{view_sample}{The name of a sample to plot (as character)('FALSE' by default).}
 
 \item{output_dir}{The name of a directory to write all plots to. Will create one if nonexistent.}
 
@@ -32,11 +32,11 @@ plot_alignment(
 
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default).}
 
-\item{colour_map}{A vector of colours for each progenitor. If "FALSE" the colours are choosen using rainbow().}
+\item{color_map}{A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().}
 
 \item{specific_chr}{A vector of characters indicating which chromosomes to plot (plots all by default).}
 
-\item{return_list}{Logical: return a list of plots if quick_view_sample.}
+\item{return_list}{Logical: return a list of plots if view_sample.}
 }
 \value{
 Either nothing or a list of plots.

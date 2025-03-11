@@ -4,7 +4,7 @@
 \alias{parse_counts_bins}
 \title{Parse feature count output for bins and merge to gc and mappability.}
 \usage{
-parse_counts_bins(feature_count_list, gc_dt, map_dt, sample_names, bin_size)
+parse_counts_bins(feature_count_list, gc_dt, map_dt, sample_names)
 }
 \arguments{
 \item{feature_count_list}{Feature counts output list.}
@@ -14,8 +14,6 @@ parse_counts_bins(feature_count_list, gc_dt, map_dt, sample_names, bin_size)
 \item{map_dt}{Mappability  data table.}
 
 \item{sample_names}{Sample names.}
-
-\item{bin_size}{Bin size.}
 }
 \value{
 A data table with GC, mappability and count per bin.
