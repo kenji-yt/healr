@@ -12,8 +12,7 @@ summarize_cn <- function(heal_list, n_threads=1){
   
   cn_exist <- sum(names(heal_list[[1]]) == "CN") != 0
   if (cn_exist != TRUE) {
-    cat("ERROR: no CN data. Exiting...")
-    return()
+    stop("No CN data. Exiting...")
   }
   
   progenitors <- names(heal_list)

@@ -58,8 +58,7 @@ get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample
         })))
         return(n_bins)
       } else {
-        cat("ERROR: Unknown stats method. Please input either 'sd', 'mean' or 'median'.")
-        return()
+        stop("Unknown stats method. Please input either 'sd', 'mean' or 'median'.")
       }
     }
     doParallel::stopImplicitCluster()

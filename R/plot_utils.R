@@ -29,8 +29,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
   if (isFALSE(color_map)) {
     color_map <- grDevices::rainbow(length(progenitors), s = 0.7)
   } else if (length(color_map) != length(progenitors)) {
-    cat("ERROR: Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
-    return()
+    stop("Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
   }
   names(color_map) <- progenitors
 
@@ -38,8 +37,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
 
   if (view_sample != FALSE) {
     if (sum(names(sample_averages) == view_sample) == 0) {
-      cat("ERROR: Sample name not recognized for viewing of alignment. Exiting..")
-      return()
+      stop("Sample name not recognized for viewing of alignment. Exiting..")
     }
 
     if (output_dir == FALSE) {
@@ -51,8 +49,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
 
     smp_type_map <- smp_type_map[smp_type_map$sample == view_sample, ]
   } else if (output_dir == FALSE) {
-    cat("ERROR: no output directory and no 'view_sample' set. One must be set.")
-    return()
+    stop("No output directory and no 'view_sample' set. One must be set.")
   } else {
     cat(paste0("Saving all samples and chromosomes to ", output_dir, "."))
     samples <- names(sample_averages)
@@ -173,8 +170,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
 plot_alignment <- function(heal_list, alignment, view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
   
   if (!add_bins %in% c(FALSE, "ref", "alt")) {
-    cat("ERROR: Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'alt'. Exiting..")
-    return()
+    stop("Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'alt'. Exiting..")
   }
 
   polyploid_samples <- names(alignment)
@@ -186,15 +182,13 @@ plot_alignment <- function(heal_list, alignment, view_sample = FALSE, output_dir
   if (isFALSE(color_map)) {
     color_map <- grDevices::rainbow(length(progenitors), s = 0.7)
   } else if (length(color_map) != length(progenitors)) {
-    cat("ERROR: Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
-    return()
+    stop("Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
   }
   names(color_map) <- progenitors
 
   if (view_sample != FALSE) {
     if (sum(polyploid_samples == view_sample) == 0) {
-      cat("ERROR: Sample name not recognized (or not polyploid) for viewing of alignment. Exiting..")
-      return()
+      stop("Sample name not recognized (or not polyploid) for viewing of alignment. Exiting..")
     }
 
     if (output_dir == FALSE) {
@@ -205,8 +199,7 @@ plot_alignment <- function(heal_list, alignment, view_sample = FALSE, output_dir
 
     polyploid_samples <- view_sample
   } else if (output_dir == FALSE) {
-    cat("ERROR: no output directory and no 'view_sample' set. One must be set. Exiting..")
-    return()
+    stop("No output directory and no 'view_sample' set. One must be set. Exiting..")
   } else {
     cat(paste0("Plotting all samples and chromosomes to ", output_dir, "."))
   }
@@ -372,8 +365,7 @@ plot_alignment <- function(heal_list, alignment, view_sample = FALSE, output_dir
 plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, show_discordant = FALSE, heal_list = FALSE, alignment = FALSE, corrected_alignment = FALSE, ylim_max = FALSE, color_vec = FALSE, prog_ploidy = 2, n_threads = 1) {
   is_align_and_count_data <- is.list(alignment) & is.list(heal_list)
   if (show_discordant == TRUE & !is_align_and_count_data) {
-    cat("ERROR: show_discordant is TRUE but no valid heal_list or aligment provided. Exiting..")
-    return()
+    stop("show_discordant is TRUE but no valid heal_list or aligment provided. Exiting..")
   }
 
   polyploid_samples <- names(densities)
@@ -382,15 +374,13 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
   if (view_sample != FALSE) {
     n_threads <- 1
     if (sum(polyploid_samples == view_sample) == 0) {
-      cat("ERROR: Sample name not recognized (or not polyploid) for viewing of alignment. Exiting..")
-      return()
+      stop("Sample name not recognized (or not polyploid) for viewing of alignment. Exiting..")
     }
 
     cat(paste0("Plotting for ", view_sample, ". \n"))
     polyploid_samples <- view_sample
   } else if (output_dir == FALSE) {
-    cat("ERROR: no output directory and no 'view_sample' set. One must be set. Exiting..")
-    return()
+    stop("No output directory and no 'view_sample' set. One must be set. Exiting..")
   } else {
     cat(paste0("Plotting all samples and chromosomes to ", output_dir, "."))
   }
@@ -405,8 +395,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
 
     if (ylim_max == FALSE) {
       if (is.list(heal_list) == FALSE) {
-        cat("ERROR: No ylim_max and no heal_list. Set at least one. Exiting..")
-        return()
+        stop("No ylim_max and no heal_list. Set at least one. Exiting..")
       } else {
         counts_vec <- unlist(lapply(heal_list, function(dt) {
           return(dt$bins[[smp]])
@@ -421,8 +410,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
       color_vec <- grDevices::rainbow(n = length(cn_labels), s = 0.7, v = 1)
     } else {
       if (length(cn_labels) != length(color_vec)) {
-        cat("ERROR: color vector length not matching number of copy number categories. Exiting..")
-        return()
+        stop("Color vector length not matching number of copy number categories. Exiting..")
       }
     }
 
@@ -556,15 +544,13 @@ plot_linear_alignment <- function(alignment, view_samples = FALSE, output_dir = 
 
   if (!isFALSE(view_samples)) {
     if (length(intersect(polyploid_samples, view_samples)) == 0) {
-      cat("ERROR: Sample names not recognized (or not polyploid) for viewing of alignment. Exiting..")
-      return()
+      stop("Sample names not recognized (or not polyploid) for viewing of alignment. Exiting..")
     }
 
     cat(paste("Plotting for:", view_samples, " \n"))
     polyploid_samples <- view_samples
   } else if (isFALSE(output_dir)) {
-    cat("ERROR: no output directory and no 'view_samples' set. One must be set. Exiting..")
-    return()
+    stop("No output directory and no 'view_samples' set. One must be set. Exiting..")
   } else {
     cat(paste0("Plotting all samples to ", output_dir, "."))
   }
@@ -618,15 +604,13 @@ plot_heal_heat_map <- function(alignment, view_samples = FALSE, output_dir = FAL
 
   if (!isFALSE(view_samples)) {
     if (length(intersect(polyploid_samples, view_samples)) == 0) {
-      cat("ERROR: Sample names not recognized (or not polyploid) for viewing of alignment. Exiting..")
-      return()
+      stop("Sample names not recognized (or not polyploid) for viewing of alignment. Exiting..")
     }
 
     cat(paste("Plotting for:", view_samples, " \n"))
     polyploid_samples <- view_samples
   } else if (isFALSE(output_dir)) {
-    cat("ERROR: no output directory and no 'view_samples' set. One must be set. Exiting..")
-    return()
+    stop("No output directory and no 'view_samples' set. One must be set. Exiting..")
   } else {
     cat(paste0("Plotting all samples to ", output_dir, "."))
   }

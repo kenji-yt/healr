@@ -195,8 +195,7 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_threads=1) {
 get_heal_alignment <- function(heal_list, genespace_dir, n_threads=1, prog_ploidy = 2) {
   cn_exist <- sum(names(heal_list[[1]]) == "CN") != 0
   if (cn_exist != TRUE) {
-    cat("ERROR: no CN data. Exiting...")
-    return()
+    stop("No CN data. Exiting...")
   }
 
   anchors_dt <- get_conserved_anchors(genespace_dir)

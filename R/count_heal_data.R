@@ -47,9 +47,21 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names) {
 #' @importFrom foreach %do%
 #' @importFrom utils write.table
 count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = FALSE) {
+  
   prog_dir <- list.files(path = input_dir, pattern = "progenitors", full.names = TRUE)
+  if(length(prog_dir)==0){
+    stop("No directory named progenitors in the input directory.")
+  }else if(length(prog_dir)>1){
+    stop("More than one directory named progenitors in the input directory.")
+  }
+  
   poly_dir <- list.files(path = input_dir, pattern = "polyploids", full.names = TRUE)
-
+  if(length(poly_dir)==0){
+    stop("No directory named polyploids in the input directory.")
+  }else if(length(poly_dir)>1){
+    stop("More than one directory named polyploids in the input directory.")
+  }
+  
   progenitors <- list.files(path = prog_dir)
 
 
@@ -65,8 +77,7 @@ count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = 
     bins_path <- list.files(path = current_prog_dir, pattern = "bins.bed$", full.names = TRUE)
 
     if (length(gc_path) != 1 || length(map_path) != 1 || length(bins_path) != 1) {
-      cat(paste("ERROR: Not exactly one mappability, GC content or bins file for progenitor", prog, ". Exiting!"))
-      return()
+      stop(paste("Not exactly one mappability, GC content or bins file for progenitor", prog, ". Exiting!"))
     }
 
 
