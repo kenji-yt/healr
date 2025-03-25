@@ -8,6 +8,7 @@
 #' @return Information about the samples.
 #' @importFrom foreach %dopar%
 get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample_type = FALSE) {
+  
   progenitors <- names(heal_list)
   sample_name_list <- lapply(heal_list, function(df) {
     setdiff(colnames(df$bins), c("chr", "start", "mappability", "gc_content", "end"))
@@ -17,7 +18,8 @@ get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample
   progenitor_samples <- setdiff(sample_names, polyploids)
 
   samples <- unique(sample_names)
-
+  
+ 
   if (sample_type == TRUE) {
     prog_list <- lapply(progenitors, function(pro) {
       pro_smpls <- setdiff(sample_name_list[[pro]], polyploids)
@@ -26,6 +28,7 @@ get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample
     smp_type_df <- do.call(rbind, prog_list)
     smp_type_df <- rbind(smp_type_df, data.frame(sample = polyploids, type = rep("polyploid", length(polyploids))))
     return(smp_type_df)
+    
   } else {
     doParallel::registerDoParallel(n_threads)
     sample_stats <- foreach::foreach(smp = samples) %dopar% {

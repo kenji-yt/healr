@@ -9,6 +9,8 @@
 #' @return A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
 #' @export
 filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FALSE, count_threshold = 3, replace_by_NA = TRUE) {
+  
+  # Filtering the data
   if (count_threshold != FALSE) {
     smp_means <- get_sample_stats(heal_list, method = "mean")
     smp_sd <- get_sample_stats(heal_list, method = "sd")
@@ -28,6 +30,8 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FA
     names(filtered_list) <- names(heal_list)
     heal_list <- filtered_list
   }
+  
+  # Creating the output message.
   cat("===================\n")
   cat("| Filtering bins:  |\n")
   cat("===================\n")
@@ -69,8 +73,13 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FA
   }
 
   if (count_threshold != FALSE) {
-    cat(paste0("Smoothing bins with counts ", count_threshold, " standard deviations above the mean: \n"))
-
+    
+    if (replace_by_NA == TRUE) {
+      cat(paste0("Replacing bins with counts ", count_threshold, " standard deviations above the mean: \n"))
+    }else{
+      cat(paste0("Smoothing bins with counts ", count_threshold, " standard deviations above the mean: \n"))
+    }
+      
     smp_na <- get_sample_stats(filtered_list, method = "is.na")
     smp_len <- get_sample_stats(filtered_list, method = "length")
     na_freq <- lapply(names(smp_na), function(name) {
@@ -81,7 +90,11 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FA
 
     for (i in 1:length(na_freq)) {
       smp_name <- names(na_freq)[i]
-      cat(paste0("                -", smp_name, " count outlier filtering:  ", na_freq[[smp_name]], "% of remaining bins set to NA.\n"))
+      if (replace_by_NA == TRUE) {
+        cat(paste0("                -", smp_name, " count outlier filtering:  ", na_freq[[smp_name]], "% of remaining bins set to NA.\n"))
+      }else{
+        cat(paste0("                -", smp_name, " count outlier filtering:  ", na_freq[[smp_name]], "% of remaining bins set to threshold. \n"))
+      }
     }
   }
 

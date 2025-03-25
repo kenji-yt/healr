@@ -201,3 +201,6 @@ summarize_aln <- function(alignment, n_threads){
   return(alignment_summary_list)
   
 }
+
+
+utils::globalVariables(c("combination", "combo", "tmp_ratio_name"))

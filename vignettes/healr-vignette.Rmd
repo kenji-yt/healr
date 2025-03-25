@@ -121,9 +121,10 @@ It is therefore a good idea to exclude bins with average mappability below a cer
 ```{r filtering}
 filtered_list <- filter_bins(heal_list = count_list,
                              mappability_threshold = 0.9,
-                             count_threshold = 3)
+                             count_threshold = 3,
+                             replace_by_NA = TRUE)
 ```
-Here we removed bins with average per base mappability below 0.9 and replace any count values 3 times the standard deviation above the mean with NA. This is the default behavior of this function. <br>
+Here we removed bins with average per base mappability below 0.9 and replace any count values 3 times the standard deviation above the mean with NA. This is the default behavior of this function. You can also set replace_by_NA to FALSE, in which case the value is set to that of the threshold. <br>
 
 Let's plot the filtered data: 
 ```{r plot filtered counts, fig.width=7, fig.height=5, warning=FALSE}

@@ -17,7 +17,7 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names) {
   end <- feature_count_list$annotation$End
   length <- feature_count_list$annotation$Length
   
-  bin_size <- median(feature_count_list$annotation$Length)
+  bin_size <- stats::median(feature_count_list$annotation$Length)
 
   anno_dt <- data.table::data.table(chr = chr[length == bin_size], start = start[length == bin_size] - 1, end = end[length == bin_size])
 
