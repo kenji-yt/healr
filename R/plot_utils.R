@@ -622,13 +622,14 @@ plot_heal_heat_map <- function(alignment, view_samples = FALSE, output_dir = FAL
     all_pairs <- utils::combn(cn_cols, 2)
 
     for (i in 1:ncol(all_pairs)) {
+      
+      pair <- all_pairs[, i]
+      progenitors <- sub("cn_", "", pair)
+      
       if (output_dir != FALSE) {
         dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
         out_file <- paste0(output_dir, "/", pair[1], "_vs_", pair[2], "_heat.png")
       }
-
-      pair <- all_pairs[, i]
-      progenitors <- sub("cn_", "", pair)
 
       input_dt <- data.table::data.table(x = alignment[[smp]][[pair[1]]], y = alignment[[smp]][[pair[2]]])
 
