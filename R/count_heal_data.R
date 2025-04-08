@@ -41,7 +41,7 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names) {
 #' @param paired_end Logical: Is the data paired end.
 #' @param full_output Logical: Do you want to also get the full featureCounts output ('FALSE' by default). This can be usefull for debugging. 
 #'
-#' @return A list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
+#' @return A heal list object i.e. a list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
 #' @export
 #'
 #' @importFrom foreach %do%
@@ -68,7 +68,7 @@ count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = 
   counts <- foreach::foreach(prog = progenitors) %do% {
     # get paths ----------------
 
-    cat(paste("Counting reads in bins for progenitor or subgenome", prog, "."))
+    cat(paste("Counting reads in bins for progenitor or subgenome", prog, ".", "\n"))
 
     current_prog_dir <- list.files(path = prog_dir, pattern = prog, full.names = TRUE)
 

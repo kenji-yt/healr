@@ -1,6 +1,6 @@
 #' Plotting function for heal_list.
 #'
-#' @param heal_list Output list in heal format (such as output from count_heal_data()).
+#' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param view_sample The name of a sample to plot (as character)('FALSE' by default).
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_threads Number of threads to use ('1' by default).
@@ -15,11 +15,12 @@
 #' @export
 #'
 plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
+  
   cn_exist <- unlist(lapply(heal_list, function(list) {
     list$CN
   }))
   if (is.null(cn_exist) && plot_cn == TRUE) {
-    cat("ERROR: plot_cn set to 'TRUE' but no CN data table found in heal_list. Setting plot_cn to 'FALSE'.")
+    cat("ERROR: plot_cn set to 'TRUE' but no CN data table found in heal_list. Setting plot_cn to 'FALSE'. \n")
     plot_cn <- FALSE
   }
 
@@ -43,7 +44,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
     if (output_dir == FALSE) {
       cat(paste0("Plotting for ", view_sample, ". \n"))
     } else {
-      cat(paste0("Saving ", view_sample, "to ", output_dir, "."))
+      cat(paste0("Saving ", view_sample, "to ", output_dir, ".", "\n"))
     }
     samples <- view_sample
 
@@ -51,7 +52,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
   } else if (output_dir == FALSE) {
     stop("No output directory and no 'view_sample' set. One must be set.")
   } else {
-    cat(paste0("Saving all samples and chromosomes to ", output_dir, "."))
+    cat(paste0("Saving all samples and chromosomes to ", output_dir, ".", "\n"))
     samples <- names(sample_averages)
   }
 
@@ -194,14 +195,14 @@ plot_alignment <- function(heal_list, alignment, view_sample = FALSE, output_dir
     if (output_dir == FALSE) {
       cat(paste0("Plotting for ", view_sample, ". \n"))
     } else {
-      cat(paste0("Saving ", view_sample, "to ", output_dir, "."))
+      cat(paste0("Saving ", view_sample, "to ", output_dir, ".", "\n"))
     }
 
     polyploid_samples <- view_sample
   } else if (output_dir == FALSE) {
     stop("No output directory and no 'view_sample' set. One must be set. Exiting..")
   } else {
-    cat(paste0("Plotting all samples and chromosomes to ", output_dir, "."))
+    cat(paste0("Plotting all samples and chromosomes to ", output_dir, ".", "\n"))
   }
 
   foreach::foreach(smp = polyploid_samples) %do% {
@@ -382,7 +383,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
   } else if (output_dir == FALSE) {
     stop("No output directory and no 'view_sample' set. One must be set. Exiting..")
   } else {
-    cat(paste0("Plotting all samples and chromosomes to ", output_dir, "."))
+    cat(paste0("Plotting all samples and chromosomes to ", output_dir, ".", "\n"))
   }
 
   doParallel::registerDoParallel(n_threads)
@@ -552,7 +553,7 @@ plot_linear_alignment <- function(alignment, view_samples = FALSE, output_dir = 
   } else if (isFALSE(output_dir)) {
     stop("No output directory and no 'view_samples' set. One must be set. Exiting..")
   } else {
-    cat(paste0("Plotting all samples to ", output_dir, "."))
+    cat(paste0("Plotting all samples to ", output_dir, ".", "\n"))
   }
 
 
@@ -600,6 +601,7 @@ plot_linear_alignment <- function(alignment, view_samples = FALSE, output_dir = 
 #' @export
 #'
 plot_heal_heat_map <- function(alignment, view_samples = FALSE, output_dir = FALSE) {
+  
   polyploid_samples <- names(alignment)
 
 
@@ -613,7 +615,7 @@ plot_heal_heat_map <- function(alignment, view_samples = FALSE, output_dir = FAL
   } else if (isFALSE(output_dir)) {
     stop("No output directory and no 'view_samples' set. One must be set. Exiting..")
   } else {
-    cat(paste0("Plotting all samples to ", output_dir, "."))
+    cat(paste0("Plotting all samples to ", output_dir, ".", "\n"))
   }
 
 
