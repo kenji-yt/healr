@@ -238,23 +238,54 @@ read_heal_alignment <- function(alignment_directory, ...){
   
   sample_files <- list.files(path = alignment_directory, full.names = FALSE, recursive = FALSE)
   sample_names <- gsub(".dt", "", sample_files)
-  names(sample_files) <- sample_names
+  sample_paths <- paste0(alignment_directory, sample_files)
+  names(sample_paths) <- sample_names
   
   for(smp in sample_names){
     
-    out_alignment[[smp]] <- data.table::fread(sample_files[smp], header=TRUE, ...)
+    out_alignment[[smp]] <- data.table::fread(sample_paths[smp], header=TRUE, ...)
   }
   return(out_alignment)
 }
 
-write_alignment_summary <- function(alignment_summary, output_dir, formating){
+write_alignment_summary <- function(alignment_summary, output_dir, ...){
   
-  if (dir.exists(dir_path)) {
+  if (dir.exists(output_dir)) {
     stop("Output directory already exists!")
     
   } else {
     dir.create(output_dir, recursive = TRUE)
     
-    subgenomes <- names(heal_list)
+    samples <- names(alignment_summary)
+    
+    for(smp in samples){
+      
+      smp_outdir <- paste0(output_dir, "/", smp) 
+      dir.create(smp_outdir, recursive = FALSE)
+      total_path <- paste0(smp_outdir, "/total_summary.dt")
+      data.table::fwrite(alignment_summary[[smp]]$total_summary_dt, file = total_path, ...)
+  
+      progenitors <- setdiff(names(alignment_summary[[smp]]), "total_summary_dt")
+      
+      for(prog in progenitors){
+        
+        prog_outdir <- paste0(smp_outdir, "/", prog)
+        dir.create(prog_outdir, recursive = FALSE)
+        total_df_name <- paste0("total_", prog)
+        total_prog_path <- paste0(prog_outdir, "/", total_df_name, ".dt")
+        
+        data.table::fwrite(alignment_summary[[smp]][[prog]][[total_df_name]], total_prog_path, ...)
+        
+        chromosomes <- setdiff(names(alignment_summary[[smp]][[prog]]), total_df_name)
+        
+        for(chromo in chromosomes){
+          
+          chromo_outdir <- paste0(prog_outdir, "/", chromo)
+          dir.create(chromo_outdir, recursive = FALSE)
+          data.table::fwrite(alignment_summary[[smp]][[prog]][[chromo]]$count_dt, paste0(chromo_outdir, "/count.dt"), ...)
+          data.table::fwrite(alignment_summary[[smp]][[prog]][[chromo]]$run_length_encoding, paste0(chromo_outdir, "/rle.dt"), ...)
+        }
+      }
+    }
   }
 }
