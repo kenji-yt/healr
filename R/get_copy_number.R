@@ -42,14 +42,14 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
         return(sum(!is.na(smooth_cna$Sample.1[smooth_cna$chrom==chromo]))==0)
       }
       only_na_chromo <- unique(smooth_cna$chrom)[unlist(only_na_chromo_list)]
-      
-      for(rm_chr in only_na_chromo){
-        smooth_not_na_cna <- smooth_cna[smooth_cna$chrom!=rm_chr,]
+     
+      smooth_not_na_cna <- smooth_cna
+      if(length(only_na_chromo>1)){
+        for(rm_chr in only_na_chromo){
+          smooth_not_na_cna <- smooth_not_na_cna[smooth_not_na_cna$chrom!=rm_chr,]
+        }
       }
       sgmnts <- DNAcopy::segment(smooth_not_na_cna)
-      
-      # Fixing a weird bug of 
-      rowSums(is.na(sgmnts$segRows))
       
       estimated_CN <- round((sgmnts$output$seg.mean / sample_averages[[smp]]) * prog_ploidy)
 

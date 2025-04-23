@@ -1,4 +1,4 @@
-#' Write a heal list
+#' Write a heal list to a directory
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param output_dir The name of a directory to write the heal list to. Fails if the directory exists.
@@ -32,6 +32,7 @@ write_heal_list <- function(heal_list, output_dir, ...){
         data.table::fwrite(dt, file=file_path, ...)
         
       }
+      cat(paste0("Done for ",prog,".\n"))
     }
   }
 }
@@ -39,7 +40,7 @@ write_heal_list <- function(heal_list, output_dir, ...){
 
 #' Read a heal list from a directory
 #' 
-#' @param heal_list_directory A directory structure after a heal list (such as created by write_heal_list()).
+#' @param heal_list_directory A directory structured after a heal list (created by write_heal_list()).
 #' @param ... Any argument you which to pass to fread (see data.table::fread documentation).
 #'
 #' @returns A heal list object i.e. a list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
@@ -76,7 +77,7 @@ read_heal_list <- function(heal_list_directory, ...){
 }
 
 
-#' Write a CN summary
+#' Write a heal copy number summary to a directory
 #'
 #' @param cn_summary A list object created with summarize_cn() 
 #' @param output_dir The name of a directory to write the summary list to. Fails if the directory exists.
@@ -136,10 +137,20 @@ write_cn_summary <- function(cn_summary, output_dir, ...){
         }
       }
     }
+    cat(paste0("Done for ", smp, ".\n"))
   }
 }
 
 
+#' Read a heal copy number summary from a directory
+#'
+#' @param cn_summary_directory A directory structured after a CN summary (created by write_cn_summary()).
+#' @param ... Any argument you which to pass to fread (see data.table::fread documentation).
+#'
+#' @returns A CN summary i.e. a list object with information about copy number for each sample. Same as the output of summarize_cn().
+#' @export
+#'
+#' @examples
 read_cn_summary <- function(cn_summary_directory, ...){
   
   out_cn_summary <- list()
@@ -154,43 +165,86 @@ read_cn_summary <- function(cn_summary_directory, ...){
     
     file_names <- list.files(sample_dirs[smp], full.names = FALSE)
     
-    smp_list$total_count_table <- data.table::fread(file=paste0(sample_dirs[smp], "/total_count_table.dt"), ...)
+    smp_list$total_count_table <- data.table::fread(file=paste0(sample_dirs[smp], "/total_count_table.dt"), header=TRUE, ...)
     
     progenitors <- setdiff(file_names, "total_count_table.dt")
-    dir_paths <- paste0(sample_dirs[smp], "/", progenitors)
-    names(dir_paths) <- progenitors
+    smp_paths <- paste0(sample_dirs[smp], "/", progenitors)
+    names(smp_paths) <- progenitors
     
     for(prog in progenitors){
       
       prog_list <- list()
       
-      file_names <- list.files(dir_paths[prog], full.names = FALSE)
+      prog_file_names <- list.files(smp_paths[prog], full.names = FALSE)
       
-      total_dt_name <- paste0("total_count_table_", prog)
+      total_dt_name <- paste0("total_count_table_", prog, ".dt")
       
-      prog_list[[total_dt_name]] <- data.table::fread(file=paste0(dir_paths[prog], "/", total_dt_name, ".dt"), ...)
-      prog_list[[dt_name]] <- data.table::fread(file=file_paths[dt_name], ...)
+      prog_list[[total_dt_name]] <- data.table::fread(file=paste0(smp_paths[prog], "/", total_dt_name), header=TRUE, ...)
+      
+      chromosomes <- setdiff(prog_file_names, total_dt_name)
+      
+      chr_paths <- paste0(smp_paths[prog], "/", chromosomes)
+      names(chr_paths) <- chromosomes
+      
+      for(chromo in chromosomes){
+        
+        chromo_list <- list()
+        
+        chromo_list$count_table <- data.table::fread(file=paste0(chr_paths[chromo], "/count_table.dt"), header=TRUE, ...)
+        
+        rle_dt <- data.table::fread(file = paste0(chr_paths[chromo],"/run_length_encoding.dt"), header=TRUE, ...)
+        run_length_encoding <- list(values=rle_dt$values, lengths=rle_dt$lengths)
+        class(run_length_encoding) <- "rle"
+        
+        chromo_list$run_length_encoding <- run_length_encoding
+        
+        prog_list[[chromo]] <- chromo_list
+      }
+      
+      smp_list[[prog]] <- prog_list
     }
     
-    out_heal_list[[prog]] <- prog_list
+    out_cn_summary[[smp]] <- smp_list
     
   }
   
-  return(out_heal_list)
+  return(out_cn_summary)
   
 }
 
-write_heal_alignment <- function(alignment, output_dir, formating){
+write_heal_alignment <- function(alignment, output_dir, ...){
   
-  if (dir.exists(dir_path)) {
-    stop("Output directory already exists!")
+  if(dir.exists(output_dir)) {
+    stop(paste("Output directory", output_dir, "already exists!"))
     
   } else {
+    
     dir.create(output_dir, recursive = TRUE)
     
-    progenitors <- names(heal_list)
+    samples <- names(alignment)
+    for(smp in samples){
+      
+      smp_dt_path <- paste0(output_dir,"/",smp,".dt")
+      data.table::fwrite(alignment[[smp]], file = smp_dt_path, ...)
+      
+    }
+    cat(paste0("Done for ", smp, ".\n"))
   }
+}
+
+read_heal_alignment <- function(alignment_directory, ...){
   
+  out_alignment <- list()
+  
+  sample_files <- list.files(path = alignment_directory, full.names = FALSE, recursive = FALSE)
+  sample_names <- gsub(".dt", "", sample_files)
+  names(sample_files) <- sample_names
+  
+  for(smp in sample_names){
+    
+    out_alignment[[smp]] <- data.table::fread(sample_files[smp], header=TRUE, ...)
+  }
+  return(out_alignment)
 }
 
 write_alignment_summary <- function(alignment_summary, output_dir, formating){

@@ -210,7 +210,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads=1, prog_ploid
   total_ploidy <- length(progenitors) * prog_ploidy
 
   cat("Likely very ineficient to subset whole dt for each anchor...")
-  cn_alignment_list <- foreach::foreach(smp = polyploid_samples) %dopar% {
+  cn_alignment_list <- foreach::foreach(smp = polyploid_samples) %do% {
     doParallel::registerDoParallel(n_threads)
 
     cn_per_anchor_pair_list <- foreach::foreach(i = 1:nrow(anchors_dt)) %dopar% {

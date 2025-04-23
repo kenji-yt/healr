@@ -10,11 +10,12 @@
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
 #' @param return_list Logical: return a list of plots if view_sample.
+#' @param method The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
 #'
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
+plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, method = "median", linewidth=2, ...) {
   
   cn_exist <- unlist(lapply(heal_list, function(list) {
     list$CN
@@ -24,7 +25,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
     plot_cn <- FALSE
   }
 
-  sample_averages <- get_sample_stats(heal_list)
+  sample_averages <- get_sample_stats(heal_list, method = method)
   progenitors <- names(heal_list)
 
   if (isFALSE(color_map)) {
@@ -38,7 +39,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
 
   if (view_sample != FALSE) {
     if (sum(names(sample_averages) == view_sample) == 0) {
-      stop("Sample name not recognized for viewing of alignment. Exiting..")
+      stop("Sample name not recognized for viewing of counts or coverage Exiting..")
     }
 
     if (output_dir == FALSE) {
@@ -101,8 +102,8 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
           plot_df <- data.frame(start = x, counts = y_vec_pts, copy = y_vec_line, progenitor = rep(prog, length(y_vec_line)))
 
           bin_plot <- ggplot2::ggplot() +
-            ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, color = progenitor), linewidth = 2) +
-            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = progenitor), size = 1, alpha = 0.1) +
+            ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, color = progenitor), linewidth = linewidth) +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = progenitor), ..., size = 1, alpha = 0.1) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
             ggplot2::ylim(0, 8) +
@@ -118,7 +119,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
           plot_df <- data.frame(start = x, counts = y_vec_pts, progenitor = rep(prog, length(y_vec_pts)))
 
           bin_plot <- ggplot2::ggplot() +
-            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = progenitor), size = 1, alpha = 1) +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = progenitor), ..., size = 1, alpha = 1) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
             ggplot2::labs(title = paste(chr, smp), x = "Position", y = "Counts") +

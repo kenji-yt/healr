@@ -87,7 +87,7 @@ summarize_cn <- function(heal_list, n_threads=1){
 #' in each combination of copy number. There are also total distributions for each progenitor and for the sample overall. 
 #' @export
 #'
-summarize_aln <- function(alignment, n_threads){
+summarize_aln <- function(alignment, n_threads=1){
   
   polyploid_samples <- names(alignment)
   
@@ -106,7 +106,7 @@ summarize_aln <- function(alignment, n_threads){
       chromo <- unique(alignment[[smp]][[chr_col_names[[prog]]]])
       doParallel::registerDoParallel(n_threads)
       per_chromo_list <- foreach::foreach(chr=chromo)%dopar%{
-      
+        
         which_row <- alignment[[smp]][[chr_col_names[[prog]]]]==chr
         
         start_end_ref_colnames <- paste0(c("start_", "end_"), prog)
