@@ -1,4 +1,4 @@
-#' Write a heal list to a directory
+#' Save a heal list as a directory
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param output_dir The name of a directory to write the heal list to. Fails if the directory exists.
@@ -77,7 +77,7 @@ read_heal_list <- function(heal_list_directory, ...){
 }
 
 
-#' Write a heal copy number summary to a directory
+#' Save a heal copy number summary as a directory
 #'
 #' @param cn_summary A list object created with summarize_cn() 
 #' @param output_dir The name of a directory to write the summary list to. Fails if the directory exists.
@@ -212,6 +212,16 @@ read_cn_summary <- function(cn_summary_directory, ...){
   
 }
 
+#' Save a heal alignment as a directory
+#'
+#' @param alignment A heal alignment object created with get_heal_alignment().
+#' @param output_dir The name of a directory to write the alignment to. Fails if the directory exists.
+#' @param ... Any argument you wish to pass to fwrite (see data.table::fwrite documentation). Writes as csv by default. /!\ Warning: Changing from default might cause issues in read_alignment() function.
+#'
+#' @returns Nothing. Writes the data into a directory. 
+#' @export
+#'
+#' @examples
 write_heal_alignment <- function(alignment, output_dir, ...){
   
   if(dir.exists(output_dir)) {
@@ -232,6 +242,15 @@ write_heal_alignment <- function(alignment, output_dir, ...){
   }
 }
 
+#' Read a heal alignment from a directory
+#'
+#' @param alignment_directory A directory structured after a heal alignment (created by write_heal_alignment()).
+#' @param ... Any argument you which to pass to fread (see data.table::fread documentation).
+#'
+#' @returns A heal alignment i.e. A list with one data table per sample. Same as the output of get_heal_alignment().
+#' @export
+#'
+#' @examples
 read_heal_alignment <- function(alignment_directory, ...){
   
   out_alignment <- list()
@@ -248,7 +267,17 @@ read_heal_alignment <- function(alignment_directory, ...){
   return(out_alignment)
 }
 
-write_alignment_summary <- function(alignment_summary, output_dir, ...){
+#' Save a heal alignment summary as a directory
+#'
+#' @param alignment_summary A list object created with summarize_aln() 
+#' @param output_dir The name of a directory to write the summary list to. Fails if the directory exists.
+#' @param ... Any argument you wish to pass to fwrite (see data.table::fwrite documentation). Writes as csv by default. /!\ Warning: Changing from default might cause issues in read_aln_summary() function.
+#'
+#' @returns Nothing. Writes the data into a directory. 
+#' @export
+#'
+#' @examples
+write_aln_summary <- function(alignment_summary, output_dir, ...){
   
   if (dir.exists(output_dir)) {
     stop("Output directory already exists!")
@@ -288,4 +317,61 @@ write_alignment_summary <- function(alignment_summary, output_dir, ...){
       }
     }
   }
+}
+
+#' Read a heal alignment summary from a directory
+#'
+#' @param aln_summary_dir A directory structured after a heal alignment summary (created by write_aln_summary()).
+#' @param ... Any argument you which to pass to fread (see data.table::fread documentation).
+#'
+#' @returns A heal alignment summary i.e. A list with one data table per sample. Same as the output of summarize_aln().
+#' @export
+#'
+#' @examples
+read_aln_summary <- function(aln_summary_dir, ...){
+  
+  out_aln_summary <- list()
+  
+  samples <- list.files(path = aln_summary_dir, full.names = FALSE, recursive = FALSE)
+  sample_dirs <- paste0(aln_summary_dir, "/", samples)
+  names(sample_dirs) <- samples
+  
+  for(smp in samples){
+    
+    smp_list <- list()
+    
+    smp_files <- list.files(path = sample_dirs[smp], full.names = FALSE, recursive = FALSE)
+    progenitors <- setdiff(smp_files, "total_summary.dt")
+    total_summary_path <- paste0(sample_dirs[smp],"/total_summary.dt")
+    total_summary_dt <- data.table::fread(total_summary_path, header = T, ...)
+    smp_list$total_summary_dt <- total_summary_dt
+    
+    for(prog in progenitors){
+      
+      prog_list <- list()
+      
+      prog_path <- paste0(sample_dirs[smp], "/", prog)
+      prog_files <- list.files(path = prog_path, full.names = FALSE, recursive = FALSE)
+      
+      total_dt_name <- paste0("total_", prog, ".dt")
+      prog_total_dt <- data.table::fread(paste0(prog_path, "/", total_dt_name), header=T, ...)
+      prog_list[[paste0("total_",prog)]] <- prog_total_dt
+      
+      chromosomes <- setdiff(prog_files, total_dt_name)
+      
+      for(chromo in chromosomes){
+        
+        chromo_list <- list()
+        chromo_path <- paste0(prog_path, "/", chromo)
+        
+        chromo_list$count_dt <- data.table::fread(paste0(chromo_path, "/count.dt"), header=T, ...)
+        chromo_list$run_length_encoding <- data.table::fread(paste0(chromo_path, "/rle.dt"), header=T, ...)
+        
+        prog_list[[chromo]] <- chromo_list
+      }
+      smp_list[[prog]] <- prog_list
+    }
+    out_aln_summary[[smp]] <- smp_list
+  }
+  return(out_aln_summary)
 }

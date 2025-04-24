@@ -189,7 +189,7 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_threads=1) {
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #'
-#' @return A data table with one row for each anchor set present in all progenitors. The bins overlapping each anchor are given along with a consensus copy number at the anchor based on these bins.
+#' @return A list with one data table per sample. Each data table has one row for each anchor set present in all progenitors. The bins overlapping each anchor are given along with a consensus copy number at the anchor based on these bins.
 #' @export
 #'
 get_heal_alignment <- function(heal_list, genespace_dir, n_threads=1, prog_ploidy = 2) {
