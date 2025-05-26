@@ -117,18 +117,21 @@ summarize_aln <- function(alignment, n_threads=1){
         
         rle_combination <- rle(sub_aln_dt$combination)
         
+        # Get start and end position of each regime. Max is end, min is start. 
         end_indexes <- cumsum(rle_combination$lengths)
         start_regime_vec <- min(sub_aln_dt[1:end_indexes[1], get(start_end_ref_colnames[1])])
         end_regime_vec <- max(sub_aln_dt[1:end_indexes[1], get(start_end_ref_colnames[2])])
         
-        for(i in 2:length(end_indexes)){
-          
-          start_regime <- min(sub_aln_dt[(end_indexes[(i-1)]+1):end_indexes[i], get(start_end_ref_colnames[1])])
-          end_regime <- max(sub_aln_dt[(end_indexes[(i-1)]+1):end_indexes[i], get(start_end_ref_colnames[2])])
-          
-          start_regime_vec <- c(start_regime_vec, start_regime)
-          end_regime_vec <- c(end_regime_vec, end_regime)
-          
+        if(length(end_indexes)>1){
+          for(i in 2:length(end_indexes)){
+            
+            start_regime <- min(sub_aln_dt[(end_indexes[(i-1)]+1):end_indexes[i], get(start_end_ref_colnames[1])])
+            end_regime <- max(sub_aln_dt[(end_indexes[(i-1)]+1):end_indexes[i], get(start_end_ref_colnames[2])])
+            
+            start_regime_vec <- c(start_regime_vec, start_regime)
+            end_regime_vec <- c(end_regime_vec, end_regime)
+            
+          }
         }
         
         out_rle_dt <- data.table::data.table(start_regime=start_regime_vec, end_regime=end_regime_vec)

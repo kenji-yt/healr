@@ -10,12 +10,14 @@
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
 #' @param return_list Logical: return a list of plots if view_sample.
-#' @param method The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
+#' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
+#' @param ylim_max Maximum y axis value when plotting copy number. 
+#' @param ... Any arguments you wish to pass to ggplot2::geom_point()
 #'
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, method = "median", linewidth=2, ...) {
+plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, average = "median", linewidth=2, ylim_max=8, ...) {
   
   cn_exist <- unlist(lapply(heal_list, function(list) {
     list$CN
@@ -106,7 +108,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
             ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = progenitor), ..., size = 1, alpha = 0.1) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
-            ggplot2::ylim(0, 8) +
+            ggplot2::ylim(0, ylim_max) +
             ggplot2::labs(title = paste(chr, smp), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
 
@@ -152,32 +154,34 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
 }
 
 
-
 #' Plotting function for heal alignment
 #'
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
 #' @param alignment A heal alignment object created with get_heal_alignment().
-#' @param view_sample The name of a sample to plot (as character)('FALSE' by default).
+#' @param view_sample The name of a sample to plot (as character)('FALSE' by default). If output_dir!=FALSE, the plots will be saved, otherwise they are simply shown. 
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_threads Number of threads to use ('1' by default).
-#' @param add_bins Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "alt" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.
+#' @param add_bins Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "both" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.
+#' @param average The method to compute average to normalize counts (if add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
 #' @param return_list Logical: return a list of plots if view_sample.
+#' @param ylim_max Maximum y axis value when plotting copy number. 
+#' @param ... Any arguments you wish to pass to ggplot2::geom_point()
 #'
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_alignment <- function(heal_list, alignment, view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE, return_list = FALSE) {
+plot_alignment <- function(heal_list, alignment, average = "median", view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, ylim_max=8, ...) {
   
-  if (!add_bins %in% c(FALSE, "ref", "alt")) {
-    stop("Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'alt'. Exiting..")
+  if (!add_bins %in% c(FALSE, "ref", "both")) {
+    stop("Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'both'. Exiting..")
   }
 
   polyploid_samples <- names(alignment)
 
-  sample_averages <- get_sample_stats(heal_list)
+  sample_averages <- get_sample_stats(heal_list, method = average)
 
   progenitors <- names(heal_list)
 
@@ -187,7 +191,7 @@ plot_alignment <- function(heal_list, alignment, view_sample = FALSE, output_dir
     stop("Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
   }
   names(color_map) <- progenitors
-
+  
   if (view_sample != FALSE) {
     if (sum(polyploid_samples == view_sample) == 0) {
       stop("Sample name not recognized (or not polyploid) for viewing of alignment. Exiting..")
@@ -259,28 +263,31 @@ plot_alignment <- function(heal_list, alignment, view_sample = FALSE, output_dir
         if (add_bins != FALSE) {
           which_rows_bins_dt <- heal_list[[ref]]$bins$chr == chr
 
-          x_pts <- heal_list[[ref]]$bins$start[which_rows_bins_dt]
+          x_pts <- (heal_list[[ref]]$bins$start[which_rows_bins_dt] + heal_list[[ref]]$bins$end[which_rows_bins_dt]) / 2
           x_vec_pts <- x_pts
           y_vec_pts <- heal_list[[ref]]$bins[[smp]][which_rows_bins_dt]
-          y_vec_pts <- (y_vec_pts / sample_averages[[smp]]) * prog_ploidy
+          y_vec_pts <- (y_vec_pts / sample_averages[[smp]]) * prog_ploidy 
           subgnm_group <- rep(ref, length(y_vec_pts))
 
 
-          if (add_bins == "alt") {
+          if (add_bins == "both") {
             for (alt in alt_gnms) {
               alt_bin_col_name <- paste0("bin_index_", alt)
-              ref_start_col_name <- paste0("start_", ref)
-
+              
+              # Get the alt bin index and the corresponding x position on ref. 
               cn_bindex_dt_list <- apply(alignment[[smp]][which_rows_aln_dt, ], 1, function(row) {
                 bindex_vec <- as.numeric(unlist(strsplit(row[[alt_bin_col_name]], ",")))
-                start_vec <- rep(row[[ref_start_col_name]], length(bindex_vec))
+                midpoint <- (as.numeric(row[[ref_start_col_name]]) + as.numeric(row[[ref_end_col_name]])) / 2
+                start_vec <- rep(midpoint, length(bindex_vec))
                 return(data.table::data.table(bin_index = bindex_vec, ref_start = start_vec))
               })
 
               bin_cn_dt <- unique(data.table::rbindlist(cn_bindex_dt_list))
-
+              
+              # Here we get the bin count of the desired alt bins by
+              # first getting the chr and start position in the CN data table. 
               merge_dt <- data.table::data.table(chr = heal_list[[alt]]$CN$chr[bin_cn_dt$bin_index], start = heal_list[[alt]]$CN$start[bin_cn_dt$bin_index])
-
+              # then merging this to the bins data table. 
               merge_dt <- merge(merge_dt, heal_list[[alt]]$bins, sort = FALSE)
 
               x_pts_alt <- as.numeric(bin_cn_dt$ref_start)
@@ -297,10 +304,10 @@ plot_alignment <- function(heal_list, alignment, view_sample = FALSE, output_dir
 
           bin_plot <- ggplot2::ggplot() +
             ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, color = subgenome), linewidth = 2) +
-            ggplot2::geom_point(data = pts_df, ggplot2::aes(x = start, y = points, color = subgenome), size = 1, alpha = 0.1) +
+            ggplot2::geom_point(data = pts_df, ggplot2::aes(x = start, y = points, color = subgenome), ..., size = 1, alpha = 0.1) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
-            ggplot2::ylim(0, 8) +
+            ggplot2::ylim(0, ylim_max) +
             ggplot2::labs(title = paste(chr, ref, smp), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
 
