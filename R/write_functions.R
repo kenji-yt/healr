@@ -16,7 +16,7 @@ write_heal_list <- function(heal_list, output_dir, ...){
     
     progenitors <- names(heal_list)
     
-    for(prog in subgenomes){
+    for(prog in progenitors){
       
       prog_dir <- paste0(output_dir,"/",prog)
       
