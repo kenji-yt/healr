@@ -27,7 +27,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
     plot_cn <- FALSE
   }
 
-  sample_averages <- get_sample_stats(heal_list, method = method)
+  sample_averages <- get_sample_stats(heal_list, method = average)
   progenitors <- names(heal_list)
 
   if (isFALSE(color_map)) {
