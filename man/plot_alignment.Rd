@@ -7,6 +7,7 @@
 plot_alignment(
   heal_list,
   alignment,
+  average = "median",
   view_sample = FALSE,
   output_dir = FALSE,
   n_threads = 1,
@@ -14,7 +15,9 @@ plot_alignment(
   prog_ploidy = 2,
   color_map = FALSE,
   specific_chr = FALSE,
-  return_list = FALSE
+  return_list = FALSE,
+  ylim_max = 8,
+  ...
 )
 }
 \arguments{
@@ -22,13 +25,15 @@ plot_alignment(
 
 \item{alignment}{A heal alignment object created with get_heal_alignment().}
 
-\item{view_sample}{The name of a sample to plot (as character)('FALSE' by default).}
+\item{average}{The method to compute average to normalize counts (if add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default).}
+
+\item{view_sample}{The name of a sample to plot (as character)('FALSE' by default). If output_dir!=FALSE, the plots will be saved, otherwise they are simply shown.}
 
 \item{output_dir}{The name of a directory to write all plots to. Will create one if nonexistent.}
 
 \item{n_threads}{Number of threads to use ('1' by default).}
 
-\item{add_bins}{Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "alt" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.}
+\item{add_bins}{Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "both" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.}
 
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default).}
 
@@ -37,6 +42,10 @@ plot_alignment(
 \item{specific_chr}{A vector of characters indicating which chromosomes to plot (plots all by default).}
 
 \item{return_list}{Logical: return a list of plots if view_sample.}
+
+\item{ylim_max}{Maximum y axis value when plotting copy number.}
+
+\item{...}{Any arguments you wish to pass to ggplot2::geom_point()}
 }
 \value{
 Either nothing or a list of plots.

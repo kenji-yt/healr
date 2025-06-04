@@ -4,7 +4,7 @@
 \alias{summarize_aln}
 \title{Summary of the alignment outcome for each polyploid sample}
 \usage{
-summarize_aln(alignment, n_threads)
+summarize_aln(alignment, n_threads = 1)
 }
 \arguments{
 \item{alignment}{A heal alignment object created with get_heal_alignment().}

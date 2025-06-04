@@ -16,7 +16,7 @@ get_heal_alignment(heal_list, genespace_dir, n_threads = 1, prog_ploidy = 2)
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default).}
 }
 \value{
-A data table with one row for each anchor set present in all progenitors. The bins overlapping each anchor are given along with a consensus copy number at the anchor based on these bins.
+A list with one data table per sample. Each data table has one row for each anchor set present in all progenitors. The bins overlapping each anchor are given along with a consensus copy number at the anchor based on these bins.
 }
 \description{
 Create heal alignment object.

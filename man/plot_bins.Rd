@@ -14,11 +14,15 @@ plot_bins(
   add_bins = TRUE,
   color_map = FALSE,
   specific_chr = FALSE,
-  return_list = FALSE
+  return_list = FALSE,
+  average = "median",
+  linewidth = 2,
+  ylim_max = 8,
+  ...
 )
 }
 \arguments{
-\item{heal_list}{Output list in heal format (such as output from count_heal_data()).}
+\item{heal_list}{List in heal format (such as output from count_heal_data()).}
 
 \item{view_sample}{The name of a sample to plot (as character)('FALSE' by default).}
 
@@ -37,6 +41,12 @@ plot_bins(
 \item{specific_chr}{A vector of characters indicating which chromosomes to plot (plots all by default).}
 
 \item{return_list}{Logical: return a list of plots if view_sample.}
+
+\item{average}{The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default).}
+
+\item{ylim_max}{Maximum y axis value when plotting copy number.}
+
+\item{...}{Any arguments you wish to pass to ggplot2::geom_point()}
 }
 \value{
 Either nothing or a list of plots.

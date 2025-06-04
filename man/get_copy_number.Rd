@@ -19,9 +19,9 @@ get_copy_number(
 
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default).}
 
-\item{method}{Method to infered copy number in each segment ('median' or 'mean'. 'median' by default).}
-
 \item{full_output}{Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).}
+
+\item{average}{Average measure used to infered copy number in each segment ('median' or 'mean'. 'median' by default).}
 }
 \value{
 A list with one element per progenitor containing the bins and genes elements of the inpiut plus a data table with infered copy number per bin for each sample and GC and mappability for each bin.
