@@ -28,7 +28,7 @@ write_heal_list <- function(heal_list, output_dir, ...){
         
         dt <- heal_list[[prog]][[dt_t]]
         
-        file_path <- paste0(prog_dir, "/", dt_t,".dt")
+        file_path <- paste0(prog_dir, "/", dt_t,".csv")
         data.table::fwrite(dt, file=file_path, ...)
         
       }
@@ -61,7 +61,7 @@ read_heal_list <- function(heal_list_directory, ...){
     
     file_names <- list.files(progenitor_dirs[prog], full.names = FALSE)
     file_paths <- paste0(progenitor_dirs[prog],"/",file_names)
-    dt_names <- gsub(".dt","", file_names)
+    dt_names <- gsub(".csv","", file_names)
     names(file_paths) <- dt_names
     
     for(dt_name in dt_names){
@@ -102,7 +102,7 @@ write_cn_summary <- function(cn_summary, output_dir, ...){
       smp_dir <- paste0(output_dir,"/",smp)
       dir.create(smp_dir)
       
-      file_path_total <- paste0(smp_dir, "/total_count_table.dt")
+      file_path_total <- paste0(smp_dir, "/total_count_table.csv")
       data.table::fwrite(cn_summary[[smp]]$total_count_table, file = file_path_total, ...)
       
       progenitors <- setdiff(names(cn_summary[[smp]]),"total_count_table")
@@ -113,7 +113,7 @@ write_cn_summary <- function(cn_summary, output_dir, ...){
         dir.create(smp_prog_dir)
         
         dt_name <- paste0("total_count_table_", prog)
-        filename <- paste0(dt_name, ".dt")
+        filename <- paste0(dt_name, ".csv")
         file_path_sub <- paste0(smp_prog_dir,"/",filename)
         data.table::fwrite(cn_summary[[smp]][[prog]][[dt_name]], file = file_path_sub, ...)
         
@@ -126,12 +126,12 @@ write_cn_summary <- function(cn_summary, output_dir, ...){
           
           count_matrix <- cn_summary[[smp]][[prog]][[chromo]]$count_table
           count_table <- data.table::data.table(copy_number=colnames(count_matrix), counts=count_matrix[1,], percentages=count_matrix[2,])
-          path_count_dt <- paste0(chromo_dir, "/count_table.dt")
+          path_count_dt <- paste0(chromo_dir, "/count_table.csv")
           data.table::fwrite(count_table, file = path_count_dt, ...)
           
           rle <- cn_summary[[smp]][[prog]][[chromo]]$run_length_encoding 
           rle_dt <- data.table::data.table(lengths=rle$lengths, values=rle$values)
-          path_rle_dt <- paste0(chromo_dir, "/run_length_encoding.dt")
+          path_rle_dt <- paste0(chromo_dir, "/run_length_encoding.csv")
           data.table::fwrite(rle_dt, file = path_rle_dt, ...)
           
         }
@@ -165,9 +165,9 @@ read_cn_summary <- function(cn_summary_directory, ...){
     
     file_names <- list.files(sample_dirs[smp], full.names = FALSE)
     
-    smp_list$total_count_table <- data.table::fread(file=paste0(sample_dirs[smp], "/total_count_table.dt"), header=TRUE, ...)
+    smp_list$total_count_table <- data.table::fread(file=paste0(sample_dirs[smp], "/total_count_table.csv"), header=TRUE, ...)
     
-    progenitors <- setdiff(file_names, "total_count_table.dt")
+    progenitors <- setdiff(file_names, "total_count_table.csv")
     smp_paths <- paste0(sample_dirs[smp], "/", progenitors)
     names(smp_paths) <- progenitors
     
@@ -177,7 +177,7 @@ read_cn_summary <- function(cn_summary_directory, ...){
       
       prog_file_names <- list.files(smp_paths[prog], full.names = FALSE)
       
-      total_dt_name <- paste0("total_count_table_", prog, ".dt")
+      total_dt_name <- paste0("total_count_table_", prog, ".csv")
       
       prog_list[[total_dt_name]] <- data.table::fread(file=paste0(smp_paths[prog], "/", total_dt_name), header=TRUE, ...)
       
@@ -190,9 +190,9 @@ read_cn_summary <- function(cn_summary_directory, ...){
         
         chromo_list <- list()
         
-        chromo_list$count_table <- data.table::fread(file=paste0(chr_paths[chromo], "/count_table.dt"), header=TRUE, ...)
+        chromo_list$count_table <- data.table::fread(file=paste0(chr_paths[chromo], "/count_table.csv"), header=TRUE, ...)
         
-        rle_dt <- data.table::fread(file = paste0(chr_paths[chromo],"/run_length_encoding.dt"), header=TRUE, ...)
+        rle_dt <- data.table::fread(file = paste0(chr_paths[chromo],"/run_length_encoding.csv"), header=TRUE, ...)
         run_length_encoding <- list(values=rle_dt$values, lengths=rle_dt$lengths)
         class(run_length_encoding) <- "rle"
         
@@ -234,7 +234,7 @@ write_heal_alignment <- function(alignment, output_dir, ...){
     samples <- names(alignment)
     for(smp in samples){
       
-      smp_dt_path <- paste0(output_dir,"/",smp,".dt")
+      smp_dt_path <- paste0(output_dir,"/",smp,".csv")
       data.table::fwrite(alignment[[smp]], file = smp_dt_path, ...)
       
     }
@@ -256,7 +256,7 @@ read_heal_alignment <- function(alignment_directory, ...){
   out_alignment <- list()
   
   sample_files <- list.files(path = alignment_directory, full.names = FALSE, recursive = FALSE)
-  sample_names <- gsub(".dt", "", sample_files)
+  sample_names <- gsub(".csv", "", sample_files)
   sample_paths <- paste0(alignment_directory, sample_files)
   names(sample_paths) <- sample_names
   
@@ -291,7 +291,7 @@ write_aln_summary <- function(alignment_summary, output_dir, ...){
       
       smp_outdir <- paste0(output_dir, "/", smp) 
       dir.create(smp_outdir, recursive = FALSE)
-      total_path <- paste0(smp_outdir, "/total_summary.dt")
+      total_path <- paste0(smp_outdir, "/total_summary.csv")
       data.table::fwrite(alignment_summary[[smp]]$total_summary_dt, file = total_path, ...)
   
       progenitors <- setdiff(names(alignment_summary[[smp]]), "total_summary_dt")
@@ -301,7 +301,7 @@ write_aln_summary <- function(alignment_summary, output_dir, ...){
         prog_outdir <- paste0(smp_outdir, "/", prog)
         dir.create(prog_outdir, recursive = FALSE)
         total_df_name <- paste0("total_", prog)
-        total_prog_path <- paste0(prog_outdir, "/", total_df_name, ".dt")
+        total_prog_path <- paste0(prog_outdir, "/", total_df_name, ".csv")
         
         data.table::fwrite(alignment_summary[[smp]][[prog]][[total_df_name]], total_prog_path, ...)
         
@@ -311,8 +311,8 @@ write_aln_summary <- function(alignment_summary, output_dir, ...){
           
           chromo_outdir <- paste0(prog_outdir, "/", chromo)
           dir.create(chromo_outdir, recursive = FALSE)
-          data.table::fwrite(alignment_summary[[smp]][[prog]][[chromo]]$count_dt, paste0(chromo_outdir, "/count.dt"), ...)
-          data.table::fwrite(alignment_summary[[smp]][[prog]][[chromo]]$run_length_encoding, paste0(chromo_outdir, "/rle.dt"), ...)
+          data.table::fwrite(alignment_summary[[smp]][[prog]][[chromo]]$count_dt, paste0(chromo_outdir, "/count.csv"), ...)
+          data.table::fwrite(alignment_summary[[smp]][[prog]][[chromo]]$run_length_encoding, paste0(chromo_outdir, "/rle.csv"), ...)
         }
       }
     }
@@ -341,8 +341,8 @@ read_aln_summary <- function(aln_summary_dir, ...){
     smp_list <- list()
     
     smp_files <- list.files(path = sample_dirs[smp], full.names = FALSE, recursive = FALSE)
-    progenitors <- setdiff(smp_files, "total_summary.dt")
-    total_summary_path <- paste0(sample_dirs[smp],"/total_summary.dt")
+    progenitors <- setdiff(smp_files, "total_summary.csv")
+    total_summary_path <- paste0(sample_dirs[smp],"/total_summary.csv")
     total_summary_dt <- data.table::fread(total_summary_path, header = T, ...)
     smp_list$total_summary_dt <- total_summary_dt
     
@@ -353,7 +353,7 @@ read_aln_summary <- function(aln_summary_dir, ...){
       prog_path <- paste0(sample_dirs[smp], "/", prog)
       prog_files <- list.files(path = prog_path, full.names = FALSE, recursive = FALSE)
       
-      total_dt_name <- paste0("total_", prog, ".dt")
+      total_dt_name <- paste0("total_", prog, ".csv")
       prog_total_dt <- data.table::fread(paste0(prog_path, "/", total_dt_name), header=T, ...)
       prog_list[[paste0("total_",prog)]] <- prog_total_dt
       
@@ -364,8 +364,8 @@ read_aln_summary <- function(aln_summary_dir, ...){
         chromo_list <- list()
         chromo_path <- paste0(prog_path, "/", chromo)
         
-        chromo_list$count_dt <- data.table::fread(paste0(chromo_path, "/count.dt"), header=T, ...)
-        chromo_list$run_length_encoding <- data.table::fread(paste0(chromo_path, "/rle.dt"), header=T, ...)
+        chromo_list$count_dt <- data.table::fread(paste0(chromo_path, "/count.csv"), header=T, ...)
+        chromo_list$run_length_encoding <- data.table::fread(paste0(chromo_path, "/rle.csv"), header=T, ...)
         
         prog_list[[chromo]] <- chromo_list
       }

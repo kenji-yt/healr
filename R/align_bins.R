@@ -193,12 +193,15 @@ map_bins_to_anchors <- function(heal_list, genespace_dir, n_threads=1) {
 #' @export
 #'
 get_heal_alignment <- function(heal_list, genespace_dir, n_threads=1, prog_ploidy = 2) {
+  
   cn_exist <- sum(names(heal_list[[1]]) == "CN") != 0
   if (cn_exist != TRUE) {
     stop("No CN data. Exiting...")
   }
-
+  
+  # Get data table of anchors present in all subgenomes 
   anchors_dt <- get_conserved_anchors(genespace_dir)
+  # Get a list with one data table per subgenome containing anchors and their overlapping bins
   cn_anchors_and_bins <- map_bins_to_anchors(heal_list, genespace_dir, n_threads)
 
   sample_names <- unlist(lapply(heal_list, function(prog) {
@@ -210,10 +213,16 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads=1, prog_ploid
   total_ploidy <- length(progenitors) * prog_ploidy
 
   cat("Likely very ineficient to subset whole dt for each anchor...")
+  # Solution is to use join to merge the anchors dt with the cn_anchors_and_bins data tables.
+  # Once merged (can probably merge all subgenome dt into one) we can go through that row by row and assign a CN. 
+  # Sweet! 
   cn_alignment_list <- foreach::foreach(smp = polyploid_samples) %do% {
+    
     doParallel::registerDoParallel(n_threads)
     cn_per_anchor_pair_list <- foreach::foreach(i = 1:nrow(anchors_dt)) %dopar% {
+      
       cn_at_anchor_dt_list <- foreach::foreach(prog = progenitors) %do% {
+        
         anchor_gene <- anchors_dt[[paste0("id_", prog)]][i]
 
         which_rows <- cn_anchors_and_bins[[prog]]$gene_id == anchor_gene

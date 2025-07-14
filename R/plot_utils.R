@@ -19,6 +19,9 @@
 #'
 plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, average = "median", linewidth=2, ylim_max=8, ...) {
   
+  if(!is.logical(add_bins)){
+    stop("add bins must be either TRUE or FALSE (logical). Exiting..")
+  }
   cn_exist <- unlist(lapply(heal_list, function(list) {
     list$CN
   }))
@@ -233,6 +236,7 @@ plot_alignment <- function(heal_list, alignment, average = "median", view_sample
 
       doParallel::registerDoParallel(n_threads)
       plot_list <- foreach::foreach(chr = chromo) %dopar% {
+
         if (output_dir != FALSE) {
           out_file <- paste0(ref_dir, "/", chr, ".png")
         }
@@ -274,29 +278,33 @@ plot_alignment <- function(heal_list, alignment, average = "median", view_sample
             for (alt in alt_gnms) {
               alt_bin_col_name <- paste0("bin_index_", alt)
               
-              # Get the alt bin index and the corresponding x position on ref. 
-              cn_bindex_dt_list <- apply(alignment[[smp]][which_rows_aln_dt, ], 1, function(row) {
-                bindex_vec <- as.numeric(unlist(strsplit(row[[alt_bin_col_name]], ",")))
-                midpoint <- (as.numeric(row[[ref_start_col_name]]) + as.numeric(row[[ref_end_col_name]])) / 2
-                start_vec <- rep(midpoint, length(bindex_vec))
-                return(data.table::data.table(bin_index = bindex_vec, ref_start = start_vec))
-              })
-
-              bin_cn_dt <- unique(data.table::rbindlist(cn_bindex_dt_list))
-              
-              # Here we get the bin count of the desired alt bins by
-              # first getting the chr and start position in the CN data table. 
-              merge_dt <- data.table::data.table(chr = heal_list[[alt]]$CN$chr[bin_cn_dt$bin_index], start = heal_list[[alt]]$CN$start[bin_cn_dt$bin_index])
-              # then merging this to the bins data table. 
-              merge_dt <- merge(merge_dt, heal_list[[alt]]$bins, sort = FALSE)
-
-              x_pts_alt <- as.numeric(bin_cn_dt$ref_start)
-              y_pts_alt <- merge_dt[[smp]]
-              y_pts_alt <- (y_pts_alt / sample_averages[[smp]]) * prog_ploidy
-
-              x_vec_pts <- c(x_vec_pts, x_pts_alt)
-              y_vec_pts <- c(y_vec_pts, y_pts_alt)
-              subgnm_group <- c(subgnm_group, rep(alt, length(y_pts_alt)))
+              # Only if the current ref chromosome has synteny to alt subgenome
+              if(nrow(alignment[[smp]][which_rows_aln_dt, ]) != 0){
+                
+                # Get the alt bin index and the corresponding x position on ref. 
+                cn_bindex_dt_list <- apply(alignment[[smp]][which_rows_aln_dt, ], 1, function(row) {
+                  bindex_vec <- as.numeric(unlist(strsplit(row[[alt_bin_col_name]], ",")))
+                  midpoint <- (as.numeric(row[[ref_start_col_name]]) + as.numeric(row[[ref_end_col_name]])) / 2
+                  start_vec <- rep(midpoint, length(bindex_vec))
+                  return(data.table::data.table(bin_index = bindex_vec, ref_start = start_vec))
+                })
+  
+                bin_cn_dt <- unique(data.table::rbindlist(cn_bindex_dt_list))
+                
+                # Here we get the bin count of the desired alt bins by
+                # first getting the chr and start position in the CN data table. 
+                merge_dt <- data.table::data.table(chr = heal_list[[alt]]$CN$chr[bin_cn_dt$bin_index], start = heal_list[[alt]]$CN$start[bin_cn_dt$bin_index])
+                # then merging this to the bins data table. 
+                merge_dt <- merge(merge_dt, heal_list[[alt]]$bins, sort = FALSE)
+  
+                x_pts_alt <- as.numeric(bin_cn_dt$ref_start)
+                y_pts_alt <- merge_dt[[smp]]
+                y_pts_alt <- (y_pts_alt / sample_averages[[smp]]) * prog_ploidy
+  
+                x_vec_pts <- c(x_vec_pts, x_pts_alt)
+                y_vec_pts <- c(y_vec_pts, y_pts_alt)
+                subgnm_group <- c(subgnm_group, rep(alt, length(y_pts_alt)))
+              }
             }
           }
 
@@ -630,16 +638,18 @@ plot_heal_heat_map <- function(alignment, view_samples = FALSE, output_dir = FAL
   for (smp in polyploid_samples) {
     cn_cols <- grep("cn_", colnames(alignment[[smp]]), value = TRUE)
     all_pairs <- utils::combn(cn_cols, 2)
-
+    
+    # create output directory for this samples
+    if (output_dir != FALSE) {
+      smp_out_dir <- paste0(output_dir, "/", smp)
+      dir.create(smp_out_dir, showWarnings = FALSE, recursive = TRUE)
+    }
+    
+    # for all pairs of progenitors
     for (i in 1:ncol(all_pairs)) {
       
       pair <- all_pairs[, i]
       progenitors <- sub("cn_", "", pair)
-      
-      if (output_dir != FALSE) {
-        dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-        out_file <- paste0(output_dir, "/", pair[1], "_vs_", pair[2], "_heat.png")
-      }
 
       input_dt <- data.table::data.table(x = alignment[[smp]][[pair[1]]], y = alignment[[smp]][[pair[2]]])
 
@@ -658,6 +668,7 @@ plot_heal_heat_map <- function(alignment, view_samples = FALSE, output_dir = FAL
         ggplot2::theme_minimal()
 
       if (output_dir != FALSE) {
+        out_file <- paste0(output_dir, "/", smp, "/", pair[1], "_vs_", pair[2], "_heat.png")
         ggplot2::ggsave(filename = out_file, plot, device = "png", width = 6, height = 4, units = "in")
       } else {
         print(plot)

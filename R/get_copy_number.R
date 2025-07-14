@@ -12,6 +12,7 @@
 #' @importFrom foreach %dopar%
 #' @importFrom foreach %do%
 get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "median", full_output = FALSE) {
+  
   if (intersect(method, c("median", "mean")) == 0 || length(method) != 1) {
     stop("Invalid method input. Choose either 'median' or 'mean'")
   }

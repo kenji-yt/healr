@@ -107,6 +107,8 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FA
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param n_threads Number of threads to use ('1' by default).
+#' @param output_dir Either the name of a directory to write all plots to (will create one if nonexistent) or FALSE (plots are printed only). Defaults to FALSE. 
+#' @param print_plots Should plots of the raw and corrected read counts be created (default = TRUE).
 #' @param ymax How many standard deviations above the count median should the plot limit be (default = 1).
 #' @param point_size Size of points on plots (default = 0.01).
 #' @param alpha Transparency of points on plots (default = 0.5).
@@ -117,7 +119,7 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FA
 #' @export
 #'
 #' @examples
-correct_gc <- function(heal_list, n_threads=1, ymax=1, point_size=0.01, alpha=0.5, linewidth = 1){
+correct_gc <- function(heal_list, n_threads=1, output_dir=FALSE, print_plots=TRUE, ymax=1, point_size=0.01, alpha=0.5, linewidth = 1){
   
   
   smp_types <- get_sample_stats(heal_list = heal_list, sample_type = TRUE)
@@ -144,13 +146,13 @@ correct_gc <- function(heal_list, n_threads=1, ymax=1, point_size=0.01, alpha=0.
     gc_range <- seq(min_round, max_round, 0.01)
     
     min_vec <- c(min(gc_vec)-0.0001, min_round) # the 0.001 is to enable less or equal opperation below
-    gc_range[1] <- min_vec_2[which.min(min_vec_2)]
+    gc_range[1] <- min_vec[which.min(min_vec)]
     
     max_vec_2 <- c(max(gc_vec), max_round)
     gc_range[length(gc_range)] <-max_vec_2[which.max(max_vec_2)]
     
     median_list <- foreach::foreach(i = 1:(length(gc_range)-1))%do%{
-      return(median(count_vec[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]]))
+      return(median(count_vec[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]], na.rm = TRUE))
     }
     median_vec <- unlist(median_list)
     
@@ -176,22 +178,24 @@ correct_gc <- function(heal_list, n_threads=1, ymax=1, point_size=0.01, alpha=0.
     
     plot_list <- list()
    
-    plot_list$raw <- ggplot2::ggplot(ggplot_dt, aes(gc_content, read_counts)) +
-      geom_point(size = point_size, alpha = alpha) + 
-      geom_line(data = gg_line_dt, aes(x = midpoints, y = loess), color = "blue", linewidth = linewidth) +
-      geom_hline(yintercept = smp_medians[[smp]], color = "red", linetype = "dashed", linewidth = 0.5) +
-      ylim(0,median(count_vec)+ymax*sd(count_vec)) + 
-      labs(
+    plot_list$raw <- ggplot2::ggplot(ggplot_dt, ggplot2::aes(gc_content, read_counts)) +
+      ggplot2::geom_point(size = point_size, alpha = alpha) + 
+      ggplot2::geom_line(data = gg_line_dt, ggplot2::aes(x = midpoints, y = loess), color = "blue", linewidth = linewidth) +
+      ggplot2::geom_hline(yintercept = smp_medians[[smp]], color = "red", linetype = "dashed", linewidth = 0.5) +
+      ggplot2::ylim(0,median(count_vec)+ymax*sd(count_vec)) + 
+      ggplot2::labs(
         x = "GC content", 
-        y = "Read Counts"
+        y = "Read Counts", 
+        title = smp
       )
-    plot_list$corrected <- ggplot2::ggplot(ggplot_dt_corrected, aes(gc_content, corrected_read_counts)) +
-      geom_point(size = point_size, alpha = alpha) + 
-      geom_hline(yintercept = smp_medians[[smp]], color = "red", linetype = "dashed", linewidth = 0.5) +
-      ylim(0,median(count_vec)+ymax*sd(count_vec)) + 
-      labs(
+    plot_list$corrected <- ggplot2::ggplot(ggplot_dt_corrected, ggplot2::aes(gc_content, corrected_read_counts)) +
+      ggplot2::geom_point(size = point_size, alpha = alpha) + 
+      ggplot2::geom_hline(yintercept = smp_medians[[smp]], color = "red", linetype = "dashed", linewidth = 0.5) +
+      ggplot2::ylim(0,median(count_vec)+ymax*sd(count_vec)) + 
+      ggplot2::labs(
         x = "GC content", 
-        y = "Corrected Read Counts"
+        y = "Corrected Read Counts",
+        title = smp
       )
     
     output_list <- list(corrected_count_vec, plot_list)
@@ -240,8 +244,86 @@ correct_gc <- function(heal_list, n_threads=1, ymax=1, point_size=0.01, alpha=0.
     return(smp$plots)
   })
   
-  corrected_heal_list$gc_correction_plots <- plot_list
+  if(output_dir != FALSE){
+    
+    sample_names <- names(plot_list)
+    
+    for(smp in sample_names){
+      
+      smp_output_dir <- paste0(output_dir, "/", smp)
+      dir.create(smp_output_dir)
+      raw_file <- paste0(smp_output_dir, "/", smp, "_GC_raw.png")
+      ggplot2::ggsave(filename = raw_file, plot_list[[smp]]$raw, device = "png", width = 6, height = 4, units = "in")
+      corrected_file <- paste0(smp_output_dir, "/", smp, "_GC_corrected.png")
+      ggplot2::ggsave(filename = corrected_file, plot_list[[smp]]$corrected, device = "png", width = 6, height = 4, units = "in")
+      
+      if(print_plots==TRUE){
+        print(plot_list[[smp]]$raw)
+        print(plot_list[[smp]]$corrected)
+      }
+    }
+    
+  }else{
+    
+    if(print_plots==TRUE){
+      sample_names <- names(plot_list)
+      
+      for(smp in sample_names){
+        
+        print(plot_list[[smp]]$raw)
+        print(plot_list[[smp]]$corrected)
+        
+      }
+    }
+  }
   
   return(corrected_heal_list)
 }
+
+
+normal_sample_correction <- function(heal_list, n_threads = 1){
+  
+  sample_types <- get_sample_stats(heal_list, n_threads = n_threads, sample_type = TRUE)
+  
+  progenitors <- names(heal_list)
+  
+  polyploid_samples <- sample_types$sample[sample_types$type=="polyploid"]
+  
+  out_list <- foreach::foreach(prog = progenitors)%do%{
+    
+    # Get mean of progenitor
+    
+    progenitor_sample_names <- sample_types$sample[sample_types$type==prog]
+    prog_dt <- heal_list[[prog]]$bins[, ..progenitor_sample_names]
+    prog_dt[, names(prog_dt) := lapply(.SD, function(x) x / median(x, na.rm = TRUE))]
+    prog_mean_vec <- rowMeans(prog_dt)
+    
+    doParallel::registerDoParallel(n_threads)
+    corrected_counts_list <- foreach::foreach(smp = polyploid_samples)%do%{
+      
+      normalized_poly_counts <- heal_list[[prog]]$bins[[smp]] / median(heal_list[[prog]]$bins[[smp]], na.rm = TRUE)
+      corrected_counts <- normalized_poly_counts/(prog_mean_vec+1e-6)
+      return(corrected_counts)
+    
+    }
+    doParallel::registerDoParallel(n_threads)
+    
+    names(corrected_counts_list) <- polyploid_samples
+    corrected_counts_dt <- data.table::as.data.table(corrected_counts_list)
+    info_col_dt <- heal_list[[prog]]$bins[, 1:5]
+    
+    prog_dt <- cbind(info_col_dt, corrected_counts_dt)
+    
+    prog_list <- list(prog_dt)
+    names(prog_list) <- "bins"
+    return(prog_list)
+  }
+  
+  names(out_list) <- progenitors
+  return(out_list)
+  
+}
+
+
+
 
