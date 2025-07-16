@@ -37,10 +37,20 @@ get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample
           df$bins[[smp]]
         }))))
         return(avg)
+      } else if (method == "local_median") {
+        avg <- lapply(heal_list, function(df) {
+          median(df$bins[[smp]], na.rm = TRUE) 
+        })
+        return(avg)
       } else if (method == "mean") {
         avg <- mean(stats::na.omit(unlist(lapply(heal_list, function(df) {
           df$bins[[smp]]
         }))))
+        return(avg)
+      } else if (method == "local_mean") {
+        avg <- lapply(heal_list, function(df) {
+          mean(df$bins[[smp]], na.rm = TRUE) 
+        })
         return(avg)
       } else if (method == "sd") {
         stndi <- stats::sd(stats::na.omit(unlist(lapply(heal_list, function(df) {

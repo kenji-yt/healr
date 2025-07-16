@@ -10,14 +10,16 @@
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
 #' @param return_list Logical: return a list of plots if view_sample.
+#' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default). 
 #' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
+#' @param average_list Same as in get_copy_number(). 
 #' @param ylim_max Maximum y axis value when plotting copy number. 
 #' @param ... Any arguments you wish to pass to ggplot2::geom_point()
 #'
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, average = "median", linewidth=2, ylim_max=8, ...) {
+plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, method = "global", average = "median", average_list = FALSE, linewidth=2, ylim_max=8, ...) {
   
   if(!is.logical(add_bins)){
     stop("add bins must be either TRUE or FALSE (logical). Exiting..")
@@ -30,7 +32,19 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
     plot_cn <- FALSE
   }
 
-  sample_averages <- get_sample_stats(heal_list, method = average)
+  
+  if(method == "global"){
+    global_averages <- get_sample_stats(heal_list, method = average)
+    sample_names <- names(global_averages)
+    
+  }else if(method == "local"){
+    local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
+    sample_names <- names(local_averages)
+    
+  }else if (method == "manual" & average_list != FALSE){
+    sample_names <- names(average_list)
+  }
+  
   progenitors <- names(heal_list)
 
   if (isFALSE(color_map)) {
@@ -43,7 +57,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
   smp_type_map <- get_sample_stats(heal_list, sample_type = TRUE)
 
   if (view_sample != FALSE) {
-    if (sum(names(sample_averages) == view_sample) == 0) {
+    if (sum(sample_names == view_sample) == 0) {
       stop("Sample name not recognized for viewing of counts or coverage Exiting..")
     }
 
@@ -59,7 +73,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
     stop("No output directory and no 'view_sample' set. One must be set.")
   } else {
     cat(paste0("Saving all samples and chromosomes to ", output_dir, ".", "\n"))
-    samples <- names(sample_averages)
+    samples <- sample_names
   }
 
   for (smp in samples) {
@@ -101,7 +115,18 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
         if (plot_cn == TRUE) {
           y_vec_line <- heal_list[[prog]]$CN[[smp]][which_cn_rows]
           if (add_bins == TRUE) {
-            y_vec_pts <- (y_vec_pts / sample_averages[[smp]]) * prog_ploidy
+            
+            
+            if(method == "global"){
+              y_vec_pts <- (y_vec_pts / global_averages[[smp]]) * prog_ploidy
+              
+            }else if(method == "local"){
+              y_vec_pts <- (y_vec_pts / local_averages[[smp]][[prog]]) * prog_ploidy
+              
+            }else if(method == "local"){
+              y_vec_pts <- (y_vec_pts / average_list[[smp]][[prog]]) * prog_ploidy
+            
+            }
           }
 
           plot_df <- data.frame(start = x, counts = y_vec_pts, copy = y_vec_line, progenitor = rep(prog, length(y_vec_line)))
@@ -138,6 +163,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
         }
       }
       doParallel::stopImplicitCluster()
+      
       if (view_sample != FALSE) {
         if (return_list == TRUE) {
           names(plot_list) <- chromo
@@ -165,7 +191,9 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param add_bins Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "both" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.
+#' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default). 
 #' @param average The method to compute average to normalize counts (if add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
+#' @param average_list Same as in get_copy_number(). 
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
@@ -176,7 +204,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_alignment <- function(heal_list, alignment, average = "median", view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, ylim_max=8, ...) {
+plot_alignment <- function(heal_list, alignment, method = "global", average = "median", average_list=FALSE, view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, ylim_max=8, ...) {
   
   if (!add_bins %in% c(FALSE, "ref", "both")) {
     stop("Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'both'. Exiting..")
@@ -184,8 +212,18 @@ plot_alignment <- function(heal_list, alignment, average = "median", view_sample
 
   polyploid_samples <- names(alignment)
 
-  sample_averages <- get_sample_stats(heal_list, method = average)
-
+  if(method == "global"){
+    global_averages <- get_sample_stats(heal_list, method = average)
+    sample_names <- names(global_averages)
+    
+  }else if(method == "local"){
+    local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
+    sample_names <- names(local_averages)
+    
+  }else if (method == "manual" & average_list != FALSE){
+    sample_names <- names(average_list)
+  }
+  
   progenitors <- names(heal_list)
 
   if (isFALSE(color_map)) {
@@ -270,7 +308,17 @@ plot_alignment <- function(heal_list, alignment, average = "median", view_sample
           x_pts <- (heal_list[[ref]]$bins$start[which_rows_bins_dt] + heal_list[[ref]]$bins$end[which_rows_bins_dt]) / 2
           x_vec_pts <- x_pts
           y_vec_pts <- heal_list[[ref]]$bins[[smp]][which_rows_bins_dt]
-          y_vec_pts <- (y_vec_pts / sample_averages[[smp]]) * prog_ploidy 
+          
+          if(method == "global"){
+            y_vec_pts <- (y_vec_pts / global_averages[[smp]]) * prog_ploidy 
+            
+          }else if(method == "local"){
+            y_vec_pts <- (y_vec_pts / local_averages[[smp]][[ref]]) * prog_ploidy 
+            
+          }else if (method == "manual" & average_list != FALSE){
+            y_vec_pts <- (y_vec_pts / average_list[[smp]][[ref]]) * prog_ploidy 
+          }
+          
           subgnm_group <- rep(ref, length(y_vec_pts))
 
 
@@ -299,8 +347,17 @@ plot_alignment <- function(heal_list, alignment, average = "median", view_sample
   
                 x_pts_alt <- as.numeric(bin_cn_dt$ref_start)
                 y_pts_alt <- merge_dt[[smp]]
-                y_pts_alt <- (y_pts_alt / sample_averages[[smp]]) * prog_ploidy
-  
+                
+                if(method == "global"){
+                  y_pts_alt <- (y_pts_alt / global_averages[[smp]]) * prog_ploidy
+                  
+                }else if(method == "local"){
+                  y_pts_alt <- (y_pts_alt / local_averages[[smp]][[alt]]) * prog_ploidy
+                  
+                }else if (method == "manual" & average_list != FALSE){
+                  y_pts_alt <- (y_pts_alt / average_list[[smp]][[alt]]) * prog_ploidy
+                }
+
                 x_vec_pts <- c(x_vec_pts, x_pts_alt)
                 y_vec_pts <- c(y_vec_pts, y_pts_alt)
                 subgnm_group <- c(subgnm_group, rep(alt, length(y_pts_alt)))
@@ -374,12 +431,17 @@ plot_alignment <- function(heal_list, alignment, average = "median", view_sample
 #' @param color_vec A vector of colors for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colors are choosen using rainbow().
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default)
 #' @param n_threads Number of threads to use ('1' by default).
+#' @param normalize Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_copy_number()'.  
+#' @param average Average measure used normalize each bin count ('median' or 'mean'. 'median' by default).
+#' @param average_list A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_copy_number()').
+
 #'
 #' @return Nothing. Plots are shown and/or saved to output_dir.
 #' @export
 #'
 #' @importFrom data.table :=
-plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, show_discordant = FALSE, heal_list = FALSE, alignment = FALSE, corrected_alignment = FALSE, ylim_max = FALSE, color_vec = FALSE, prog_ploidy = 2, n_threads = 1) {
+plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, show_discordant = FALSE, heal_list = FALSE, alignment = FALSE, corrected_alignment = FALSE, ylim_max = FALSE, color_vec = FALSE, prog_ploidy = 2, n_threads = 1, normalize = FALSE, average = "median", average_list = FALSE){
+  
   is_align_and_count_data <- is.list(alignment) & is.list(heal_list)
   if (show_discordant == TRUE & !is_align_and_count_data) {
     stop("show_discordant is TRUE but no valid heal_list or aligment provided. Exiting..")
@@ -388,6 +450,19 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
   polyploid_samples <- names(densities)
   progenitors <- names(heal_list)
 
+  
+  if(normalize == "local"){
+    local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
+    
+  }else if (normalize == "manual" & average_list != FALSE){
+    if (!identical(names(average_list), polyploid_samples)){
+      stop("Invalid average_list input. When method == 'manual' you must provide an average_list with values of median for each sample subgenome.")
+    }
+  }else if (normalize == "manual" & average_list == FALSE){
+    stop("No 'average_list' provided. When method == 'manual' you must provide an 'average_list' with values of median for each sample subgenome.")
+  }
+  
+  
   if (view_sample != FALSE) {
     n_threads <- 1
     if (sum(polyploid_samples == view_sample) == 0) {
@@ -403,6 +478,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
   }
 
   doParallel::registerDoParallel(n_threads)
+  
   catch_all <- foreach::foreach(smp = polyploid_samples) %dopar% {
     if (output_dir != FALSE) {
       dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
@@ -412,11 +488,23 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
 
     if (ylim_max == FALSE) {
       if (is.list(heal_list) == FALSE) {
+        
         stop("No ylim_max and no heal_list. Set at least one. Exiting..")
+        
       } else {
-        counts_vec <- unlist(lapply(heal_list, function(dt) {
-          return(dt$bins[[smp]])
-        }))
+        
+        counts_list <- foreach::foreach(prog = progenitors)%do%{
+          if(normalize == FALSE){
+            counts <- heal_list[[prog]]$bins[[smp]] 
+          } else if(normalize == "local"){
+            counts <- heal_list[[prog]]$bins[[smp]]  / local_averages[[smp]][[prog]] * prog_ploidy
+          }else if(normalize == "manual"){
+            counts <- heal_list[[prog]]$bins[[smp]]  / average_list[[smp]][[prog]] * prog_ploidy
+          }
+          return(counts)
+        }
+        counts_vec <- unlist(counts_list)
+        
         ylim_max <- mean(counts_vec, na.rm = TRUE) + 3 * stats::sd(counts_vec, na.rm = TRUE)
       }
     }
@@ -432,9 +520,12 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
     }
 
     names(color_vec) <- cn_labels
-
-    graphics::contour(densities[[smp]][[cn_labels[1]]], ylim = c(-5, ylim_max), col = color_vec[cn_labels[1]], main = smp)
-
+    
+    if(normalize == FALSE){
+      graphics::contour(densities[[smp]][[cn_labels[1]]], ylim = c(-5, ylim_max), col = color_vec[cn_labels[1]], main = smp)
+    }else{
+      graphics::contour(densities[[smp]][[cn_labels[1]]], ylim = c(0, ylim_max), col = color_vec[cn_labels[1]], main = smp)
+    }
     for (i in 2:length(cn_labels)) {
       graphics::contour(densities[[smp]][[cn_labels[i]]], ylim = c(0, ylim_max), col = color_vec[cn_labels[i]], add = TRUE)
     }
@@ -457,9 +548,17 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
 
         merge_dt <- data.table::data.table(chr = heal_list[[prog]]$CN$chr[bin_cn_dt$bin_index], start = heal_list[[prog]]$CN$start[bin_cn_dt$bin_index])
 
-        merge_dt <- merge(heal_list[[prog]]$bins, merge_dt)
+        merge_dt <- merge(heal_list[[prog]]$bins, merge_dt, by = c("chr", "start"))
 
         col_keep <- c("gc_content", smp)
+        
+        if(normalize == "local"){
+          merge_dt[[smp]] <- merge_dt[[smp]] / local_averages[[smp]][[prog]] * prog_ploidy
+          
+        }else if(normalize == "manual"){
+          merge_dt[[smp]] <- merge_dt[[smp]] / average_list[[smp]][[prog]] * prog_ploidy
+          
+        }
 
         return(cbind(merge_dt[, ..col_keep], cn = bin_cn_dt$cn))
       }
@@ -492,11 +591,21 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
           bin_cn_dt <- unique(data.table::rbindlist(cn_bindex_dt_list))
 
           merge_dt <- data.table::data.table(chr = heal_list[[prog]]$CN$chr[bin_cn_dt$bin_index], start = heal_list[[prog]]$CN$start[bin_cn_dt$bin_index])
-          merge_dt <- merge(heal_list[[prog]]$bins, merge_dt)
+          merge_dt <- merge(heal_list[[prog]]$bins, merge_dt, by = c("chr", "start"))
           merge_dt <- merge(heal_list[[prog]]$CN, merge_dt, by = c("chr", "start", "gc_content"), suffixes = c("_CN", "_count"))
           col_keep <- c("gc_content", paste0(smp, c("_CN", "_count")))
           merge_dt <- merge_dt[, ..col_keep]
           data.table::setnames(merge_dt, old = col_keep, c("gc_content", "cn_original", "count"))
+          
+          if(normalize == "local"){
+            merge_dt$count <- merge_dt$count / local_averages[[smp]][[prog]] * prog_ploidy
+            
+          }else if(normalize == "manual"){
+            merge_dt$count <- merge_dt$count / average_list[[smp]][[prog]] * prog_ploidy
+            
+          }
+          
+          
           return(cbind(merge_dt, cn_corrected = bin_cn_dt$cn))
         }
 

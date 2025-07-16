@@ -7,30 +7,49 @@
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param n_points The n parameter for MASS::kde2d(). "Number of grid points in each direction. Can be scalar or a length-2 integer vector". Default is 1000.
+#' @param normalize Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_copy_number()'.  
+#' @param average Average measure used normalize each bin count ('median' or 'mean'. 'median' by default).
+#' @param average_list A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_copy_number()').
 #'
 #' @return A list with one element per polyploid sample. Each sample has a list with one density distribution for each copy number from 0 to the ploidy of the progenitors times the number of progenitors.
 #' @export
 #'
-get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_ploidy = 2, n_points = 1000) {
+get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_ploidy = 2, n_points = 1000, normalize = FALSE, average = "median", average_list = FALSE) {
+  
   polyploid_samples <- names(alignment)
   progenitors <- names(heal_list)
   total_ploidy <- length(progenitors) * prog_ploidy
-
-
+  
+  if(normalize == "local"){
+    local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
+    
+  }else if (normalize == "manual" & average_list != FALSE){
+    if (!identical(names(average_list), polyploid_samples)){
+      stop("Invalid average_list input. When method == 'manual' you must provide an average_list with values of median for each sample subgenome.")
+    }
+  }else if (normalize == "manual" & average_list == FALSE){
+    stop("No 'average_list' provided. When method == 'manual' you must provide an 'average_list' with values of median for each sample subgenome.")
+  }
+  
+  
   doParallel::registerDoParallel(n_threads)
   cn_count_type_dt_list <- foreach::foreach(smp = polyploid_samples) %dopar% {
+    
     concordant_and_unique <- alignment[[smp]]$status == "concordant" & alignment[[smp]]$method == "unique"
 
     dt_per_prog_list <- foreach::foreach(prog = progenitors) %do% {
+      
+      # Names of columns of interest
       bin_index_col <- paste0("bin_index_", prog)
-      cn_col <- paste0("cn_", prog)
-
+      
+      # Extract index of bins which are concordant and unique
       cc_and_u_bins <- apply(alignment[[smp]][concordant_and_unique, ..bin_index_col], 1, function(row) {
         strsplit(row, ",")
       })
 
       cc_and_u_rows <- as.numeric(unique(unlist(cc_and_u_bins)))
-
+      
+      # Make a data table of only cc and u bins and their count values using "merge"
       chr_vec <- heal_list[[prog]]$CN$chr[cc_and_u_rows]
       start_vec <- heal_list[[prog]]$CN$start[cc_and_u_rows]
       cc_and_u_dt <- data.table::data.table(chr = chr_vec, start = start_vec)
@@ -39,13 +58,22 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
       col_keep <- c("chr", "start", "gc_content", smp)
       cc_and_u_dt <- cc_and_u_dt[, ..col_keep]
       data.table::setkey(cc_and_u_dt, chr, start)
-      colnames(cc_and_u_dt) <- c("chr", "start", "gc_content", paste0("count_", smp))
+      colnames(cc_and_u_dt) <- c("chr", "start", "gc_content", "count") # rename to avoid overlapp with CN
       cc_and_u_dt <- merge(heal_list[[prog]]$CN, cc_and_u_dt, by = c("chr", "start", "gc_content"))
-      col_keep <- c("chr", "start", "gc_content", paste0("count_", smp), smp)
+      col_keep <- c("chr", "start", "gc_content", "count", smp)
       cc_and_u_dt <- cc_and_u_dt[, ..col_keep]
       colnames(cc_and_u_dt) <- c("chr", "start", "gc_content", "count", "cn")
 
       cc_and_u_dt <- cc_and_u_dt[!is.na(cc_and_u_dt$count), ]
+      
+      if(normalize == "local"){
+        cc_and_u_dt$count <- cc_and_u_dt$count / local_averages[[smp]][[prog]] * prog_ploidy
+        
+      }else if(normalize == "manual"){
+        cc_and_u_dt$count <- cc_and_u_dt$count / average_list[[smp]][[prog]] * prog_ploidy
+        
+      }
+      
       return(cc_and_u_dt)
     }
 
@@ -61,10 +89,10 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
 
   doParallel::registerDoParallel(n_threads)
   density_list <- foreach::foreach(smp = polyploid_samples) %do% {
-    cn_groups <- unique(cn_count_type_dt_list[[smp]]$cn)
-
+    cn_groups <- as.vector(na.omit(unique(cn_count_type_dt_list[[smp]]$cn)))
+    
     density_by_cn_list <- foreach::foreach(cn = cn_groups) %do% {
-      which_rows <- cn_count_type_dt_list[[smp]]$cn == cn
+      which_rows <- cn_count_type_dt_list[[smp]]$cn == cn & !is.na(cn_count_type_dt_list[[smp]]$cn)
 
       density <- MASS::kde2d(cn_count_type_dt_list[[smp]]$gc_content[which_rows], cn_count_type_dt_list[[smp]]$count[which_rows], n = n_points)
 
@@ -93,18 +121,22 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
 #'
 #' @importFrom data.table :=
 correct_cn_with_density <- function(densities, alignment, heal_list, n_threads, prog_ploidy = 2) {
+  
   polyploid_samples <- names(densities)
   progenitors <- names(heal_list)
 
   corrected_alignment <- foreach::foreach(smp = polyploid_samples) %do% {
+    
     corrected_aln_dt <- alignment[[smp]]
     which_discord <- which(corrected_aln_dt$status == "discordant")
 
     doParallel::registerDoParallel(n_threads)
     corrected_discordant_list <- foreach::foreach(a = which_discord) %dopar% {
-      print(a)
+      
       row <- corrected_aln_dt[a, ]
+      
       valid_cn_at_anchor_list <- foreach::foreach(prog = progenitors) %do% {
+        
         cn_col_name <- paste0("cn_", prog)
         bin_col_name <- paste0("bin_index_", prog)
         bindex_vec <- as.numeric(unlist(strsplit(row[[bin_col_name]], ",")))
@@ -112,7 +144,7 @@ correct_cn_with_density <- function(densities, alignment, heal_list, n_threads, 
         chr_vec <- heal_list[[prog]]$CN$chr[bindex_vec]
         start_vec <- heal_list[[prog]]$CN$start[bindex_vec]
 
-        merged_dt <- merge(heal_list[[prog]]$bins, data.table::data.table(chr = chr_vec, start = start_vec))
+        merged_dt <- merge(heal_list[[prog]]$bins, data.table::data.table(chr = chr_vec, start = start_vec), by = c("chr", "start"))
         col_keep <- c("gc_content", smp)
         merged_dt <- merged_dt[, ..col_keep]
         merged_dt$cn <- rep(row[[cn_col_name]], length(bindex_vec))

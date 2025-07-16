@@ -3,7 +3,9 @@
 #' @param heal_list Output list in heal format (such as output from count_heal_data() or filter_bins()).
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
-#' @param average Average measure used to infered copy number in each segment ('median' or 'mean'. 'median' by default).
+#' @param method Which method to use to assign a copy number to each segment ('global', 'local' or 'manual'. 'global' by default). Global uses average over both subgenomes, local uses per subgenome average and manual uses values set by users in 'average_list'. 
+#' @param average Average measure used to assign a copy number in each segment ('median' or 'mean'. 'median' by default).
+#' @param average_list A list with one element per sample with each containing one element per subgenome with values used to assign copy numbers.
 #' @param full_output Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).
 #'
 #' @return  A list with one element per progenitor containing the bins and genes elements of the inpiut plus a data table with infered copy number per bin for each sample and GC and mappability for each bin.
@@ -11,10 +13,14 @@
 #'
 #' @importFrom foreach %dopar%
 #' @importFrom foreach %do%
-get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "median", full_output = FALSE) {
+get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global", average = "median", average_list = FALSE, full_output = FALSE) {
   
-  if (intersect(method, c("median", "mean")) == 0 || length(method) != 1) {
-    stop("Invalid method input. Choose either 'median' or 'mean'")
+  if (intersect(method, c("global", "local", "manual")) == 0 || length(average) != 1) {
+    stop("Invalid method input. Choose either 'global', 'local' or 'manual'")
+  }
+  
+  if (intersect(average, c("median", "mean")) == 0 || length(average) != 1) {
+    stop("Invalid average input. Choose either 'median' or 'mean'")
   }
 
   progenitors <- names(heal_list)
@@ -23,10 +29,20 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
   })
   samples <- unique(unlist(sample_name_per_prog))
 
-  sample_averages <- get_sample_stats(heal_list, method = method)
-
-  names(sample_averages) <- samples
-
+  if(method == "global"){
+    global_averages <- get_sample_stats(heal_list, method = average)
+    
+  }else if(method == "local"){
+    local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
+    
+  }else if (method == "manual" & average_list != FALSE){
+    if (!identical(names(average_list), samples)){
+      stop("Invalid average_list input. When method == 'manual' you must provide a average_list with values of median for each sample subgenome.")
+    }
+  }else if (normalize == "manual" & average_list == FALSE){
+    stop("No 'average_list' provided. When method == 'manual' you must provide an 'average_list' with values of median for each sample subgenome.")
+  }
+  
 
   cn_list <- foreach::foreach(pr_name = progenitors) %do% {
     prog <- heal_list[[pr_name]]$bins
@@ -52,8 +68,17 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
       }
       sgmnts <- DNAcopy::segment(smooth_not_na_cna)
       
-      estimated_CN <- round((sgmnts$output$seg.mean / sample_averages[[smp]]) * prog_ploidy)
+      if(method == "global"){
+        estimated_CN <- round((sgmnts$output$seg.mean / global_averages[[smp]]) * prog_ploidy)
+        
+      }else if(method == "local"){
+        estimated_CN <- round((sgmnts$output$seg.mean / local_averages[[smp]][[pr_name]]) * prog_ploidy)
 
+      }else if(method == "manual"){
+        estimated_CN <- round((sgmnts$output$seg.mean / average_list[[smp]][[pr_name]]) * prog_ploidy)
+         
+      }
+      
       copy_number <- rep(NA, length(prog$chr))
 
       for (i in 1:nrow(sgmnts$segRows)) {
@@ -62,7 +87,6 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
       return(copy_number)
     }
     doParallel::stopImplicitCluster()
-
 
     cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, prog$gc_content, data.frame(sample_CN))
     colnames(cn_dt) <- c("chr", "start", "end", "gc_content", sample_current_prog)

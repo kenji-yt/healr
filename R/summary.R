@@ -176,26 +176,6 @@ summarize_aln <- function(alignment, n_threads=1){
     }
     
     names(summary_per_prog_list) <- progenitors
-    
-    list_total_dts <- lapply(summary_per_prog_list, function(prog){
-      total_name <- grep("total_", names(prog), value=TRUE)
-      return(prog[[total_name]])
-    })
-    
-    tmp_sample_out_dt <- data.table::rbindlist(list_total_dts)
-    sum_list <- foreach::foreach(combo=unique(tmp_sample_out_dt[[ratio_name]]))%do%{
-      
-      which_row <- tmp_sample_out_dt[[ratio_name]]==combo
-      return(sum(tmp_sample_out_dt$bp_length[which_row]))
-      
-    }
-    smp_total_dt <- data.table::data.table(count=unlist(sum_list))
-    smp_total_dt$percentage <- smp_total_dt$count/sum(smp_total_dt$count)*100
-    smp_total_dt[[ratio_name]] <- unique(tmp_sample_out_dt[[ratio_name]])
-    smp_total_dt <- smp_total_dt[order(smp_total_dt[[ratio_name]]),]
-    
-    summary_per_prog_list[["total_summary_dt"]] <- smp_total_dt
-    
     return(summary_per_prog_list)
   }
   
