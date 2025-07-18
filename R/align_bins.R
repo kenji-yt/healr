@@ -202,6 +202,8 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
     stop("No CN data. Exiting...")
   }
 
+  bin_size <- heal_list$A.arenosa$bins$end[1] - heal_list$A.arenosa$bins$start[1]
+  
   sample_names <- unlist(lapply(heal_list, function(prog) {
     setdiff(colnames(prog$bins), c("chr", "start", "end", "mappability", "gc_content"))
   }))
@@ -214,171 +216,165 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
   anchors_dt <- get_conserved_anchors(genespace_dir)
   # Get a list with one data table per subgenome containing anchors and their overlapping bins
   cn_anchors_and_bins <- map_bins_to_anchors(anchors_dt, heal_list, genespace_dir, n_threads)
-#
-#   col_to_merge <- colnames(cn_anchors_and_bins[[progenitors[1]]])
-#   col_to_merge <- col_to_merge[grepl(paste0("^", progenitors[1], "_"), col_to_merge )]
-#
-#   merged_dt <- Reduce(function(x, y) merge(x, y, by=col_to_merge, all = TRUE), cn_anchors_and_bins)
 
-  # Solution is to use join to merge the anchors dt with the cn_anchors_and_bins data tables.
-  # Once merged (can probably merge all subgenome dt into one) we can go through that row by row and assign a CN.
-  # Sweet!
+  # Make alignment for each sample
   cn_alignment_list <- foreach::foreach(smp = polyploid_samples) %do% {
 
-    assigned_and_unassigned_list <- foreach::foreach(prog = progenitors) %do% {
+    assigned_list <- foreach::foreach(prog = progenitors) %do% {
       
-      prog_id <- paste0("id_", prog)
-      # We can extract anchors which overlap multiple bins and process these individually
-      multiple_overlap_anchors <- table(cn_anchors_and_bins[[prog]][[prog_id]])[table(cn_anchors_and_bins[[prog]][[prog_id]])>1]
+      prog_id_col <- paste0("id_", prog)
+      # We can extract anchors which overlap multiple bins. We process these individually later.
+      multiple_overlap_anchors <- table(cn_anchors_and_bins[[prog]][[prog_id_col]])[table(cn_anchors_and_bins[[prog]][[prog_id_col]])>1]
 
       # First make a dt for the uniquely overlapping anchors
-      unique_assigned_anchors <- setdiff(cn_anchors_and_bins[[prog]][[prog_id]], names(multiple_overlap_anchors))
+      unique_assigned_anchors <- setdiff(cn_anchors_and_bins[[prog]][[prog_id_col]], names(multiple_overlap_anchors))
       
-      assigned_anchors_dt <- cn_anchors_and_bins[[prog]][get(prog_id) %in% unique_assigned_anchors]
+      assigned_anchors_dt <- cn_anchors_and_bins[[prog]][get(prog_id_col) %in% unique_assigned_anchors]
       
       # remove superfluous columns
       cols_to_remove <- c("anchor_index", "bin_start", "anchor_start", "anchor_end", "gc_content", "overlap_width")
       assigned_anchors_dt[, (cols_to_remove) := NULL]
-      
-      # add necessary columns
+      # add desired columns
       colnames(assigned_anchors_dt)[colnames(assigned_anchors_dt)==smp] <- paste0("cn_", prog)
       colnames(assigned_anchors_dt)[colnames(assigned_anchors_dt)=="bin_index"] <- paste0("bin_index_", prog)
-      assigned_anchors_dt$method <- rep("unique", nrow(assigned_anchors_dt))
+      assigned_anchors_dt[[paste0(prog, "_method")]] <- rep("unique", nrow(assigned_anchors_dt))
       
-      # Now we can see which multiple overlapping ones have a unique 
+      
+      
+      # Assign CN to anchors overlapping multiple based on overlap length
       doParallel::registerDoParallel(n_threads)
-      anchor_method_list <- foreach::foreach(i = 1:length(multiple_overlap_anchors)) %dopar% {
+      multiple_cn_anchors <- foreach::foreach(i = 1:length(multiple_overlap_anchors)) %do% {
         
         anchor_id <- names(multiple_overlap_anchors[i])
-        sub_dt <- cn_anchors_and_bins[[prog]][cn_anchors_and_bins[[prog]][[prog_id]]==anchor_id]
+        sub_dt <- cn_anchors_and_bins[[prog]][cn_anchors_and_bins[[prog]][[prog_id_col]]==anchor_id]
         cn_vec <- sub_dt[[smp]]
         
+        # if more than one unique overlapping CN
         if(length(unique(cn_vec))>1){
-          method <- "multiple"
-          overlapp_vec <- sub_dt$overlap_width
-          bin_index <- sub_dt$bin_index
-          method_cn_list <- list(method = method, cn = unique(cn_vec), overlapp = overlapp_vec, anchor = anchor_id, bin_index = bin_index)
+          
+          # Take the CN with largest overlap
+          overlap_by_CN <- tapply(sub_dt$overlap_width, cn_vec, sum)
+          most_overlap_cn <- as.numeric(names(which.max(overlap_by_CN)))
+          bin_indexes <- paste(sub_dt$bin_index, collapse = ",")
+          out_list <- list(anchor_id, most_overlap_cn, "multiple", bin_indexes)
+          names(out_list) <- c(prog_id_col, paste0("cn_", prog), paste0(prog, "_method"), paste0("bin_index_", prog))
+          
+          return(out_list)
+          
         }else{
-          method <- "unique"
-          bin_index <- sub_dt$bin_index
-          method_cn_list <- list(method=method, cn=unique(cn_vec), anchor = anchor_id, bin_index = bin_index)
-        }
-        
-        return(method_cn_list)
-      }
-      doParallel::stopImplicitCluster()
-      
-      # We find them and add them to the assigned_anchors_dt
-      unique_prog_list <- foreach::foreach(i = 1:length(anchor_method_list))%dopar%{
-        
-        if(anchor_method_list[[i]]$method=="unique"){
           
-          dt <- data.table::data.table(id = anchor_method_list[[i]]$anchor, cn = anchor_method_list[[i]]$cn, method = "unique", bin_index = anchor_method_list[[i]]$bin_index)
-          colnames(dt)[colnames(dt)=="id"] <- prog_id
-          colnames(dt)[colnames(dt)=="cn"] <- paste0("cn_", prog)
-          colnames(dt)[colnames(dt)=="bin_index"] <- paste0("bin_index_", prog)
+          bin_indexes <- paste(sub_dt$bin_index, collapse = ",")
+          out_list <- list(anchor_id, unique(cn_vec), "unique", bin_indexes)
+          names(out_list) <- c(prog_id_col, paste0("cn_", prog), paste0(prog, "_method"), paste0("bin_index_", prog))
           
-          return(dt)
+          return(out_list)
+        
         }
       }
       doParallel::stopImplicitCluster()
       
-      unique_prog_dt <- data.table::rbindlist(unique_prog_list)
-      assigned_add_on_dt<- merge(unique_prog_dt, anchors_dt, by = prog_id)
+      assigned_multiple_dt <- data.table::rbindlist(multiple_cn_anchors)
+      
+      assigned_add_on_dt<- merge(assigned_multiple_dt, anchors_dt, by = prog_id_col)
       
       assigned_anchors_dt <- data.table::rbindlist(list(assigned_anchors_dt, assigned_add_on_dt), use.names = TRUE)
-      
-      # Now we format the non-unique ones and return then for later assignment.
-      multiple_prog_list <- Filter(function(x) x$method == "multiple", anchor_method_list)
-      
-      return(list(assigned_dt = assigned_anchors_dt, unassigned_list = multiple_prog_list))
+
+      return(assigned_anchors_dt)
     }
     
+    names(assigned_list) <- progenitors
+    
+    common_cols <- Reduce(intersect, lapply(assigned_list, names))
+    alignment_draft <- Reduce(function(...) merge(..., by = common_cols, all = FALSE), assigned_list)
+    
+    method_cols <- grep("_method$", names(alignment_draft), value = TRUE)
+    # Create new column "method" by comparing values row-wise
+    alignment_draft[, method := ifelse(apply(.SD, 1, function(x) length(unique(x)) == 1), "unique", "multiple"), .SDcols = method_cols]
+    alignment_draft[, (method_cols) := NULL]
+    
+    cn_cols <- grep("^cn_", names(alignment_draft), value = TRUE)
+    alignment_draft[, status := ifelse(apply(.SD, 1, function(x) sum(x) == total_ploidy), "concordant", "discordant"), .SDcols = cn_cols]
+    
+    # Review discordant and multiple to see if another assignment can make them concordant
+    mult_disc_rows <- which(alignment_draft$status == "discordant" & alignment_draft$method == "multiple")
+    
     doParallel::registerDoParallel(n_threads)
-    cn_per_anchor_pair_list <- foreach::foreach(i = 1:nrow(merged_dt)) %dopar% {
-
-      # cn_at_anchor_dt_list <- foreach::foreach(prog = progenitors) %do% {
-      #
-      #   anchor_gene <- anchors_dt[[paste0("id_", prog)]][i]
-      #
-      #   which_rows <- cn_anchors_and_bins[[prog]][[paste0("id_", prog)]] == anchor_gene
-      #
-      #   cn_at_anchor_dt <- cn_anchors_and_bins[[prog]][which_rows, ]
-      #
-      #   return(cn_at_anchor_dt)
-      # }
-      # names(cn_at_anchor_dt_list) <- progenitors
-
-      # # If the anchor overlaps no bin (eg. bin filtered out)
-      # if (sum(lapply(cn_at_anchor_dt_list, nrow) == 0) != 0) {
-      #   return()
-      # } else {
-      unique_cn <- foreach::foreach(prog = progenitors) {
-        merged_dt[i,get(paste0(""))]
-        unique(dt[[smp]])
-      })
-
-        bin_indexes <- lapply(cn_at_anchor_dt_list, function(dt) {
-          paste(dt$bin_index, collapse = ",")
-        })
-
-        bin_index_dt <- data.table::as.data.table(bin_indexes)
-        colnames(bin_index_dt) <- paste0("bin_index_", colnames(bin_index_dt))
-
-        # Unique CN in all genomes
-        if (sum(unlist(lapply(unique_cn, length))) == length(unique_cn)) {
-          unique_cn_dt <- data.table::as.data.table(unique_cn)
-          colnames(unique_cn_dt) <- paste0("cn_", colnames(unique_cn_dt))
-
-          output_dt <- cbind(anchors_dt[i, ], unique_cn_dt, bin_index_dt, data.table::data.table(method = "unique"))
-          return(output_dt)
-
-          # Find most concordant CN combination (heuristic solution)
-        } else {
-          cartesian_product <- data.table::as.data.table(expand.grid(unique_cn))
-          most_concordant <- which(abs(rowSums(cartesian_product) - total_ploidy) == min(abs(rowSums(cartesian_product) - total_ploidy)))
-
-          concordant_combinations <- cartesian_product[most_concordant, ]
-
-          # if multiple equally concordant combinations, pick the one with most overlap
-          # Note that we consider copy number of same value at start and end of the gene as equivalent
-          if (nrow(concordant_combinations) > 1) {
-            overlaps <- apply(concordant_combinations, 1, function(row) {
-              overlaps <- foreach::foreach(prog = names(row)) %do% {
-                which_row <- cn_at_anchor_dt_list[[prog]][[smp]] == row[[prog]]
-                overlap <- sum(cn_at_anchor_dt_list[[prog]]$overlap_width[which_row])
-                return(overlap)
-              }
-              sum(unlist(overlaps))
-            })
-
-            unique_cn_dt <- concordant_combinations[which.max(overlaps)]
-            colnames(unique_cn_dt) <- paste0("cn_", colnames(unique_cn_dt))
-
-            output_dt <- cbind(anchors_dt[i, ], unique_cn_dt, bin_index_dt, data.table::data.table(method = "multiple_overlap"))
-            return(output_dt)
-          } else {
-            unique_cn_dt <- concordant_combinations
-            colnames(unique_cn_dt) <- paste0("cn_", colnames(unique_cn_dt))
-
-            output_dt <- cbind(anchors_dt[i, ], unique_cn_dt, bin_index_dt, data.table::data.table(method = "multiple_unique"))
-            return(output_dt)
+    corrected_cn_list <- foreach::foreach(i = mult_disc_rows)%dopar%{
+      
+      discordant_row <- alignment_draft[i, ]
+      
+      cn_list <- list()
+      overlap_list <- list()
+      for(p in 1:length(progenitors)){
+        
+        prog <- progenitors[p]
+        
+        prog_id_col <- paste0("id_", prog)
+        anchor_id <- alignment_draft[i, get(prog_id_col)]
+        sub_dt <- cn_anchors_and_bins[[prog]][get(prog_id_col) %in% anchor_id]
+        
+        cn_vec <- sub_dt[[smp]]
+        cn_list[[p]] <- cn_vec
+        
+        overlap_by_CN <- tapply(sub_dt$overlap_width, cn_vec, sum)
+        overlap_list[[p]] <- overlap_by_CN
+      
+      }
+      names(cn_list) <- progenitors
+      names(overlap_list) <- progenitors
+      
+      combinations <- expand.grid(cn_list)
+      # single
+      if(sum(rowSums(combinations) == total_ploidy)==1){
+        
+        concord_combo <- combinations[rowSums(combinations) == total_ploidy,]
+        return(concord_combo)
+        
+      # multiple concordant alternatives
+      }else if(sum(rowSums(combinations) == total_ploidy)>1){
+        
+        # go through each concordant combination and find the one maximizing overlap
+        concord_dt <- combinations[rowSums(combinations) == total_ploidy,]
+        overlap_vec <- c()
+        for(r in 1:nrow(concord_dt)){
+          
+          overlap <- 0
+          for(prog in progenitors){
+            cn_prog <- concord_dt[[prog]]
+            overlap <- overlap + overlap_list[[prog]][[as.character(cn_prog)]]
           }
+          overlap_vec <- c(overlap_vec, overlap)
         }
+        
+        return(concord_dt[which.max(overlap_vec),])
+        
+      # No concordant combination
+      }else{
+        return(NULL)
       }
     }
     doParallel::stopImplicitCluster()
-
-    alignment <- data.table::rbindlist(cn_per_anchor_pair_list)
-
-    alignment$status <- rep("concordant", nrow(alignment))
-
-    cn_col <- grep("cn_", colnames(alignment))
-    discordant_cols <- rowSums(alignment[, ..cn_col]) != prog_ploidy * length(heal_list)
-    alignment$status[discordant_cols] <- "discordant"
-    return(alignment)
+    
+    # Check which rows be replaced 
+    to_replace <- !sapply(corrected_cn_list, is.null)
+    
+    if(sum(to_replace)!=0){
+      rows_to_replace <- mult_disc_rows[to_replace]
+      replacement_values <- corrected_cn_list[to_replace]
+      cols_to_replace <- paste0("cn_", progenitors)
+      
+      # replace in the draft alignment
+      for(i in 1:length(rows_to_replace)){
+        alignment_draft[rows_to_replace[i],  (cols_to_replace) := as.list(replacement_values[[i]])]
+        alignment_draft[rows_to_replace[i], (c("method", "status")) := as.list(c("multiple_concordant", "concordant"))]
+      }
+    }
+   # for some reason it doesn't evaluate the data table after this loop otherwise 
+    return(alignment_draft)
+    
   }
-
+  
   names(cn_alignment_list) <- polyploid_samples
   return(cn_alignment_list)
+  
 }
