@@ -111,6 +111,7 @@ get_conserved_anchors <- function(genespace_dir) {
 #' @return A list containing one data table per progenitor with anchors and overlapping bins.
 #'
 map_bins_to_anchors <- function(anchors_dt, heal_list, genespace_dir, n_threads=1) {
+  
   syn_hits_list <- parse_genespace_input(genespace_dir)
 
   sample_names <- unlist(lapply(heal_list, function(prog) {
@@ -123,6 +124,7 @@ map_bins_to_anchors <- function(anchors_dt, heal_list, genespace_dir, n_threads=
   progenitors <- names(heal_list)
 
   syn_anchors_to_bin_dt_list <- list()
+  
   for (prog in progenitors) {
     chr <- paste0("chr_", prog)
     start <- paste0("start_", prog)
@@ -303,6 +305,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
       
       discordant_row <- alignment_draft[i, ]
       
+      # Get the CN and overlap at that anchor for each progenitor subgenome 
       cn_list <- list()
       overlap_list <- list()
       for(p in 1:length(progenitors)){
@@ -314,7 +317,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
         sub_dt <- cn_anchors_and_bins[[prog]][get(prog_id_col) %in% anchor_id]
         
         cn_vec <- sub_dt[[smp]]
-        cn_list[[p]] <- cn_vec
+        cn_list[[p]] <- unique(cn_vec)
         
         overlap_by_CN <- tapply(sub_dt$overlap_width, cn_vec, sum)
         overlap_list[[p]] <- overlap_by_CN
