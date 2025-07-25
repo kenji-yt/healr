@@ -291,10 +291,8 @@ write_aln_summary <- function(alignment_summary, output_dir, ...){
       
       smp_outdir <- paste0(output_dir, "/", smp) 
       dir.create(smp_outdir, recursive = FALSE)
-      total_path <- paste0(smp_outdir, "/total_summary.csv")
-      data.table::fwrite(alignment_summary[[smp]]$total_summary_dt, file = total_path, ...)
-  
-      progenitors <- setdiff(names(alignment_summary[[smp]]), "total_summary_dt")
+
+      progenitors <- names(alignment_summary[[smp]])
       
       for(prog in progenitors){
         

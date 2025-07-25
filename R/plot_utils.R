@@ -212,6 +212,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
 
   polyploid_samples <- names(alignment)
 
+  # Define averages depending on the method set
   if(method == "global"){
     global_averages <- get_sample_stats(heal_list, method = average)
     sample_names <- names(global_averages)
@@ -226,6 +227,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
   
   progenitors <- names(heal_list)
 
+  # Define colours: if not set manually, sample from rainbow.
   if (isFALSE(color_map)) {
     color_map <- grDevices::rainbow(length(progenitors), s = 0.7)
   } else if (length(color_map) != length(progenitors)) {
@@ -233,6 +235,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
   }
   names(color_map) <- progenitors
   
+  # Parse plotting options and make sure they are compatible with one another.
   if (view_sample != FALSE) {
     if (sum(polyploid_samples == view_sample) == 0) {
       stop("Sample name not recognized (or not polyploid) for viewing of alignment. Exiting..")
@@ -251,13 +254,32 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
     cat(paste0("Plotting all samples and chromosomes to ", output_dir, ".", "\n"))
   }
 
+  # Define offset for line visibility
+  n <- length(progenitors)
+  step <- 0.1
+  if (n %% 2 == 1) {
+    # Odd length: symmetric with 0 in the center
+    offsets <- seq(from = -step * floor(n / 2), to = step * floor(n / 2), by = step)
+  } else {
+    # Even length: symmetric around 0, but no 0 exactly
+    half <- n / 2
+    offsets <- c(seq(from = -step * half + step / 2, by = step, length.out = half),
+      seq(from = step / 2, by = step, length.out = half))
+  }
+  names(offsets) <- progenitors
+  
+  # Make plot for each sample
   foreach::foreach(smp = polyploid_samples) %do% {
+    
+    # We progressively build the outputs and paths if an output dir is set. 
     if (output_dir != FALSE) {
       smp_dir <- paste0(output_dir, "/", smp, "/")
       dir.create(smp_dir, showWarnings = FALSE, recursive = TRUE)
     }
 
+    # Plot along every progenitor gene order successively.
     plot_ref_list <- foreach::foreach(ref = progenitors) %do% {
+      
       alt_gnms <- setdiff(progenitors, ref)
 
       if (output_dir != FALSE) {
@@ -265,7 +287,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
         dir.create(ref_dir, showWarnings = FALSE, recursive = TRUE)
       }
 
-
+      
       if (sum(specific_chr != FALSE) != FALSE) {
         chromo <- intersect(specific_chr, unique(heal_list[[ref]]$bins$chr))
       } else {
@@ -279,6 +301,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
           out_file <- paste0(ref_dir, "/", chr, ".png")
         }
 
+        # Get the current reference line data
         ref_chr_col_name <- paste0("chr_", ref)
         ref_start_col_name <- paste0("start_", ref)
         ref_end_col_name <- paste0("end_", ref)
@@ -287,21 +310,23 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
         which_rows_aln_dt <- alignment[[smp]][[ref_chr_col_name]] == chr
 
         x_line <- (alignment[[smp]][[ref_start_col_name]][which_rows_aln_dt] + alignment[[smp]][[ref_end_col_name]][which_rows_aln_dt]) / 2
-        x_vec_line <- x_line
-        y_vec_line <- alignment[[smp]][[ref_cn_col_name]][which_rows_aln_dt]
+        x_vec_line <- x_line 
+        y_vec_line <- alignment[[smp]][[ref_cn_col_name]][which_rows_aln_dt] + offsets[ref]
         subgnm_group <- rep(ref, length(x_vec_line))
 
+        # Add the alt line info
         for (alt in alt_gnms) {
           alt_cn_col_name <- paste0("cn_", alt)
-          y_alt <- alignment[[smp]][[alt_cn_col_name]][which_rows_aln_dt]
+          y_alt <- alignment[[smp]][[alt_cn_col_name]][which_rows_aln_dt] + offsets[alt]
 
           subgnm_group <- c(subgnm_group, rep(alt, length(y_alt)))
           x_vec_line <- c(x_vec_line, x_line) # same coordinates
-          y_vec_line <- c(y_vec_line, y_alt)
+          y_vec_line <- c(y_vec_line, y_alt) 
         }
 
         lines_df <- data.frame(start = x_vec_line, copy = y_vec_line, subgenome = subgnm_group)
-
+        
+        # if add bins, create a data table with bin information
         if (add_bins != FALSE) {
           which_rows_bins_dt <- heal_list[[ref]]$bins$chr == chr
 
@@ -309,6 +334,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
           x_vec_pts <- x_pts
           y_vec_pts <- heal_list[[ref]]$bins[[smp]][which_rows_bins_dt]
           
+          # normalize
           if(method == "global"){
             y_vec_pts <- (y_vec_pts / global_averages[[smp]]) * prog_ploidy 
             
@@ -321,7 +347,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
           
           subgnm_group <- rep(ref, length(y_vec_pts))
 
-
+          # add bins of alt if both
           if (add_bins == "both") {
             for (alt in alt_gnms) {
               alt_bin_col_name <- paste0("bin_index_", alt)
