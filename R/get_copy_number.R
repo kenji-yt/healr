@@ -15,6 +15,7 @@
 #' @importFrom foreach %do%
 get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global", average = "median", average_list = FALSE, full_output = FALSE) {
   
+  
   if (intersect(method, c("global", "local", "manual")) == 0 || length(average) != 1) {
     stop("Invalid method input. Choose either 'global', 'local' or 'manual'")
   }
@@ -35,11 +36,11 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
   }else if(method == "local"){
     local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
     
-  }else if (method == "manual" & average_list != FALSE){
+  }else if (method == "manual" & is.list(average_list)){
     if (!identical(names(average_list), samples)){
       stop("Invalid average_list input. When method == 'manual' you must provide a average_list with values of median for each sample subgenome.")
     }
-  }else if (normalize == "manual" & average_list == FALSE){
+  }else if (normalize == "manual" & is.logical(average_list)){
     stop("No 'average_list' provided. When method == 'manual' you must provide an 'average_list' with values of median for each sample subgenome.")
   }
   

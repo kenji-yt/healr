@@ -233,8 +233,11 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
       
       assigned_anchors_dt <- cn_anchors_and_bins[[prog]][get(prog_id_col) %in% unique_assigned_anchors]
       
+      # Get name of other samples to remove from assigned_anchors_dt
+      non_focal_samples <- setdiff(polyploid_samples, smp)
+      
       # remove superfluous columns
-      cols_to_remove <- c("anchor_index", "bin_start", "anchor_start", "anchor_end", "gc_content", "overlap_width")
+      cols_to_remove <- c("anchor_index", "bin_start", "anchor_start", "anchor_end", "gc_content", "overlap_width", non_focal_samples)
       assigned_anchors_dt[, (cols_to_remove) := NULL]
       # add desired columns
       colnames(assigned_anchors_dt)[colnames(assigned_anchors_dt)==smp] <- paste0("cn_", prog)
@@ -277,7 +280,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
       
       assigned_multiple_dt <- data.table::rbindlist(multiple_cn_anchors)
       
-      assigned_add_on_dt<- merge(assigned_multiple_dt, anchors_dt, by = prog_id_col)
+      assigned_add_on_dt <- merge(assigned_multiple_dt, anchors_dt, by = prog_id_col)
       
       assigned_anchors_dt <- data.table::rbindlist(list(assigned_anchors_dt, assigned_add_on_dt), use.names = TRUE)
 

@@ -21,7 +21,6 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names) {
 
   anno_dt <- data.table::data.table(chr = chr[length == bin_size], start = start[length == bin_size] - 1, end = end[length == bin_size])
 
-
   out_dt <- cbind(anno_dt, counts_dt[length == bin_size, ])
   data.table::setkey(out_dt, chr, start)
   data.table::setorder(out_dt, chr, start)
