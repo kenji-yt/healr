@@ -8,7 +8,7 @@
 #' @returns A vector of x axis values to pair with the input y_vec to define the sigmoidal curve.
 #'
 #' @examples
-sigmoid <- function(y, x_start, x_end, k=5) {
+sigmoid <- function(y, x_start, x_end, k=10) {
   y_min <- min(y)
   y_max <- max(y)
   y0 <- mean(range(y))
@@ -106,15 +106,20 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample 
   }
   names(offset_list) <- progenitors
   
+  # Location of each subgenome
+  direction <- c(1, -1) 
+  names(direction) <- progenitors
+  # Edges (absolution from 0)
+  cn_block_edges <- list(c(1, 1.2), c(1.3, 1.5), c(1.7, 1.9), c(2.1, 2.3))
   
   ### Now we can plot each samples
   for(smp in polyploid_samples){
     
     # Create a empty plot.
-    p <- ggplot() +
-      xlim( -max_x_span/2 + inter_chromosome_space, max_x_span/2 + inter_chromosome_space) +
-      ylim(-3, 3) 
-    
+    plot <- ggplot2::ggplot() +
+      ggplot2::xlim(-max_x_span/2 - inter_chromosome_space, max_x_span/2 + inter_chromosome_space) +
+      ggplot2::ylim(-2.6, 2.6) +
+      ggplot2::theme_void() 
     # Drawing the chromosomes and their copy number. 
     
     group_vec <- c()
@@ -134,27 +139,58 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample 
         cn_blocks <- rle(chromo_dt[[paste0("cn_", prog)]])
         block_starts <- c(0, cumsum(cn_blocks$lengths))+1
         
-        chromo_dt[[paste0("start_", prog)]][1:block_ends[1]]
-        for(b in 1:length(block)){
-          group_vec <- c(group_vec, +)
-          xmin_vec <-  c(xmin_vec, +)
-          xmax_vec <-  c(xmax_vec, +)
-          ymin_vec <-  c(ymin_vec, +)
-          ymax_vec <-  c(ymax_vec, +)
+        if(length(block_starts)==1){
+          
+        }else{
+          for(i in 1:(length(block_starts)-1)){
+            
+            start_vec <- chromo_dt[[paste0("start_", prog)]][block_starts[i]:(block_starts[i+1]-1)]
+            end_vec <- chromo_dt[[paste0("end_", prog)]][block_starts[i]:(block_starts[i+1]-1)]
+            cn <- unique(chromo_dt[[paste0("cn_", prog)]][block_starts[i]:(block_starts[i+1]-1)])
+            if(length(cn)>1){stop("CN more than 1...")} # Sanity check. Remove after. 
+            
+            if(cn>0){
+              
+              offset <- offset_list[[prog]][[chr]]
+              start_loc <- min(start_vec) + offset
+              end_loc <- max(end_vec) + offset
+              
+              if(cn > 4){
+                bloc_center <- mean(start_loc, end_loc)
+                y_position <- 2.5 * direction[[prog]]
+                plot <- plot + ggplot2::annotate("text", x = bloc_center, y = y_position, label = "+", size = 6) 
+                cn <- 4
+              }
+              
+              for(i in 1:cn){
+                
+                group_vec <- c(group_vec, paste(chr, prog))
+                xmin_vec <-  c(xmin_vec, start_loc)
+                xmax_vec <-  c(xmax_vec, end_loc)
+                
+                ymin <- cn_block_edges[[i]][1] * direction[[prog]]
+                ymax <- cn_block_edges[[i]][2] * direction[[prog]]
+                
+                ymin_vec <-  c(ymin_vec, ymin)
+                ymax_vec <-  c(ymax_vec, ymax)
+              }
+            }
+          }
         }
       }
     }
     
+    
     # Here I define the CN ratio blocks
-    blocks <- data.frame(
-      group = c("chromosome 1 A.thaliana","chromosome 1 A.thaliana", "chromosome 1 A.arenosa"),
-      xmin = c(1, 1, 2),
-      xmax = c(4, 4, 6),
-      ymin = c(3, 2.4, 7),
-      ymax = c(3.5, 2.9, 7.5)
+    blocks_dt <- data.frame(
+      chromosome = group_vec,
+      xmin = xmin_vec,
+      xmax = xmax_vec,
+      ymin = ymin_vec,
+      ymax = ymax_vec
     )
     
-    
+    plot <- plot + ggplot2::geom_rect(data = blocks_dt, ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = chromosome), color = "black", alpha = 0.5) 
     
     # Let's define the ribbons (rivers)
     # We work on a alignment ordered by subgenome one 
@@ -221,9 +257,9 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample 
     # names(block_1_ribbon_dts) <- regions_dt$blkID[na.omit(unique(regions))]
     # 
     # We go through all other blocks
-    ribbon_dt_list <- foreach::foreach(i = 2:length(end_positions))%do%{
+    ribbon_dt_list <- foreach::foreach(i = 1:(length(start_positions)-1))%do%{
   
-      row_indexes <- (end_positions[i-1]+1):end_positions[i]
+      row_indexes <- start_positions[i]:(start_positions[i+1]-1)
       block_dt <- ordered_alignment[row_indexes, ]
       
       # Make gene range object
@@ -286,14 +322,14 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample 
       return(ribbon_dt_per_block_list)
     }
     
-    ribbon_dt_list[[length(ribbon_dt_list)+1]] <- block_1_ribbon_dts
+    #ribbon_dt_list[[length(ribbon_dt_list)+1]] <- block_1_ribbon_dts
     ribbon_dt_list <- do.call(c, ribbon_dt_list) # We combine all lists into one big list. Each entry is a ribbon defining data table.
     
     ### Add the ribbons to the plot
     for (i in seq_along(ribbon_dt_list)) {
-      p <- p + ggplot2::geom_ribbon(
+      plot <- plot + ggplot2::geom_ribbon(
           data = as.data.frame(ribbon_dt_list[[i]]),
-          aes(y = y_vec, xmin = x_start, xmax = x_end),
+          ggplot2::aes(y = y_vec, xmin = x_start, xmax = x_end),
           fill = "grey50", alpha = 0.5
       )
     }
