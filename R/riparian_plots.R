@@ -8,7 +8,7 @@
 #' @returns A vector of x axis values to pair with the input y_vec to define the sigmoidal curve.
 #'
 #' @examples
-sigmoid <- function(y, x_start, x_end, k=10) {
+sigmoid <- function(y, x_start, x_end, k=7) {
   y_min <- min(y)
   y_max <- max(y)
   y0 <- mean(range(y))
@@ -19,7 +19,7 @@ sigmoid <- function(y, x_start, x_end, k=10) {
 
 Dont forget to try and understand why it all works with bottom_x[1], bottom_x[length] but some alt anchors are outside the regions range (on its own chromosome), but this never happens 
 with the progenitor. 
-plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample = FALSE, output_dir = FALSE, n_threads = 1)
+plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample = FALSE, output_dir = FALSE, n_threads = 1){
   
   polyploid_samples <- names(heal_alignment)
 
@@ -291,11 +291,11 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample 
         top_corners_x <- c(min(final_block_dt[[paste0("start_", progenitors[1])]]), max(final_block_dt[[paste0("end_", progenitors[1])]]))
         
         # Get order of the second genome region 
-        direction <- final_block_dt[[paste0("start_", progenitors[2])]][nrow(final_block_dt)] - final_block_dt[[paste0("start_", progenitors[2])]][1] 
-        if(direction >= 0){
+        orientation <- final_block_dt[[paste0("start_", progenitors[2])]][nrow(final_block_dt)] - final_block_dt[[paste0("start_", progenitors[2])]][1] 
+        if(orientation >= 0){
           #bottom_corners_x <- c(min(final_block_dt[[paste0("start_", progenitors[2])]]), max(final_block_dt[[paste0("end_", progenitors[2])]]))
           bottom_corners_x <- c(final_block_dt[[paste0("start_", progenitors[2])]][1], final_block_dt[[paste0("end_", progenitors[2])]][length(final_block_dt[[paste0("end_", progenitors[2])]])])
-        }else if(direction < 0){
+        }else if(orientation < 0){
           bottom_corners_x <- c(final_block_dt[[paste0("end_", progenitors[2])]][length(final_block_dt[[paste0("end_", progenitors[2])]])], final_block_dt[[paste0("start_", progenitors[2])]][1])
           #bottom_corners_x <- c(max(final_block_dt[[paste0("end_", progenitors[2])]]), min(final_block_dt[[paste0("start_", progenitors[2])]]))
         }
@@ -334,31 +334,10 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample 
       )
     }
     
-    
-    
-    # Here I define the CN ratio blocks
-    blocks <- data.frame(
-      group = c("chromosome 1 A.thaliana","chromosome 1 A.thaliana", "chromosome 1 A.arenosa"),
-      xmin = c(1, 1, 2),
-      xmax = c(4, 4, 6),
-      ymin = c(3, 2.4, 7),
-      ymax = c(3.5, 2.9, 7.5)
-    )
-    
-    
-    
-    # Here I define the edges of the ribbon
-    ribbon_df <- data.frame(
-      y = y_vals,
-      x_left = sigmoid(y_vals, 1, 2),
-      x_right = sigmoid(y_vals, 4, 6)
-    )
-    
-    
-    # Plot
-    ggplot2::ggplot() +
-      ggplot2::geom_rect(data = blocks, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = group), color = "black", alpha = 0.5) +
-      ggplot2::geom_ribbon(data = ribbon_df, aes(y = y, xmin = x_left, xmax = x_right),
-                  fill = "grey50", alpha = 0.5) +
-      ggplot2::theme_minimal()
+    if(!dir.exists(file.path(output_dir))){
+      dir.create(file.path(output_dir))
+    }
+    ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.svg"), plot=plot, width=20, height=8)
+    ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.pdf"), plot=plot, width=20, height=8)
   }
+}
