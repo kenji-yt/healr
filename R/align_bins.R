@@ -196,7 +196,7 @@ map_bins_to_anchors <- function(anchors_dt, heal_list, genespace_dir, n_threads=
 #'
 #' @return A list with one data table per sample. Each data table has one row for each anchor set present in all progenitors. The bins overlapping each anchor are given along with a consensus copy number at the anchor based on these bins.
 #' @export
-#' #'
+#'
 get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_ploidy = 2) {
 
   cn_exist <- sum(names(heal_list[[1]]) == "CN") != 0
