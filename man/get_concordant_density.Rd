@@ -9,7 +9,10 @@ get_concordant_density(
   heal_list,
   n_threads = 1,
   prog_ploidy = 2,
-  n_points = 1000
+  n_points = 1000,
+  normalize = FALSE,
+  average = "median",
+  average_list = FALSE
 )
 }
 \arguments{
@@ -22,6 +25,12 @@ get_concordant_density(
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default).}
 
 \item{n_points}{The n parameter for MASS::kde2d(). "Number of grid points in each direction. Can be scalar or a length-2 integer vector". Default is 1000.}
+
+\item{normalize}{Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_copy_number()'.}
+
+\item{average}{Average measure used normalize each bin count ('median' or 'mean'. 'median' by default).}
+
+\item{average_list}{A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_copy_number()').}
 }
 \value{
 A list with one element per polyploid sample. Each sample has a list with one density distribution for each copy number from 0 to the ploidy of the progenitors times the number of progenitors.

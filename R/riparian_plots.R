@@ -17,9 +17,22 @@ sigmoid <- function(y, x_start, x_end, k=7) {
   return(x)
 }
 
-Dont forget to try and understand why it all works with bottom_x[1], bottom_x[length] but some alt anchors are outside the regions range (on its own chromosome), but this never happens 
-with the progenitor. 
-plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample = FALSE, output_dir = FALSE, n_threads = 1){
+#Dont forget to try and understand why it all works with bottom_x[1], bottom_x[length] but some alt anchors are outside the regions range (on its own chromosome), but this never happens 
+#with the progenitor. 
+### PARALELIZE!!!
+#' Plot riparian style plots with copy number
+#'
+#' @param alignment A heal alignment object created with get_heal_alignment().
+#' @param heal_list List in heal format (such as output from count_heal_data()).
+#' @param genespace_dir Path to a directory containing the syntenicRegion_coordinates.csv output file from GENESPACE.
+#' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
+#' @param n_threads Number of threads to use ('1' by default).
+#'
+#' @returns Nothing. Creates riparian style plots with copy number information. 
+#' @export
+#'
+#' @examples
+plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir = FALSE, n_threads = 1){
   
   polyploid_samples <- names(heal_alignment)
 
@@ -68,14 +81,10 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample 
   real_x_spans <- genome_size_subgenomes + n_chromo_by_subgenome * inter_chromosome_space
   names(real_x_spans) <- progenitors
   max_x_span <- max(real_x_spans)
-  #####
-  ## THERE MIGHT BE SOME USELESS VARIABLES ABOVE
-  ######
+  
   # Define y span 
   y_span <- seq(-1, 1, length.out = 300)
-  # y_range <- c(0 - 0.5 * y_span, 0 + 0.5 * y_span)
-  # y_span <- seq(y_range[1], y_range[2], length.out = 300)
-  # 
+ 
   offset_list <- foreach::foreach(prog = progenitors)%do%{
     
     chromo_sizes <- unlist(subgenome_sizes_list[[prog]]$size_per_chromo)
@@ -206,57 +215,7 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample 
     
     start_positions <- c(0, cumsum(rle_of_blocks$lengths))+1
     
-    # 
-    # ## Then we go through every block and subdivide further by syntenic region
-    # # We do the first block outside the loop then added later
-    # row_indexes <- 1:end_positions[1]
-    # block_1_dt <- ordered_alignment[row_indexes, ]
-    # 
-    # # Make gene range object
-    # block_gr <- GenomicRanges::GRanges(
-    #   seqnames = block_1_dt[[paste0("chr_", progenitors[1])]],
-    #   ranges = IRanges::IRanges(start = block_1_dt[[paste0("start_",progenitors[1])]], end = block_1_dt[[paste0("end_",progenitors[1])]]),
-    #   region_id = block_1_dt[[paste0("id_",progenitors[1])]]
-    #   )
-    # 
-    # # Find overlapping regions
-    # regions <- GenomicRanges::findOverlaps(block_gr, region_gr_prog1, select = "first")
-    # 
-    # # Get the positions of the start and end x values 
-    # block_1_ribbon_dts <- foreach::foreach(r = na.omit(unique(regions)))%do%{
-    #   
-    #   final_block_dt <- block_1_dt[regions == r, ]
-    #   top_corners_x <- c(min(final_block_dt[[paste0("start_", progenitors[1])]]), max(final_block_dt[[paste0("end_", progenitors[1])]]))
-    #   
-    #   # Get order of the second genome region 
-    #   direction <- final_block_dt[[paste0("start_", progenitors[2])]][nrow(final_block_dt)] - final_block_dt[[paste0("start_", progenitors[2])]][1] 
-    #   if(direction >= 0){
-    #     bottom_corners_x <- c(min(final_block_dt[[paste0("start_", progenitors[2])]]), max(final_block_dt[[paste0("end_", progenitors[2])]]))
-    #   }else{
-    #     bottom_corners_x <- c(max(final_block_dt[[paste0("end_", progenitors[2])]]), min(final_block_dt[[paste0("start_", progenitors[2])]]))
-    #   }
-    #   
-    #   # Now we offset top and bottom positions based on the chromosome. 
-    #   prog1_chromo <- final_block_dt[[paste0("chr_", progenitors[1])]][1]
-    #   offset_1 <- offset_list[[progenitors[1]]][[prog1_chromo]]
-    #   top_corners_x <- top_corners_x + offset_1
-    #   
-    #   prog2_chromo <- final_block_dt[[paste0("chr_", progenitors[2])]][1]
-    #   offset_2 <- offset_list[[progenitors[2]]][[prog2_chromo]]
-    #   bottom_corners_x <- bottom_corners_x + offset_2
-    #   
-    #   # Here I define the edges of the ribbon
-    #   ribbon_dt <- data.table::data.table(
-    #     y_vec = y_span,
-    #     x_start = sigmoid(y_span, bottom_corners_x[1], top_corners_x[1]),
-    #     x_end = sigmoid(y_span, bottom_corners_x[2], top_corners_x[2])
-    #   )
-    #   
-    #   return(ribbon_dt)
-    # }
-    # names(block_1_ribbon_dts) <- regions_dt$blkID[na.omit(unique(regions))]
-    # 
-    # We go through all other blocks
+    # We go through all blocks
     ribbon_dt_list <- foreach::foreach(i = 1:(length(start_positions)-1))%do%{
   
       row_indexes <- start_positions[i]:(start_positions[i+1]-1)
@@ -268,18 +227,6 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample 
         ranges = IRanges::IRanges(start = block_dt[[paste0("start_", progenitors[1])]], end = block_dt[[paste0("end_", progenitors[1])]]),
         region_id = block_dt[[paste0("id_", progenitors[1])]]
       )
-# 
-#       block_gr_2 <- GenomicRanges::GRanges(
-#         seqnames = block_dt[[paste0("chr_", progenitors[2])]],
-#         ranges = IRanges::IRanges(start = block_dt[[paste0("start_", progenitors[2])]], end = block_dt[[paste0("end_", progenitors[2])]]),
-#         region_id = block_dt[[paste0("id_", progenitors[2])]]
-#       )
-#       region_gr_prog2 <- GenomicRanges::GRanges(
-#         seqnames = regions_dt$chr2,
-#         ranges = IRanges::IRanges(start = min(regions_dt$startBp2, regions_dt$endBp2), end = max(regions_dt$startBp2, regions_dt$endBp2)),
-#         region_id = regions_dt$blkID
-#       )
-#       regions_2 <- GenomicRanges::findOverlaps(block_gr_2, region_gr_prog2, select = "first") # If overlapping multiple, only return 1st.
 
       # Find overlapping regions
       regions <- GenomicRanges::findOverlaps(block_gr, region_gr_prog1, select = "first") # If overlapping multiple, only return 1st. 
@@ -293,11 +240,9 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, view_sample 
         # Get order of the second genome region 
         orientation <- final_block_dt[[paste0("start_", progenitors[2])]][nrow(final_block_dt)] - final_block_dt[[paste0("start_", progenitors[2])]][1] 
         if(orientation >= 0){
-          #bottom_corners_x <- c(min(final_block_dt[[paste0("start_", progenitors[2])]]), max(final_block_dt[[paste0("end_", progenitors[2])]]))
           bottom_corners_x <- c(final_block_dt[[paste0("start_", progenitors[2])]][1], final_block_dt[[paste0("end_", progenitors[2])]][length(final_block_dt[[paste0("end_", progenitors[2])]])])
         }else if(orientation < 0){
           bottom_corners_x <- c(final_block_dt[[paste0("end_", progenitors[2])]][length(final_block_dt[[paste0("end_", progenitors[2])]])], final_block_dt[[paste0("start_", progenitors[2])]][1])
-          #bottom_corners_x <- c(max(final_block_dt[[paste0("end_", progenitors[2])]]), min(final_block_dt[[paste0("start_", progenitors[2])]]))
         }
         
         # Now we offset top and bottom positions based on the chromosome. 

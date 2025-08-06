@@ -8,7 +8,9 @@ get_copy_number(
   heal_list,
   n_threads = 1,
   prog_ploidy = 2,
-  method = "median",
+  method = "global",
+  average = "median",
+  average_list = FALSE,
   full_output = FALSE
 )
 }
@@ -19,9 +21,13 @@ get_copy_number(
 
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default).}
 
-\item{full_output}{Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).}
+\item{method}{Which method to use to assign a copy number to each segment ('global', 'local' or 'manual'. 'global' by default). Global uses average over both subgenomes, local uses per subgenome average and manual uses values set by users in 'average_list'.}
 
-\item{average}{Average measure used to infered copy number in each segment ('median' or 'mean'. 'median' by default).}
+\item{average}{Average measure used to assign a copy number in each segment ('median' or 'mean'. 'median' by default).}
+
+\item{average_list}{A list with one element per sample with each containing one element per subgenome with values used to assign copy numbers.}
+
+\item{full_output}{Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).}
 }
 \value{
 A list with one element per progenitor containing the bins and genes elements of the inpiut plus a data table with infered copy number per bin for each sample and GC and mappability for each bin.

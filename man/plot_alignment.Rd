@@ -7,7 +7,9 @@
 plot_alignment(
   heal_list,
   alignment,
+  method = "global",
   average = "median",
+  average_list = FALSE,
   view_sample = FALSE,
   output_dir = FALSE,
   n_threads = 1,
@@ -25,7 +27,11 @@ plot_alignment(
 
 \item{alignment}{A heal alignment object created with get_heal_alignment().}
 
+\item{method}{Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default).}
+
 \item{average}{The method to compute average to normalize counts (if add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default).}
+
+\item{average_list}{Same as in get_copy_number().}
 
 \item{view_sample}{The name of a sample to plot (as character)('FALSE' by default). If output_dir!=FALSE, the plots will be saved, otherwise they are simply shown.}
 

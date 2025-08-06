@@ -4,9 +4,11 @@
 \alias{map_bins_to_anchors}
 \title{Get the bins overlapping with each anchor gene.}
 \usage{
-map_bins_to_anchors(heal_list, genespace_dir, n_threads = 1)
+map_bins_to_anchors(anchors_dt, heal_list, genespace_dir, n_threads = 1)
 }
 \arguments{
+\item{anchors_dt}{A data table with one row for each anchor set present in all progenitors (such as output from get_conserved_anchors()).}
+
 \item{heal_list}{Output list in heal format (such as output from count_heal_data()).}
 
 \item{genespace_dir}{Path to a directory containing the syntenicHits output directory for GENESPACE.}

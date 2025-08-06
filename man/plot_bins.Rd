@@ -15,7 +15,9 @@ plot_bins(
   color_map = FALSE,
   specific_chr = FALSE,
   return_list = FALSE,
+  method = "global",
   average = "median",
+  average_list = FALSE,
   linewidth = 2,
   ylim_max = 8,
   ...
@@ -42,7 +44,11 @@ plot_bins(
 
 \item{return_list}{Logical: return a list of plots if view_sample.}
 
+\item{method}{Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default).}
+
 \item{average}{The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default).}
+
+\item{average_list}{Same as in get_copy_number().}
 
 \item{ylim_max}{Maximum y axis value when plotting copy number.}
 

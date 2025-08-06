@@ -9,7 +9,7 @@ get_heal_alignment(heal_list, genespace_dir, n_threads = 1, prog_ploidy = 2)
 \arguments{
 \item{heal_list}{Output list in heal format (such as output from count_heal_data()).}
 
-\item{genespace_dir}{Path to a directory containing the syntenicHits output directory for GENESPACE.}
+\item{genespace_dir}{Path to a directory containing the syntenicHits output directory from GENESPACE.}
 
 \item{n_threads}{Number of threads to use ('1' by default).}
 

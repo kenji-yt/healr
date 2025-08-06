@@ -85,17 +85,37 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
       for (i in 1:nrow(sgmnts$segRows)) {
         copy_number[sgmnts$segRows[i, 1]:sgmnts$segRows[i, 2]] <- rep(estimated_CN[i], length(sgmnts$segRows[i, 1]:sgmnts$segRows[i, 2]))
       }
-      return(copy_number)
+      
+      if (full_output == TRUE) {
+        return(list(cn=copy_number, sgmnts=sgmnts))
+      }else{
+        return(copy_number)
+      }
     }
     doParallel::stopImplicitCluster()
 
-    cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, prog$gc_content, data.frame(sample_CN))
-    colnames(cn_dt) <- c("chr", "start", "end", "gc_content", sample_current_prog)
-    data.table::setkey(cn_dt, chr, start, end, gc_content)
-
     if (full_output == TRUE) {
-      return(list(bins = heal_list[[pr_name]]$bins, CN = cn_dt, DNAcopy = sgmnts))
+      # Split the output into cn and DNAcopy sgmnt output. 
+      cn_list <- lapply(sample_CN, function(x){
+        return(x$cn)
+      })
+      sgmnts_list <- lapply(sample_CN, function(x){
+        return(x$sgmnts)
+      })
+      names(sgmnts_list) <- sample_current_prog
+      
+      cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, prog$gc_content, data.frame(cn_list))
+      colnames(cn_dt) <- c("chr", "start", "end", "gc_content", sample_current_prog)
+      data.table::setkey(cn_dt, chr, start, end, gc_content)
+      
+      return(list(bins = heal_list[[pr_name]]$bins, CN = cn_dt, DNAcopy = sgmnts_list))
+      
     } else {
+      
+      cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, prog$gc_content, data.frame(sample_CN))
+      colnames(cn_dt) <- c("chr", "start", "end", "gc_content", sample_current_prog)
+      data.table::setkey(cn_dt, chr, start, end, gc_content)
+      
       return(list(bins = heal_list[[pr_name]]$bins, CN = cn_dt))
     }
   }

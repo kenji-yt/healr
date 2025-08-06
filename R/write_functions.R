@@ -136,8 +136,8 @@ write_cn_summary <- function(cn_summary, output_dir, ...){
           
         }
       }
+      cat(paste0("Done for ", smp, ".\n"))
     }
-    cat(paste0("Done for ", smp, ".\n"))
   }
 }
 

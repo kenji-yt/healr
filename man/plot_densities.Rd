@@ -15,7 +15,10 @@ plot_densities(
   ylim_max = FALSE,
   color_vec = FALSE,
   prog_ploidy = 2,
-  n_threads = 1
+  n_threads = 1,
+  normalize = FALSE,
+  average = "median",
+  average_list = FALSE
 )
 }
 \arguments{
@@ -40,6 +43,12 @@ plot_densities(
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default)}
 
 \item{n_threads}{Number of threads to use ('1' by default).}
+
+\item{normalize}{Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_copy_number()'.}
+
+\item{average}{Average measure used normalize each bin count ('median' or 'mean'. 'median' by default).}
+
+\item{average_list}{A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_copy_number()').}
 }
 \value{
 Nothing. Plots are shown and/or saved to output_dir.

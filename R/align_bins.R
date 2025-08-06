@@ -190,7 +190,7 @@ map_bins_to_anchors <- function(anchors_dt, heal_list, genespace_dir, n_threads=
 #' Create heal alignment object.
 #'
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
-#' @param genespace_dir Path to a directory containing the syntenicHits output directory for GENESPACE.
+#' @param genespace_dir Path to a directory containing the syntenicHits output directory from GENESPACE.
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #'
