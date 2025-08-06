@@ -221,7 +221,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
 
   # Make alignment for each sample
   cn_alignment_list <- foreach::foreach(smp = polyploid_samples) %do% {
-
+    
     assigned_list <- foreach::foreach(prog = progenitors) %do% {
       
       prog_id_col <- paste0("id_", prog)
@@ -305,14 +305,14 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
     
     doParallel::registerDoParallel(n_threads)
     corrected_cn_list <- foreach::foreach(i = mult_disc_rows)%dopar%{
-      
+   
       discordant_row <- alignment_draft[i, ]
       
       # Get the CN and overlap at that anchor for each progenitor subgenome 
       cn_list <- list()
       overlap_list <- list()
       for(p in 1:length(progenitors)){
-        
+
         prog <- progenitors[p]
         
         prog_id_col <- paste0("id_", prog)
@@ -328,8 +328,12 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
       }
       names(cn_list) <- progenitors
       names(overlap_list) <- progenitors
-      
+
       combinations <- expand.grid(cn_list)
+      
+      # Keep only combinations without NA
+      combinations <- combinations[rowSums(is.na(combinations))==0, ]
+        
       # single
       if(sum(rowSums(combinations) == total_ploidy)==1){
         
