@@ -157,31 +157,32 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
             end_vec <- chromo_dt[[paste0("end_", prog)]][block_starts[i]:(block_starts[i+1]-1)]
             cn <- unique(chromo_dt[[paste0("cn_", prog)]][block_starts[i]:(block_starts[i+1]-1)])
             if(length(cn)>1){stop("CN more than 1...")} # Sanity check. Remove after. 
-            
-            if(cn>0){
-              
-              offset <- offset_list[[prog]][[chr]]
-              start_loc <- min(start_vec) + offset
-              end_loc <- max(end_vec) + offset
-              
-              if(cn > 4){
-                bloc_center <- mean(start_loc, end_loc)
-                y_position <- 2.5 * direction[[prog]]
-                plot <- plot + ggplot2::annotate("text", x = bloc_center, y = y_position, label = "+", size = 6) 
-                cn <- 4
-              }
-              
-              for(i in 1:cn){
+            if(!is.na(cn)){
+              if(cn>0){
                 
-                group_vec <- c(group_vec, paste(chr, prog))
-                xmin_vec <-  c(xmin_vec, start_loc)
-                xmax_vec <-  c(xmax_vec, end_loc)
+                offset <- offset_list[[prog]][[chr]]
+                start_loc <- min(start_vec) + offset
+                end_loc <- max(end_vec) + offset
                 
-                ymin <- cn_block_edges[[i]][1] * direction[[prog]]
-                ymax <- cn_block_edges[[i]][2] * direction[[prog]]
+                if(cn > 4){
+                  bloc_center <- mean(start_loc, end_loc)
+                  y_position <- 2.5 * direction[[prog]]
+                  plot <- plot + ggplot2::annotate("text", x = bloc_center, y = y_position, label = "+", size = 6) 
+                  cn <- 4
+                }
                 
-                ymin_vec <-  c(ymin_vec, ymin)
-                ymax_vec <-  c(ymax_vec, ymax)
+                for(i in 1:cn){
+                  
+                  group_vec <- c(group_vec, paste(chr, prog))
+                  xmin_vec <-  c(xmin_vec, start_loc)
+                  xmax_vec <-  c(xmax_vec, end_loc)
+                  
+                  ymin <- cn_block_edges[[i]][1] * direction[[prog]]
+                  ymax <- cn_block_edges[[i]][2] * direction[[prog]]
+                  
+                  ymin_vec <-  c(ymin_vec, ymin)
+                  ymax_vec <-  c(ymax_vec, ymax)
+                }
               }
             }
           }
