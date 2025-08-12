@@ -282,7 +282,7 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
     if(!dir.exists(file.path(output_dir))){
       dir.create(file.path(output_dir))
     }
-    ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.svg"), plot=plot, width=20, height=8)
+    #ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.svg"), plot=plot, width=20, height=8)
     ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.pdf"), plot=plot, width=20, height=8)
   }
 }
