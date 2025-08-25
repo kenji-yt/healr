@@ -155,8 +155,9 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
             start_vec <- chromo_dt[[paste0("start_", prog)]][block_starts[i]:(block_starts[i+1]-1)]
             end_vec <- chromo_dt[[paste0("end_", prog)]][block_starts[i]:(block_starts[i+1]-1)]
             cn <- unique(chromo_dt[[paste0("cn_", prog)]][block_starts[i]:(block_starts[i+1]-1)])
-            if(length(cn)>1){stop("CN more than 1...")} # Sanity check. Remove after. 
+            
             if(!is.na(cn)){
+              
               if(cn>0){
                 
                 offset <- offset_list[[prog]][[chr]]
@@ -282,6 +283,7 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
     if(!dir.exists(file.path(output_dir))){
       dir.create(file.path(output_dir))
     }
+    ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.svg"), plot=plot, width=20, height=8)
     ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.pdf"), plot=plot, width=20, height=8)
   }
 }
