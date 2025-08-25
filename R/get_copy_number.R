@@ -31,10 +31,10 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
   samples <- unique(unlist(sample_name_per_prog))
 
   if(method == "global"){
-    global_averages <- get_sample_stats(heal_list, method = average)
+    average_list <- get_sample_stats(heal_list, method = average)
     
   }else if(method == "local"){
-    local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
+    average_list <- get_sample_stats(heal_list, method = paste0("local_", average))
     
   }else if (method == "manual" & is.list(average_list)){
     if (!identical(names(average_list), samples)){
@@ -69,17 +69,8 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
       }
       sgmnts <- DNAcopy::segment(smooth_not_na_cna)
       
-      if(method == "global"){
-        estimated_CN <- round((sgmnts$output$seg.mean / global_averages[[smp]]) * prog_ploidy)
-        
-      }else if(method == "local"){
-        estimated_CN <- round((sgmnts$output$seg.mean / local_averages[[smp]][[pr_name]]) * prog_ploidy)
-
-      }else if(method == "manual"){
-        estimated_CN <- round((sgmnts$output$seg.mean / average_list[[smp]][[pr_name]]) * prog_ploidy)
+      estimated_CN <- round((sgmnts$output$seg.mean / average_list[[smp]][[pr_name]]) * prog_ploidy)
          
-      }
-      
       copy_number <- rep(NA, length(prog$chr))
 
       for (i in 1:nrow(sgmnts$segRows)) {

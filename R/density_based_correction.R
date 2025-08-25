@@ -21,7 +21,7 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
   total_ploidy <- length(progenitors) * prog_ploidy
   
   if(normalize == "local"){
-    local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
+    average_list <- get_sample_stats(heal_list, method = paste0("local_", average))
     
   }else if (normalize == "manual" & average_list != FALSE){
     if (!identical(names(average_list), polyploid_samples)){
@@ -66,10 +66,8 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
 
       cc_and_u_dt <- cc_and_u_dt[!is.na(cc_and_u_dt$count), ]
       
-      if(normalize == "local"){
-        cc_and_u_dt$count <- cc_and_u_dt$count / local_averages[[smp]][[prog]] * prog_ploidy
+      if(normalize != FALSE){
         
-      }else if(normalize == "manual"){
         cc_and_u_dt$count <- cc_and_u_dt$count / average_list[[smp]][[prog]] * prog_ploidy
         
       }

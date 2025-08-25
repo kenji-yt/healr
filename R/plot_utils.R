@@ -1,3 +1,275 @@
+#' Plot counts and copy number for multiple samples together
+#'
+#' @param heal_list List in heal format (such as output from count_heal_data()).
+#' @param view_samples A vector of sample names to be plotted. Samples will be plotted in the order provided. Default value is "all", which shows all samples. 
+#' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
+#' @param prog_ploidy of the progenitors (Assumed to be equal. '2' by default).
+#' @param plot_cn Logical: plot a line indicating infered copy number ('FALSE' by default in CN has been estimated).
+#' @param add_bins Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).
+#' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using viridis(). 
+#' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default). 
+#' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
+#' @param average_list Same as in get_copy_number(). 
+#'
+#' @return A ggplot object showing several samples together. 
+#' @export
+#' 
+#' @examples
+plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
+                          prog_ploidy = 2, plot_cn = FALSE,add_bins = TRUE, color_map = FALSE,
+                          method = "global", average = "median", average_list = FALSE){
+  
+  # Check input to see if it's appropriate
+  if(!is.logical(add_bins)){
+    stop("add bins must be either TRUE or FALSE (logical). Exiting..")
+  }
+  cn_exist <- unlist(lapply(heal_list, function(list) {
+    list$CN
+  }))
+  if (is.null(cn_exist) && plot_cn == TRUE) {
+    cat("ERROR: plot_cn set to 'TRUE' but no CN data table found in heal_list. Setting plot_cn to 'FALSE'. \n")
+    plot_cn <- FALSE
+  }
+  
+  # Get the averages for normalization
+  if(method == "global"){
+    average_list <- get_sample_stats(heal_list, method = average)
+    sample_names <- names(average_list)
+    
+  }else if(method == "local"){
+    average_list <- get_sample_stats(heal_list, method = paste0("local_", average))
+    sample_names <- names(average_list)
+    
+  }else if (method == "manual" & average_list != FALSE){
+    sample_names <- names(average_list)
+  }
+  
+  if(length(view_samples)==1){
+    if(view_samples=="all"){
+      view_samples <- sample_names 
+    }
+  }
+  
+  progenitors <- names(heal_list)
+  
+  # Check for manual colour input
+  if (isFALSE(color_map)) {
+    color_map <- viridis::viridis(length(progenitors))
+  } else if (length(color_map) != length(progenitors)) {
+    stop("Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
+  }
+  names(color_map) <- progenitors
+  
+  # Figure out what to do here
+  ok
+  if (!is.logical(view_samples) && is.vector(view_samples)) {
+    if (length(intersect(sample_names, view_samples)) == 0) {
+      stop("Sample names not recognized for viewing of counts or coverage Exiting..")
+    }
+    
+    if (output_dir == FALSE) {
+      cat(paste0("Plotting manually provided samples.\n"))
+    } else {
+      cat(paste0("Saving plot to ", output_dir, ".", "\n"))
+    }
+    samples <- view_samples
+    
+  } else if (output_dir == FALSE) {
+    stop("No output directory and no 'view_samples' set. One must be set.")
+  } else {
+    cat(paste0("Saving plot to ", output_dir, ".", "\n"))
+    samples <- sample_names
+  }
+  
+  # Get y position of each sample
+  sample_y_starts <- 0:(length(samples)-1)*8
+  names(sample_y_starts) <- samples
+  
+  
+  ## Here I define the dimensions of the plot and the positions of each chromosome
+  # First get the approximate length of each chromosome
+  subgenome_sizes_list <- foreach::foreach(prog = progenitors)%do%{
+    chromosomes <- unique(heal_list[[prog]]$bins$chr)
+    size_per_chromo_list <- foreach::foreach(chr = chromosomes)%do%{
+      return(max(heal_list[[prog]]$bins$end[heal_list[[prog]]$bins$chr==chr], na.rm = T))
+    }
+    names(size_per_chromo_list) <- chromosomes
+    genome_size <- sum(unlist(size_per_chromo_list))
+    output <- list(genome_size=genome_size, size_per_chromo=size_per_chromo_list)
+  }
+  names(subgenome_sizes_list) <- progenitors
+  
+  # Make the inter chromosome gap a percentage of the longest genome length
+  genome_size_subgenomes <- unlist(lapply(subgenome_sizes_list, function(lst){lst$genome_size}))
+  longest_genome <- max(genome_size_subgenomes)
+  inter_chromosome_space <- 0.05 * longest_genome
+  # Get the number of chromosomes and add the interchromosome gap times the number of gaps to get the genome length(s)
+  n_chromo_by_subgenome <- unlist(lapply(subgenome_sizes_list, function(lst){length(lst$size_per_chromo)-1}))
+  real_x_spans_per_subG <- genome_size_subgenomes + n_chromo_by_subgenome * inter_chromosome_space
+  names(real_x_spans) <- progenitors
+  total_x_span <- sum(real_x_spans_per_subG) + (inter_chromosome_space * 2) * (length(progenitors)-1) # add two interchromosome gaps between subgenomes
+  
+  # Create an empty plot.
+  plot <- ggplot2::ggplot() +
+    ggplot2::xlim(-inter_chromosome_space, total_x_span+inter_chromosome_space*0.1) +
+    ggplot2::ylim(-3, max(sample_y_starts)+8) +
+    ggplot2::theme_void()
+  
+  # Add sample names
+  smp_names_df <- data.frame(x = 0, y = sample_y_starts + prog_ploidy*length(progenitors) + prog_ploidy, label = names(sample_y_starts))
+  plot <- plot + 
+    ggplot2::geom_text(data = smp_names_df,
+                       ggplot2::aes(x = x, y = y, label = label, fontface = "bold"),
+                       hjust = 0,           # align text to the right
+                       size = 3)
+  
+  # Add y axes
+  y_ends <- sample_y_starts + prog_ploidy*length(progenitors) 
+  y_axes_df <- data.frame(x_start = 0, x_end = 0, y_start = sample_y_starts, y_end = y_ends)
+  plot <- plot + 
+    ggplot2::geom_segment(data = y_axes_df,
+                          ggplot2::aes(x = x_start, xend = x_end, y = y_start, yend = y_end))
+  
+  # Add ticks 
+  tick_location <- sample_y_starts
+  for(i in 1:(prog_ploidy*length(progenitors))){
+    tick_location <- c(tick_location, sample_y_starts + i)
+  }
+  y_axes_ticks_df <- data.frame(x_start = -inter_chromosome_space*0.6, x_end = 0, y_start = tick_location, y_end = tick_location)
+  
+  tick_labels <- rep(0:(prog_ploidy*length(progenitors)), length(sample_y_starts))
+  y_ticks_labels_df <- data.frame(x = -inter_chromosome_space*0.8, y = sort(tick_location), label = tick_labels)
+  
+  plot <- plot + 
+    ggplot2::geom_segment(data = y_axes_ticks_df,
+                          ggplot2::aes(x = x_start, xend = x_end, y = y_start, yend = y_end))+
+    ggplot2::geom_text(data = y_ticks_labels_df,
+                       ggplot2::aes(x = x, y = y, label = label),
+                       hjust = 1, 
+                       size = 2.2)
+  
+  # Define progenitor specific offsets
+  prog_offsets <- c(0, real_x_spans_per_subG + (inter_chromosome_space * 2))
+  prog_offsets <- prog_offsets[1:length(progenitors)]
+  names(prog_offsets) <- progenitors
+  
+  # Get the starting position of each chromosome.
+  x_start_vec_list <- foreach::foreach(prog = progenitors)%do%{
+    chr_vec <- unlist(subgenome_sizes_list[[prog]]$size_per_chromo)
+    c(0, cumsum(chr_vec + inter_chromosome_space) + 1)
+    start_pos <- c(0, cumsum(chr_vec + inter_chromosome_space) + 1)
+    start_pos <- start_pos[1:length(chr_vec)]
+    start_pos <- start_pos + prog_offsets[[prog]]
+    
+    names(start_pos) <- names(chr_vec)
+    return(start_pos)
+  }
+  names(x_start_vec_list) <- progenitors
+  
+  # Add chromosome ranges, ticks and names 
+  # Ranges
+  x_starts <- unlist(x_start_vec_list)
+  chromo_sizes <- unlist(lapply(subgenome_sizes_list, function(list){list$size_per_chromo}))
+  x_ends <- x_starts + chromo_sizes
+  chromo_axes_df <- data.frame(x_start = x_starts, x_end = x_ends, y_start = -1, y_end = -1)
+  # Ticks
+  tick_x_location <- unlist(apply(chromo_axes_df, 1, function(row){
+    seq(row[1], row[2], by=5000000)
+  }))
+  chromo_ticks_df <- data.frame(x_start = tick_x_location, x_end = tick_x_location, y_start = -1, y_end = -1.4)
+  # Names
+  label_positions <- rowMeans(chromo_axes_df[, c("x_start", "x_end")])
+  chromo_names <- unlist(lapply(subgenome_sizes_list, function(list){names(list$size_per_chromo)}))
+  chromo_labels_df <- data.frame(x = label_positions, y = -2, label = chromo_names)
+  
+  plot <- plot + 
+    ggplot2::geom_segment(data = chromo_axes_df,
+                          ggplot2::aes(x = x_start, xend = x_end, y = y_start, yend = y_end))+ 
+    ggplot2::geom_segment(data = chromo_ticks_df,
+                          ggplot2::aes(x = x_start, xend = x_end, y = y_start, yend = y_end),
+                          linewidth = 0.1)+ 
+    ggplot2::geom_text(data = chromo_labels_df,
+                       ggplot2::aes(x = x, y = y, label = label),
+                       hjust = 0.5, 
+                       size = 2)
+  
+  # Add dotted lines for CN
+  for(i in 1:nrow(chromo_axes_df)){
+    x_start <- chromo_axes_df$x_start[i]
+    x_end <- chromo_axes_df$x_end[i]
+    y_starts <- y_axes_ticks_df$y_start
+    y_ends <- y_axes_ticks_df$y_end
+    
+    dotted_df <- data.frame(x_start = x_start, x_end = x_end, y_start = y_starts, y_end = y_ends)
+    plot <- plot + 
+      ggplot2::geom_segment(data = dotted_df,
+                            ggplot2::aes(x = x_start, xend = x_end, y = y_start, yend = y_end),
+                            linewidth = 0.2,            # thickness
+                            alpha = 0.8,        
+                            linetype = "dotted"    # or "dashed", "dotdash", etc.
+      )
+  }
+  
+  # Add a legend 
+  plot <- plot + ggplot2::geom_point(data = data.frame(name = names(color_map)), 
+                                     ggplot2::aes(x = Inf, y = Inf, color = name), 
+                                     alpha = 2) + 
+    ggplot2::scale_color_manual(values = color_map, 
+                                labels = names(color_map), 
+                                name = "Subgenomes") +
+    ggplot2::theme(legend.position = "right")
+  
+  
+  # Add bins and copy numbers to the plot
+  for(prog in progenitors){
+    
+    current_chromo <- unique(heal_list[[prog]]$bins$chr)
+    
+    for(smp in samples){
+      
+      # Set a max allowed CN
+      max_value <- prog_ploidy*(length(progenitors)+1)
+      
+      # Normalize and filter
+      normalized <- heal_list[[prog]]$bins[[smp]] / average_list[[smp]][[prog]] * prog_ploidy
+      normalized[normalized > max_value] <- NA
+      
+      cn <- heal_list[[prog]]$CN[[smp]]
+      which_plus <- cn > max_value
+      cn[which_plus] <- max_value+0.1
+      
+      for(chr in current_chromo){
+        
+        which_rows <- heal_list[[prog]]$bins$chr == chr
+        x_vec <- heal_list[[prog]]$bins$start[which_rows] + x_start_vec_list[[prog]][[chr]]
+        y_pts <- normalized[which_rows] + sample_y_starts[[smp]]
+        
+        point_df <- data.frame(x=x_vec, y=y_pts)
+        
+        if(plot_cn==TRUE){
+          y_line <- cn[which_rows] + sample_y_starts[[smp]]
+          line_df <- data.frame(x=x_vec, y=y_line)
+          
+          if(add_bins==TRUE){
+            
+            plot <- plot + 
+              ggplot2::geom_point(data = point_df, ggplot2::aes(x = x, y = y), size = 0.5, color = "black", alpha=0.2) +
+              ggplot2::geom_path(data = line_df, ggplot2::aes(x = x, y = y), color = color_map[[prog]], linewidth = 1.5)
+          }else{
+            plot <- plot + 
+              ggplot2::geom_point(data = point_df,ggplot2:: aes(x = x, y = y), size = 0.5, color = "black", alpha=0.2) +
+              ggplot2::geom_path(data = line_df, ggplot2::aes(x = x, y = y), color = color_map[[prog]], linewidth = 1.5)
+          }
+        }else{
+          plot <- plot + 
+            ggplot2::geom_point(data = point_df, ggplot2::aes(x = x, y = y), size = 0.3, color = color_map[[prog]], alpha=0.8)
+        }
+      }
+    }
+  }
+  return(plot)
+}
+
 #' Plotting function for heal_list.
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).
@@ -7,7 +279,7 @@
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param plot_cn Logical: plot a line indicating infered copy number ('FALSE' by default in CN has been estimated).
 #' @param add_bins Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).
-#' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
+#' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using viridis().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
 #' @param return_list Logical: return a list of plots if view_sample.
 #' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default). 
@@ -19,8 +291,13 @@
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, method = "global", average = "median", average_list = FALSE, linewidth=2, ylim_max=8, ...) {
+plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
+                      n_threads = 1, prog_ploidy = 2, plot_cn = FALSE,
+                      add_bins = TRUE, color_map = FALSE, specific_chr = FALSE,
+                      return_list = FALSE, method = "global", average = "median",
+                      average_list = FALSE, linewidth=2, ylim_max=8, ...) {
   
+  # Check input to see if it's appropriate
   if(!is.logical(add_bins)){
     stop("add bins must be either TRUE or FALSE (logical). Exiting..")
   }
@@ -32,14 +309,14 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
     plot_cn <- FALSE
   }
 
-  
+  # Get the averages for normalization
   if(method == "global"){
-    global_averages <- get_sample_stats(heal_list, method = average)
-    sample_names <- names(global_averages)
+    average_list <- get_sample_stats(heal_list, method = average)
+    sample_names <- names(average_list)
     
   }else if(method == "local"){
-    local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
-    sample_names <- names(local_averages)
+    average_list <- get_sample_stats(heal_list, method = paste0("local_", average))
+    sample_names <- names(average_list)
     
   }else if (method == "manual" & average_list != FALSE){
     sample_names <- names(average_list)
@@ -47,15 +324,18 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
   
   progenitors <- names(heal_list)
 
+  # Check for manual colour input
   if (isFALSE(color_map)) {
-    color_map <- grDevices::rainbow(length(progenitors), s = 0.7)
+    color_map <- viridis::viridis(length(progenitors))
   } else if (length(color_map) != length(progenitors)) {
     stop("Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
   }
   names(color_map) <- progenitors
 
+  # sample type
   smp_type_map <- get_sample_stats(heal_list, sample_type = TRUE)
 
+  # Check if ploting only one sample or plotting all to directory.
   if (view_sample != FALSE) {
     if (sum(sample_names == view_sample) == 0) {
       stop("Sample name not recognized for viewing of counts or coverage Exiting..")
@@ -76,6 +356,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
     samples <- sample_names
   }
 
+  # Plot each sample
   for (smp in samples) {
     if (output_dir != FALSE) {
       ref_dir <- paste0(output_dir, "/", smp, "/")
@@ -116,17 +397,8 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
           y_vec_line <- heal_list[[prog]]$CN[[smp]][which_cn_rows]
           if (add_bins == TRUE) {
             
-            
-            if(method == "global"){
-              y_vec_pts <- (y_vec_pts / global_averages[[smp]]) * prog_ploidy
-              
-            }else if(method == "local"){
-              y_vec_pts <- (y_vec_pts / local_averages[[smp]][[prog]]) * prog_ploidy
-              
-            }else if(method == "local"){
-              y_vec_pts <- (y_vec_pts / average_list[[smp]][[prog]]) * prog_ploidy
-            
-            }
+            y_vec_pts <- (y_vec_pts / average_list[[smp]][[prog]]) * prog_ploidy
+             
           }
 
           plot_df <- data.frame(start = x, counts = y_vec_pts, copy = y_vec_line, progenitor = rep(prog, length(y_vec_line)))
@@ -182,7 +454,6 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
   }
 }
 
-
 #' Plotting function for heal alignment
 #'
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
@@ -195,7 +466,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE, n_thre
 #' @param average The method to compute average to normalize counts (if add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
 #' @param average_list Same as in get_copy_number(). 
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
-#' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().
+#' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using viridis().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
 #' @param return_list Logical: return a list of plots if view_sample.
 #' @param ylim_max Maximum y axis value when plotting copy number. 
@@ -214,12 +485,12 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
 
   # Define averages depending on the method set
   if(method == "global"){
-    global_averages <- get_sample_stats(heal_list, method = average)
-    sample_names <- names(global_averages)
+    average_list <- get_sample_stats(heal_list, method = average)
+    sample_names <- names(average_list)
     
   }else if(method == "local"){
-    local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
-    sample_names <- names(local_averages)
+    average_list <- get_sample_stats(heal_list, method = paste0("local_", average))
+    sample_names <- names(average_list)
     
   }else if (method == "manual" & average_list != FALSE){
     sample_names <- names(average_list)
@@ -227,9 +498,9 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
   
   progenitors <- names(heal_list)
 
-  # Define colours: if not set manually, sample from rainbow.
+  # Define colours: if not set manually, sample with viridis
   if (isFALSE(color_map)) {
-    color_map <- grDevices::rainbow(length(progenitors), s = 0.7)
+    color_map <- viridis::viridis(length(progenitors))
   } else if (length(color_map) != length(progenitors)) {
     stop("Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
   }
@@ -335,15 +606,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
           y_vec_pts <- heal_list[[ref]]$bins[[smp]][which_rows_bins_dt]
           
           # normalize
-          if(method == "global"){
-            y_vec_pts <- (y_vec_pts / global_averages[[smp]]) * prog_ploidy 
-            
-          }else if(method == "local"){
-            y_vec_pts <- (y_vec_pts / local_averages[[smp]][[ref]]) * prog_ploidy 
-            
-          }else if (method == "manual" & average_list != FALSE){
-            y_vec_pts <- (y_vec_pts / average_list[[smp]][[ref]]) * prog_ploidy 
-          }
+          y_vec_pts <- (y_vec_pts / average_list[[smp]][[ref]]) * prog_ploidy 
           
           subgnm_group <- rep(ref, length(y_vec_pts))
 
@@ -374,16 +637,8 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
                 x_pts_alt <- as.numeric(bin_cn_dt$ref_start)
                 y_pts_alt <- merge_dt[[smp]]
                 
-                if(method == "global"){
-                  y_pts_alt <- (y_pts_alt / global_averages[[smp]]) * prog_ploidy
-                  
-                }else if(method == "local"){
-                  y_pts_alt <- (y_pts_alt / local_averages[[smp]][[alt]]) * prog_ploidy
-                  
-                }else if (method == "manual" & average_list != FALSE){
-                  y_pts_alt <- (y_pts_alt / average_list[[smp]][[alt]]) * prog_ploidy
-                }
-
+                y_pts_alt <- (y_pts_alt / average_list[[smp]][[alt]]) * prog_ploidy
+                
                 x_vec_pts <- c(x_vec_pts, x_pts_alt)
                 y_vec_pts <- c(y_vec_pts, y_pts_alt)
                 subgnm_group <- c(subgnm_group, rep(alt, length(y_pts_alt)))
@@ -454,7 +709,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
 #' @param alignment A heal alignment object created with get_heal_alignment().
 #' @param corrected_alignment A density corrected alignment ('FALSE' by default). If one is given and show_discordant==TRUE then the new state of corrected points is shown above the previous state.
 #' @param ylim_max Maximum ylim value ('FALSE' by default). If FALSE then the value is set for each sample as 3 times the standard deviation above the mean.
-#' @param color_vec A vector of colors for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colors are choosen using rainbow().
+#' @param color_vec A vector of colors for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colors are choosen using viridis().
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default)
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param normalize Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_copy_number()'.  
@@ -538,7 +793,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
     cn_labels <- names(densities[[smp]])
 
     if (isFALSE(color_vec)) {
-      color_vec <- grDevices::rainbow(n = length(cn_labels), s = 0.7, v = 1)
+      color_vec <- viridis::viridis(n = length(cn_labels))
     } else {
       if (length(cn_labels) != length(color_vec)) {
         stop("Color vector length not matching number of copy number categories. Exiting..")

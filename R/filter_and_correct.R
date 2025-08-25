@@ -3,12 +3,12 @@
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param mappability_threshold Threshold average per bin mappability value below which bins are ignored ('0.9' by default).
 #' @param gc_quantile Bins with GC content below first and above last quantiles are ignored. Set to 'FALSE' for no filtering ('FALSE' by default).
-#' @param count_threshold How many standard deviations above the count mean to consider a bin as outlier. Set to 'FALSE' for no count filtering (3 by default).
+#' @param count_threshold How many standard deviations above the count mean to consider a bin as outlier. Set to 'FALSE' for no count filtering (2 by default).
 #' @param replace_by_NA Should outliers count values be set to NA ('TRUE' by default). Otherwise outliers are set to the threshold defined by count_threshold.
 #'
 #' @return A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
 #' @export
-filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FALSE, count_threshold = 3, replace_by_NA = TRUE) {
+filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FALSE, count_threshold = 2, replace_by_NA = TRUE) {
   
   # Filtering the data
   if (count_threshold != FALSE) {
@@ -18,7 +18,7 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FA
     filtered_list <- lapply(heal_list, function(df) {
       current_samples <- setdiff(colnames(df$bins), c("chr", "start", "mappability", "gc_content", "end"))
       for (smp in current_samples) {
-        threshold_value <- smp_means[[smp]] + count_threshold * smp_sd[[smp]]
+        threshold_value <- smp_means[[smp]][[1]] + count_threshold * smp_sd[[smp]]
         if (replace_by_NA == TRUE) {
           df$bins[[smp]][df$bins[[smp]] > threshold_value] <- NA
         } else {
@@ -160,7 +160,7 @@ correct_gc <- function(heal_list, n_threads=1, output_dir=FALSE, print_plots=TRU
     model <- loess(median_vec ~ gc_midpoints)
     smooth_counts <- predict(model)
     
-    offsets <- smp_medians[[smp]] - smooth_counts 
+    offsets <- smp_medians[[smp]][[1]] - smooth_counts # Taking global median
     
     non_na_ranges <- which(!is.na(median_vec))
     corrected_count_vec <- count_vec
@@ -181,8 +181,8 @@ correct_gc <- function(heal_list, n_threads=1, output_dir=FALSE, print_plots=TRU
     plot_list$raw <- ggplot2::ggplot(ggplot_dt, ggplot2::aes(gc_content, read_counts)) +
       ggplot2::geom_point(size = point_size, alpha = alpha) + 
       ggplot2::geom_line(data = gg_line_dt, ggplot2::aes(x = midpoints, y = loess), color = "blue", linewidth = linewidth) +
-      ggplot2::geom_hline(yintercept = smp_medians[[smp]], color = "red", linetype = "dashed", linewidth = 0.5) +
-      ggplot2::ylim(0,median(count_vec)+ymax*sd(count_vec)) + 
+      ggplot2::geom_hline(yintercept = smp_medians[[smp]][[1]], color = "red", linetype = "dashed", linewidth = 0.5) +
+      ggplot2::ylim(0,median(count_vec, na.rm = TRUE)+ymax*sd(count_vec, na.rm = TRUE)) + 
       ggplot2::labs(
         x = "GC content", 
         y = "Read Counts", 
@@ -190,8 +190,8 @@ correct_gc <- function(heal_list, n_threads=1, output_dir=FALSE, print_plots=TRU
       )
     plot_list$corrected <- ggplot2::ggplot(ggplot_dt_corrected, ggplot2::aes(gc_content, corrected_read_counts)) +
       ggplot2::geom_point(size = point_size, alpha = alpha) + 
-      ggplot2::geom_hline(yintercept = smp_medians[[smp]], color = "red", linetype = "dashed", linewidth = 0.5) +
-      ggplot2::ylim(0,median(count_vec)+ymax*sd(count_vec)) + 
+      ggplot2::geom_hline(yintercept = smp_medians[[smp]][[1]], color = "red", linetype = "dashed", linewidth = 0.5) +
+      ggplot2::ylim(0,median(count_vec, na.rm = TRUE)+ymax*sd(count_vec, na.rm = TRUE)) + 
       ggplot2::labs(
         x = "GC content", 
         y = "Corrected Read Counts",

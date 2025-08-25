@@ -36,7 +36,9 @@ get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample
         avg <- stats::median(stats::na.omit(unlist(lapply(heal_list, function(df) {
           df$bins[[smp]]
         }))))
-        return(avg)
+        median_list <- list(avg, avg)
+        names(median_list) <- names(heal_list)
+        return(median_list)
       } else if (method == "local_median") {
         avg <- lapply(heal_list, function(df) {
           median(df$bins[[smp]], na.rm = TRUE) 
@@ -46,7 +48,9 @@ get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample
         avg <- mean(stats::na.omit(unlist(lapply(heal_list, function(df) {
           df$bins[[smp]]
         }))))
-        return(avg)
+        mean_list <- list(avg, avg)
+        names(mean_list) <- names(heal_list)
+        return(mean_list)
       } else if (method == "local_mean") {
         avg <- lapply(heal_list, function(df) {
           mean(df$bins[[smp]], na.rm = TRUE) 
@@ -77,4 +81,10 @@ get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample
 
     return(sample_stats)
   }
+}
+
+
+get_offset <- function(){
+  
+  
 }

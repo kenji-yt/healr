@@ -302,7 +302,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
     
     # Review discordant and multiple to see if another assignment can make them concordant
     mult_disc_rows <- which(alignment_draft$status == "discordant" & alignment_draft$method == "multiple")
-    
+      
     doParallel::registerDoParallel(n_threads)
     corrected_cn_list <- foreach::foreach(i = mult_disc_rows)%dopar%{
    
@@ -364,7 +364,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
       }
     }
     doParallel::stopImplicitCluster()
-    
+  
     # Check which rows be replaced 
     to_replace <- !sapply(corrected_cn_list, is.null)
     

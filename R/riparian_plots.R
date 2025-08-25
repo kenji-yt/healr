@@ -72,11 +72,11 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
   }
   names(subgenome_sizes_list) <- progenitors
   
-  # Make the span a percentage of the longest genome length
+  # Make the inter chromosome gap a percentage of the longest genome length
   genome_size_subgenomes <- unlist(lapply(subgenome_sizes_list, function(lst){lst$genome_size}))
   longest_genome <- max(genome_size_subgenomes)
   inter_chromosome_space <- 0.05 * longest_genome
-  # Get the number of chromosomes and add the interchromosome span times the number of gaps to the genome length
+  # Get the number of chromosomes and add the interchromosome gap times the number of gaps to get the genome length(s)
   n_chromo_by_subgenome <- unlist(lapply(subgenome_sizes_list, function(lst){length(lst$size_per_chromo)-1}))
   real_x_spans <- genome_size_subgenomes + n_chromo_by_subgenome * inter_chromosome_space
   names(real_x_spans) <- progenitors
@@ -115,7 +115,7 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
   }
   names(offset_list) <- progenitors
   
-  # Location of each subgenome
+  # Y location of each subgenome
   direction <- c(1, -1) 
   names(direction) <- progenitors
   # Edges (absolution from 0)
@@ -124,7 +124,7 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
   ### Now we can plot each samples
   for(smp in polyploid_samples){
     
-    # Create a empty plot.
+    # Create an empty plot.
     plot <- ggplot2::ggplot() +
       ggplot2::xlim(-max_x_span/2 - inter_chromosome_space, max_x_span/2 + inter_chromosome_space) +
       ggplot2::ylim(-2.6, 2.6) +
@@ -148,40 +148,41 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
         cn_blocks <- rle(chromo_dt[[paste0("cn_", prog)]])
         block_starts <- c(0, cumsum(cn_blocks$lengths))+1
         
-        if(length(block_starts)==1){
+        if(length(block_starts)>1){
           
-        }else{
           for(i in 1:(length(block_starts)-1)){
             
             start_vec <- chromo_dt[[paste0("start_", prog)]][block_starts[i]:(block_starts[i+1]-1)]
             end_vec <- chromo_dt[[paste0("end_", prog)]][block_starts[i]:(block_starts[i+1]-1)]
             cn <- unique(chromo_dt[[paste0("cn_", prog)]][block_starts[i]:(block_starts[i+1]-1)])
-            if(length(cn)>1){stop("CN more than 1...")} # Sanity check. Remove after. 
             
-            if(cn>0){
+            if(!is.na(cn)){
               
-              offset <- offset_list[[prog]][[chr]]
-              start_loc <- min(start_vec) + offset
-              end_loc <- max(end_vec) + offset
-              
-              if(cn > 4){
-                bloc_center <- mean(start_loc, end_loc)
-                y_position <- 2.5 * direction[[prog]]
-                plot <- plot + ggplot2::annotate("text", x = bloc_center, y = y_position, label = "+", size = 6) 
-                cn <- 4
-              }
-              
-              for(i in 1:cn){
+              if(cn>0){
                 
-                group_vec <- c(group_vec, paste(chr, prog))
-                xmin_vec <-  c(xmin_vec, start_loc)
-                xmax_vec <-  c(xmax_vec, end_loc)
+                offset <- offset_list[[prog]][[chr]]
+                start_loc <- min(start_vec) + offset
+                end_loc <- max(end_vec) + offset
                 
-                ymin <- cn_block_edges[[i]][1] * direction[[prog]]
-                ymax <- cn_block_edges[[i]][2] * direction[[prog]]
+                if(cn > 4){
+                  bloc_center <- mean(start_loc, end_loc)
+                  y_position <- 2.5 * direction[[prog]]
+                  plot <- plot + ggplot2::annotate("text", x = bloc_center, y = y_position, label = "+", size = 6) 
+                  cn <- 4
+                }
                 
-                ymin_vec <-  c(ymin_vec, ymin)
-                ymax_vec <-  c(ymax_vec, ymax)
+                for(i in 1:cn){
+                  
+                  group_vec <- c(group_vec, paste(chr, prog))
+                  xmin_vec <-  c(xmin_vec, start_loc)
+                  xmax_vec <-  c(xmax_vec, end_loc)
+                  
+                  ymin <- cn_block_edges[[i]][1] * direction[[prog]]
+                  ymax <- cn_block_edges[[i]][2] * direction[[prog]]
+                  
+                  ymin_vec <-  c(ymin_vec, ymin)
+                  ymax_vec <-  c(ymax_vec, ymax)
+                }
               }
             }
           }
