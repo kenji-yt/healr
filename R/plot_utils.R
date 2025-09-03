@@ -10,23 +10,24 @@
 #' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default). 
 #' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
 #' @param average_list Same as in get_copy_number(). 
+#' @param return_plot Logical: return the ggplot2 object ('FALSE' by default).
 #'
-#' @return A ggplot object showing several samples together. 
+#' @return Either nothing of a ggplot object showing several samples together. The plot is always printed. 
 #' @export
 #' 
 #' @examples
 plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
-                          prog_ploidy = 2, plot_cn = FALSE,add_bins = TRUE, color_map = FALSE,
-                          method = "global", average = "median", average_list = FALSE){
+                          prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE,
+                          method = "global", average = "median", average_list = FALSE, return_plot = FALSE){
   
   # Check input to see if it's appropriate
   if(!is.logical(add_bins)){
     stop("add bins must be either TRUE or FALSE (logical). Exiting..")
   }
-  cn_exist <- unlist(lapply(heal_list, function(list) {
+  cn_is_null <- is.null(unlist(lapply(heal_list, function(list) {
     list$CN
-  }))
-  if (is.null(cn_exist) && plot_cn == TRUE) {
+  })))
+  if (cn_is_null && plot_cn == TRUE) {
     cat("ERROR: plot_cn set to 'TRUE' but no CN data table found in heal_list. Setting plot_cn to 'FALSE'. \n")
     plot_cn <- FALSE
   }
@@ -44,15 +45,10 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
     sample_names <- names(average_list)
   }
   
-  if(length(view_samples)==1){
-    if(view_samples=="all"){
-      view_samples <- sample_names 
-    }
-  }
   
   progenitors <- names(heal_list)
   
-  # Check for manual colour input
+  # Get the colour map
   if (isFALSE(color_map)) {
     color_map <- viridis::viridis(length(progenitors))
   } else if (length(color_map) != length(progenitors)) {
@@ -60,33 +56,37 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   }
   names(color_map) <- progenitors
   
-  # Figure out what to do here
-  ok
-  if (!is.logical(view_samples) && is.vector(view_samples)) {
-    if (length(intersect(sample_names, view_samples)) == 0) {
-      stop("Sample names not recognized for viewing of counts or coverage Exiting..")
+  # Define which samples the users wishes on the plot
+  if(length(view_samples)==1){
+    if(view_samples=="all"){
+      view_samples <- sample_names 
     }
-    
-    if (output_dir == FALSE) {
-      cat(paste0("Plotting manually provided samples.\n"))
-    } else {
-      cat(paste0("Saving plot to ", output_dir, ".", "\n"))
-    }
-    samples <- view_samples
-    
-  } else if (output_dir == FALSE) {
-    stop("No output directory and no 'view_samples' set. One must be set.")
-  } else {
-    cat(paste0("Saving plot to ", output_dir, ".", "\n"))
-    samples <- sample_names
   }
+  
+  if (length(intersect(sample_names, view_samples)) == 0) {
+    stop("Sample names not recognized for viewing of counts or coverage. Exiting..")
+  }
+  
+  samples <- view_samples
+  
+  cat(paste0("Plotting copy number for ", paste(samples, collapse = ", "), ".\n"))
+  
+  if (output_dir != FALSE) {
+    if(dir.exists(output_dir)){
+      cat(paste0("Saving plot to ", output_dir, ".", "\n"))
+    }else{
+      stop(paste0("Output directory ", output_dir, " does not exist. Exiting.."))
+    }
+  }
+
+    
   
   # Get y position of each sample
   sample_y_starts <- 0:(length(samples)-1)*8
   names(sample_y_starts) <- samples
   
   
-  ## Here I define the dimensions of the plot and the positions of each chromosome
+  ## Here we define the dimensions of the plot and the positions of each chromosome
   # First get the approximate length of each chromosome
   subgenome_sizes_list <- foreach::foreach(prog = progenitors)%do%{
     chromosomes <- unique(heal_list[[prog]]$bins$chr)
@@ -106,7 +106,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   # Get the number of chromosomes and add the interchromosome gap times the number of gaps to get the genome length(s)
   n_chromo_by_subgenome <- unlist(lapply(subgenome_sizes_list, function(lst){length(lst$size_per_chromo)-1}))
   real_x_spans_per_subG <- genome_size_subgenomes + n_chromo_by_subgenome * inter_chromosome_space
-  names(real_x_spans) <- progenitors
+  names(real_x_spans_per_subG) <- progenitors
   total_x_span <- sum(real_x_spans_per_subG) + (inter_chromosome_space * 2) * (length(progenitors)-1) # add two interchromosome gaps between subgenomes
   
   # Create an empty plot.
@@ -267,7 +267,22 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
       }
     }
   }
-  return(plot)
+  
+  print(plot)
+  
+  if(output_dir!=FALSE){
+    file_path <- paste0(output_dir,"/heal_multisample_genomewide_plot.pdf")
+    if (file.exists(file_path)) {
+      Stop(paste0("Already a file at ", file_path,". Exiting.."))
+    } else {
+      ggsave(filename = file_path, plot = plot)
+      cat(paste0("Plot saved at ", file_path,"."))
+    }
+  }
+  
+  if(return_plot==TRUE){
+    return(plot)
+  }
 }
 
 #' Plotting function for heal_list.
@@ -305,7 +320,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
     list$CN
   }))
   if (is.null(cn_exist) && plot_cn == TRUE) {
-    cat("ERROR: plot_cn set to 'TRUE' but no CN data table found in heal_list. Setting plot_cn to 'FALSE'. \n")
+    stop("ERROR: plot_cn set to 'TRUE' but no CN data table found in heal_list. Setting plot_cn to 'FALSE'. \n")
     plot_cn <- FALSE
   }
 
@@ -461,7 +476,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
 #' @param view_sample The name of a sample to plot (as character)('FALSE' by default). If output_dir!=FALSE, the plots will be saved, otherwise they are simply shown. 
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_threads Number of threads to use ('1' by default).
-#' @param add_bins Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "both" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.
+#' @param add_bins Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "all" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.
 #' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default). 
 #' @param average The method to compute average to normalize counts (if add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
 #' @param average_list Same as in get_copy_number(). 
@@ -477,8 +492,8 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
 #'
 plot_alignment <- function(heal_list, alignment, method = "global", average = "median", average_list=FALSE, view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, ylim_max=8, ...) {
   
-  if (!add_bins %in% c(FALSE, "ref", "both")) {
-    stop("Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'both'. Exiting..")
+  if (!add_bins %in% c(FALSE, "ref", "all")) {
+    stop("Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'all'. Exiting..")
   }
 
   polyploid_samples <- names(alignment)
@@ -558,7 +573,6 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
         dir.create(ref_dir, showWarnings = FALSE, recursive = TRUE)
       }
 
-      
       if (sum(specific_chr != FALSE) != FALSE) {
         chromo <- intersect(specific_chr, unique(heal_list[[ref]]$bins$chr))
       } else {
@@ -610,8 +624,8 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
           
           subgnm_group <- rep(ref, length(y_vec_pts))
 
-          # add bins of alt if both
-          if (add_bins == "both") {
+          # add bins of alt if all
+          if (add_bins == "all") {
             for (alt in alt_gnms) {
               alt_bin_col_name <- paste0("bin_index_", alt)
               
@@ -653,7 +667,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
             ggplot2::geom_point(data = pts_df, ggplot2::aes(x = start, y = points, color = subgenome), ..., size = 1, alpha = 0.1) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
-            ggplot2::ylim(0, ylim_max) +
+            ggplot2::ylim(-0.1, ylim_max) +
             ggplot2::labs(title = paste(chr, ref, smp), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
 
@@ -667,7 +681,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
             ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, color = subgenome), linewidth = 2) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
-            ggplot2::ylim(0, 8) +
+            ggplot2::ylim(-0.1, ylim_max) +
             ggplot2::labs(title = paste(chr, smp, ref), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
 

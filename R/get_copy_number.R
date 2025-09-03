@@ -7,13 +7,14 @@
 #' @param average Average measure used to assign a copy number in each segment ('median' or 'mean'. 'median' by default).
 #' @param average_list A list with one element per sample with each containing one element per subgenome with values used to assign copy numbers.
 #' @param full_output Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).
-#'
+#' @param manual_scale Manually set the value of multiples of average x ploidy to use during copy number assignment. The input should be a vector. The values in that vector will be used to set copy numbers going from 0 upwards. 
+#' For a vector of length N, copy numbers above N+1 will be assigned based on their multiple of the average. The function is set to 'FALSE' by default, meaning standard assignment.  
 #' @return  A list with one element per progenitor containing the bins and genes elements of the inpiut plus a data table with infered copy number per bin for each sample and GC and mappability for each bin.
 #' @export
 #'
 #' @importFrom foreach %dopar%
 #' @importFrom foreach %do%
-get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global", average = "median", average_list = FALSE, full_output = FALSE) {
+get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global", average = "median", average_list = FALSE, full_output = FALSE, manual_scale = FALSE){
   
   
   if (intersect(method, c("global", "local", "manual")) == 0 || length(average) != 1) {
@@ -69,8 +70,21 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
       }
       sgmnts <- DNAcopy::segment(smooth_not_na_cna)
       
-      estimated_CN <- round((sgmnts$output$seg.mean / average_list[[smp]][[pr_name]]) * prog_ploidy)
-         
+      # Assign copy number
+      if(length(manual_scale)==1){
+        if(manual_scale==FALSE){
+          estimated_CN <- round((sgmnts$output$seg.mean / average_list[[smp]][[pr_name]]) * prog_ploidy)
+        }
+      }else{
+        grade_vector <- seq(0, 10, 1) 
+        grade_vector[1:length(manual_scale)] <- manual_scale
+        names(grade_vector) <- seq(0, 10, 1)
+        raw_multiples <- sgmnts$output$seg.mean / average_list[[smp]][[pr_name]] * prog_ploidy
+        estimated_CN <- as.numeric(sapply(raw_multiples, function(a) {
+          names(grade_vector)[which.min(abs(grade_vector - a))]
+        }))
+      } 
+      
       copy_number <- rep(NA, length(prog$chr))
 
       for (i in 1:nrow(sgmnts$segRows)) {

@@ -27,12 +27,13 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 #' @param genespace_dir Path to a directory containing the syntenicRegion_coordinates.csv output file from GENESPACE.
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_threads Number of threads to use ('1' by default).
+#' @param colour_scales A list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range. Defaults to red and green colour ranges.
 #'
 #' @returns Nothing. Creates riparian style plots with copy number information. 
 #' @export
 #'
 #' @examples
-plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir = FALSE, n_threads = 1){
+plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir = FALSE, n_threads = 1, colour_scales = FALSE){
   
   polyploid_samples <- names(heal_alignment)
 
@@ -77,8 +78,8 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
   longest_genome <- max(genome_size_subgenomes)
   inter_chromosome_space <- 0.05 * longest_genome
   # Get the number of chromosomes and add the interchromosome gap times the number of gaps to get the genome length(s)
-  n_chromo_by_subgenome <- unlist(lapply(subgenome_sizes_list, function(lst){length(lst$size_per_chromo)-1}))
-  real_x_spans <- genome_size_subgenomes + n_chromo_by_subgenome * inter_chromosome_space
+  n_chromo_by_subgenome <- unlist(lapply(subgenome_sizes_list, function(lst){length(lst$size_per_chromo)}))
+  real_x_spans <- genome_size_subgenomes + (n_chromo_by_subgenome-1) * inter_chromosome_space
   names(real_x_spans) <- progenitors
   max_x_span <- max(real_x_spans)
   
@@ -193,15 +194,43 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
     
     # Here I define the CN ratio blocks
     blocks_dt <- data.frame(
-      chromosome = group_vec,
+      Chromosome = group_vec,
       xmin = xmin_vec,
       xmax = xmax_vec,
       ymin = ymin_vec,
       ymax = ymax_vec
     )
     
-    plot <- plot + ggplot2::geom_rect(data = blocks_dt, ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = chromosome), color = "black", alpha = 0.5) 
+    blocks_dt$Chromosome <- factor(
+      blocks_dt$Chromosome,
+      levels = c(unique(grep(progenitors[1], blocks_dt$Chromosome, value = TRUE)), unique(grep(progenitors[2], blocks_dt$Chromosome, value = TRUE)))
+    )
+
+    if(is.logical(colour_scales)){
+      if(colour_scales==TRUE){
+        stop("Invalid entry for 'colour_scales'. Please input a list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range.")
+      }
+      subgenome_1_scale <- c("lightgreen", "darkgreen")
+      subgenome_2_scale <- c("lightcoral", "darkred")
+      colour_scales <- list(subgenome_1_scale, subgenome_2_scale)
+      names(colour_scales) <- names(n_chromo_by_subgenome) 
+    }else{
+      if(length(intersect(names(colour_scales), names(n_chromo_by_subgenome))) == length(progenitors)){
+        if(sum(names(colour_scales) == names(n_chromo_by_subgenome)) != length(progenitors)){
+          colour_scales <- list(colour_scales[[2]], colour_scales[[1]])
+          names(colour_scales) <- names(n_chromo_by_subgenome)
+        }
+      }else{
+        stop("Invalid entry for 'colour_scales'. Please input a list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range.")
+      }
+    }
     
+    plot <- plot + ggplot2::geom_rect(data = blocks_dt, ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = Chromosome), color = "black") +
+      ggplot2::scale_fill_manual(values = c(
+        scales::gradient_n_pal(colour_scales[[progenitors[1]]])(seq(0, 1, length.out = n_chromo_by_subgenome[[progenitors[1]]])),
+        scales::gradient_n_pal(colour_scales[[progenitors[2]]])(seq(0, 1, length.out = n_chromo_by_subgenome[[progenitors[2]]])))
+      )
+
     # Let's define the ribbons (rivers)
     # We work on a alignment ordered by subgenome one 
     ordered_alignment <- heal_alignment[[smp]]
@@ -268,7 +297,6 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
       return(ribbon_dt_per_block_list)
     }
     
-    #ribbon_dt_list[[length(ribbon_dt_list)+1]] <- block_1_ribbon_dts
     ribbon_dt_list <- do.call(c, ribbon_dt_list) # We combine all lists into one big list. Each entry is a ribbon defining data table.
     
     ### Add the ribbons to the plot
@@ -279,11 +307,15 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
           fill = "grey50", alpha = 0.5
       )
     }
+    ###### MODIFY THIS
+    print(plot)
     
-    if(!dir.exists(file.path(output_dir))){
-      dir.create(file.path(output_dir))
+    if(!is.logical(output_dir)){
+      if(!dir.exists(file.path(output_dir))){
+        dir.create(file.path(output_dir))
+      }
+      ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.svg"), plot=plot, width=20, height=8)
+      ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.pdf"), plot=plot, width=20, height=8)
     }
-    ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.svg"), plot=plot, width=20, height=8)
-    ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.pdf"), plot=plot, width=20, height=8)
   }
 }

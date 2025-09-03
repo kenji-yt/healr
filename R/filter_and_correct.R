@@ -324,6 +324,72 @@ normal_sample_correction <- function(heal_list, n_threads = 1){
   
 }
 
-
+#' Replace copy number spans shorter than user defined length by border value.
+#'
+#' @param heal_list List in heal format (such as output from count_heal_data()).
+#' @param max_length The maximal length at which a copy number span is to be replaced.
+#' @param n_threads Number of threads to use. The function can process each chromosome in parallele, one subgenome at a time, 
+#' such that the maximal sensible value is that of the chromosome number in the subgenome with most chromosomes.
+#'
+#' @returns A heal list with short CN spans replaced by neighbouring values if these are identical to each other.
+#' @export
+#'
+#' @examples
+remove_short_spans <- function(heal_list, max_length = 1, n_threads = 1){
+  
+  smp_types <- get_sample_stats(heal_list = heal_list, sample_type = TRUE)
+  samples <- smp_types$sample
+  
+  progenitors <- names(heal_list)
+  
+  out_list <- foreach::foreach(prog = progenitors)%do%{
+    
+    chromosomes <- unique(heal_list[[prog]]$CN$chr)
+    
+    corrected_vectors <- foreach::foreach(smp = samples)%do%{
+      
+      doParallel::registerDoParallel(n_threads)
+      corrected_per_chr_vectors <- foreach::foreach(chr = chromosomes)%dopar%{
+        
+        rle_smp <- rle(heal_list[[prog]]$CN[[smp]][heal_list[[prog]]$CN$chr==chr])
+        
+        if(rle_smp$lengths[1] <= max_length && rle_smp$lengths[2] > max_length){
+          rle_smp$values[1] <- rle_smp$values[2]
+        }
+        
+        for (i in 2:(length(rle_smp$lengths) - 1)) {
+          
+          if (rle_smp$lengths[i] <= max_length &&
+              rle_smp$lengths[i - 1] > max_length &&
+              rle_smp$lengths[i + 1] > max_length &&
+              rle_smp$values[i - 1] == rle_smp$values[i + 1]) {
+            
+            rle_smp$values[i] <- rle_smp$values[i - 1]
+          }
+        }
+        
+        if(rle_smp$lengths[length(rle_smp)] <= max_length && rle_smp$lengths[length(rle_smp)-1] > max_length){
+          rle_smp$values[length(rle_smp)] <- rle_smp$values[length(rle_smp)-1]
+        }
+        corrected_vec <- inverse.rle(rle_smp)
+        return(corrected_vec)
+      }
+      doParallel::registerDoParallel(n_threads)
+      
+      corrected_vec <- unlist(corrected_per_chr_vectors)
+      return(corrected_vec)
+    }
+    names(corrected_vectors) <- samples
+    
+    # replace
+    for(smp in samples){
+      heal_list[[prog]]$CN[[smp]] <- corrected_vectors[[smp]]
+    }
+    return(heal_list[[prog]])
+  }
+  names(out_list) <- progenitors
+  
+  return(out_list)
+}
 
 
