@@ -55,7 +55,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
     stop("Custom color_map is not of correct length. It should match the number of subgenomes. Exiting..")
   }
   names(color_map) <- progenitors
-  
+
   # Define which samples the users wishes on the plot
   if(length(view_samples)==1){
     if(view_samples=="all"){
@@ -67,7 +67,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
     stop("Sample names not recognized for viewing of counts or coverage. Exiting..")
   }
   
-  samples <- view_samples
+  samples <- rev(view_samples)
   
   cat(paste0("Plotting copy number for ", paste(samples, collapse = ", "), ".\n"))
   
@@ -211,7 +211,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   }
   
   # Add a legend 
-  plot <- plot + ggplot2::geom_point(data = data.frame(name = names(color_map)), 
+  plot <- plot + ggplot2::geom_point(data = data.frame(name = factor(names(color_map), levels = names(color_map))), 
                                      ggplot2::aes(x = Inf, y = Inf, color = name), 
                                      alpha = 2) + 
     ggplot2::scale_color_manual(values = color_map, 

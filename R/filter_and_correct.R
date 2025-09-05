@@ -280,50 +280,6 @@ correct_gc <- function(heal_list, n_threads=1, output_dir=FALSE, print_plots=TRU
   return(corrected_heal_list)
 }
 
-
-normal_sample_correction <- function(heal_list, n_threads = 1){
-  
-  sample_types <- get_sample_stats(heal_list, n_threads = n_threads, sample_type = TRUE)
-  
-  progenitors <- names(heal_list)
-  
-  polyploid_samples <- sample_types$sample[sample_types$type=="polyploid"]
-  
-  out_list <- foreach::foreach(prog = progenitors)%do%{
-    
-    # Get mean of progenitor
-    
-    progenitor_sample_names <- sample_types$sample[sample_types$type==prog]
-    prog_dt <- heal_list[[prog]]$bins[, ..progenitor_sample_names]
-    prog_dt[, names(prog_dt) := lapply(.SD, function(x) x / median(x, na.rm = TRUE))]
-    prog_mean_vec <- rowMeans(prog_dt)
-    
-    doParallel::registerDoParallel(n_threads)
-    corrected_counts_list <- foreach::foreach(smp = polyploid_samples)%do%{
-      
-      normalized_poly_counts <- heal_list[[prog]]$bins[[smp]] / median(heal_list[[prog]]$bins[[smp]], na.rm = TRUE)
-      corrected_counts <- normalized_poly_counts/(prog_mean_vec+1e-6)
-      return(corrected_counts)
-    
-    }
-    doParallel::registerDoParallel(n_threads)
-    
-    names(corrected_counts_list) <- polyploid_samples
-    corrected_counts_dt <- data.table::as.data.table(corrected_counts_list)
-    info_col_dt <- heal_list[[prog]]$bins[, 1:5]
-    
-    prog_dt <- cbind(info_col_dt, corrected_counts_dt)
-    
-    prog_list <- list(prog_dt)
-    names(prog_list) <- "bins"
-    return(prog_list)
-  }
-  
-  names(out_list) <- progenitors
-  return(out_list)
-  
-}
-
 #' Replace copy number spans shorter than user defined length by border value.
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).
@@ -350,26 +306,29 @@ remove_short_spans <- function(heal_list, max_length = 1, n_threads = 1){
       
       doParallel::registerDoParallel(n_threads)
       corrected_per_chr_vectors <- foreach::foreach(chr = chromosomes)%dopar%{
-        
+
         rle_smp <- rle(heal_list[[prog]]$CN[[smp]][heal_list[[prog]]$CN$chr==chr])
         
-        if(rle_smp$lengths[1] <= max_length && rle_smp$lengths[2] > max_length){
-          rle_smp$values[1] <- rle_smp$values[2]
-        }
-        
-        for (i in 2:(length(rle_smp$lengths) - 1)) {
+        if(length(rle_smp$lengths)>1){
           
-          if (rle_smp$lengths[i] <= max_length &&
-              rle_smp$lengths[i - 1] > max_length &&
-              rle_smp$lengths[i + 1] > max_length &&
-              rle_smp$values[i - 1] == rle_smp$values[i + 1]) {
-            
-            rle_smp$values[i] <- rle_smp$values[i - 1]
-          }
-        }
+          if(rle_smp$lengths[1] <= max_length && rle_smp$lengths[2] > max_length){
+            rle_smp$values[1] <- rle_smp$values[2]}
         
-        if(rle_smp$lengths[length(rle_smp)] <= max_length && rle_smp$lengths[length(rle_smp)-1] > max_length){
-          rle_smp$values[length(rle_smp)] <- rle_smp$values[length(rle_smp)-1]
+          if(length(rle_smp)>2){
+            
+            for (i in 2:(length(rle_smp$lengths) - 1)) {
+              if (rle_smp$lengths[i] <= max_length &&
+                  rle_smp$lengths[i - 1] > max_length &&
+                  rle_smp$lengths[i + 1] > max_length &&
+                  rle_smp$values[i - 1] == rle_smp$values[i + 1]) {
+                
+                rle_smp$values[i] <- rle_smp$values[i - 1]
+              }
+            }
+            if(rle_smp$lengths[length(rle_smp)] <= max_length && rle_smp$lengths[length(rle_smp)-1] > max_length){
+                rle_smp$values[length(rle_smp)] <- rle_smp$values[length(rle_smp)-1]
+            }
+          }
         }
         corrected_vec <- inverse.rle(rle_smp)
         return(corrected_vec)

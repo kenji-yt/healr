@@ -28,19 +28,23 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param colour_scales A list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range. Defaults to red and green colour ranges.
-#'
+#' @param theme Background settings. Options are 'dark' or 'light'. Default value is 'light'. 
+#' 
 #' @returns Nothing. Creates riparian style plots with copy number information. 
 #' @export
 #'
 #' @examples
-plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir = FALSE, n_threads = 1, colour_scales = FALSE){
+plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir = FALSE, n_threads = 1, colour_scales = FALSE, theme = 'light'){
   
+  if(theme != "light" && theme != "dark"){
+    stop("Invalid input for 'theme'. Please input 'light' or 'dark'. Exiting..")
+  }
   polyploid_samples <- names(heal_alignment)
 
   progenitors <- gsub("^cn_", "", grep("cn", colnames(heal_alignment[[1]]), value = TRUE))
   
   if(length(progenitors) > 2){
-    stop("More than two subgenomes detected. This function only works for two subgenomes at the moment.")
+    stop("More than two subgenomes detected. This function only works for two subgenomes at the moment. Exiting..")
   }
   
   # Get the syntenic regions data table
@@ -129,7 +133,11 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
     plot <- ggplot2::ggplot() +
       ggplot2::xlim(-max_x_span/2 - inter_chromosome_space, max_x_span/2 + inter_chromosome_space) +
       ggplot2::ylim(-2.6, 2.6) +
-      ggplot2::theme_void() 
+      ggplot2::theme_void() +
+      ggplot2::labs(title = smp) +
+      ggplot2::theme(
+        plot.title = ggplot2::element_text(hjust = 0.5, size = 16, face = "bold")
+      )
     # Drawing the chromosomes and their copy number. 
     
     group_vec <- c()
@@ -203,7 +211,7 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
     
     blocks_dt$Chromosome <- factor(
       blocks_dt$Chromosome,
-      levels = c(unique(grep(progenitors[1], blocks_dt$Chromosome, value = TRUE)), unique(grep(progenitors[2], blocks_dt$Chromosome, value = TRUE)))
+      levels = c(sort(unique(grep(progenitors[1], blocks_dt$Chromosome, value = TRUE))), sort(unique(grep(progenitors[2], blocks_dt$Chromosome, value = TRUE))))
     )
 
     if(is.logical(colour_scales)){
@@ -225,7 +233,7 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
       }
     }
     
-    plot <- plot + ggplot2::geom_rect(data = blocks_dt, ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = Chromosome), color = "black") +
+    plot <- plot + ggplot2::geom_rect(data = blocks_dt, ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = Chromosome), color = "#272727") +
       ggplot2::scale_fill_manual(values = c(
         scales::gradient_n_pal(colour_scales[[progenitors[1]]])(seq(0, 1, length.out = n_chromo_by_subgenome[[progenitors[1]]])),
         scales::gradient_n_pal(colour_scales[[progenitors[2]]])(seq(0, 1, length.out = n_chromo_by_subgenome[[progenitors[2]]])))
@@ -307,13 +315,29 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
           fill = "grey50", alpha = 0.5
       )
     }
-    ###### MODIFY THIS
+    
+    if(theme=="dark"){
+      plot <- plot +
+        ggplot2::theme(
+          plot.background = ggplot2::element_rect(fill = "black"),
+          panel.background = ggplot2::element_rect(fill = "black"),
+          #panel.grid.major = ggplot2::element_line(color = "gray30"),
+          #panel.grid.minor = ggplot2::element_line(color = "gray20"),
+          text = ggplot2::element_text(color = "white"),
+          #axis.text = ggplot2::element_text(color = "white"),
+          #axis.title = ggplot2::element_text(color = "white"),
+          #plot.title = ggplot2::element_text(color = "white", size = 16, face = "bold"),
+          legend.background = ggplot2::element_rect(fill = "black"),
+          legend.key = ggplot2::element_rect(fill = "black"),
+          legend.text = ggplot2::element_text(color = "white"),
+          legend.title = ggplot2::element_text(color = "white")
+        )
+    }
+    
     print(plot)
     
     if(!is.logical(output_dir)){
-      if(!dir.exists(file.path(output_dir))){
-        dir.create(file.path(output_dir))
-      }
+      dir.create(file.path(output_dir))
       ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.svg"), plot=plot, width=20, height=8)
       ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.pdf"), plot=plot, width=20, height=8)
     }
