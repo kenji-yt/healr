@@ -99,7 +99,7 @@ summarize_aln <- function(alignment, n_threads=1){
     names(chr_col_names) <- progenitors
     
     cn_col_names <- gsub("chr", "cn", chr_col_names)
-    ratio_name <- paste(names(cn_col_names), collapse="<:>")
+    ratio_name <- paste(names(cn_col_names), collapse=":"
     
     summary_per_prog_list <- foreach::foreach(prog=progenitors)%do%{
       
@@ -113,7 +113,7 @@ summarize_aln <- function(alignment, n_threads=1){
         sub_aln_dt <- alignment[[smp]][which_row,]
         sub_aln_dt <- sub_aln_dt[order(sub_aln_dt[[start_end_ref_colnames[1]]]),]
         
-        sub_aln_dt[, combination := do.call(paste, c(.SD[, cn_col_names, with = FALSE], sep = "<:>"))]
+        sub_aln_dt[, combination := do.call(paste, c(.SD[, cn_col_names, with = FALSE], sep = ":"))]
         
         rle_combination <- rle(sub_aln_dt$combination)
         
@@ -145,7 +145,7 @@ summarize_aln <- function(alignment, n_threads=1){
           return(total_this_combo)
         }
         count_dt <- data.table::data.table(unique(out_rle_dt[[ratio_name]]), bp_length=unlist(by_combo_representation))
-        count_dt$percentage <- count_dt$bp_length/sum(count_dt$bp_length)*100
+        count_dt$percentage <- round(count_dt$bp_length/sum(count_dt$bp_length)*100, 2)
         colnames(count_dt)[1] <- ratio_name
         
         return(list(count_dt=count_dt, run_length_encoding=out_rle_dt))

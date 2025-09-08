@@ -314,7 +314,7 @@ remove_short_spans <- function(heal_list, max_length = 1, n_threads = 1){
           if(rle_smp$lengths[1] <= max_length && rle_smp$lengths[2] > max_length){
             rle_smp$values[1] <- rle_smp$values[2]}
         
-          if(length(rle_smp)>2){
+          if(length(rle_smp$lengths)>2){
             
             for (i in 2:(length(rle_smp$lengths) - 1)) {
               if (rle_smp$lengths[i] <= max_length &&

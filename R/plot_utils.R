@@ -11,14 +11,26 @@
 #' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
 #' @param average_list Same as in get_copy_number(). 
 #' @param return_plot Logical: return the ggplot2 object ('FALSE' by default).
-#'
+#' @param chr_label_size Size of the chromosome labels as input to ggplot2::geom_text size argument ('4' by default).
+#' @param cn_label_size Size of the copy number labels as input to ggplot2::geom_text size argument ('3' by default).
+#' @param size_x_axis_title Size of the x axis title as input to ggplot2::element_text size argument ('14' by default).
+#' @param size_y_axis_title Size of the x axis title as input to ggplot2::element_text size argument ('14' by default).
+#' @param sample_name_size Size of the sample names as input to ggplot2::geom_text size argument ('3' by default).
+#' @param bin_point_alpha The transparency of the normalized bin count values as input to ggplot2::goem_point alpha argument ('0.4' by default). 
+#' @param bin_point_size Size of the normalized bin count values as input to ggplot2::goem_point size argument ('2' by default).
+#' @param cn_line_width Thickness of the line showing the copy number as input to ggplot2::geom_path linewidth argument ('2' by default).
+#' 
+#' @param ... Any arguments you wish to pass to ggplot2::ggsave()
+#' 
 #' @return Either nothing of a ggplot object showing several samples together. The plot is always printed. 
 #' @export
 #' 
 #' @examples
 plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
                           prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE,
-                          method = "global", average = "median", average_list = FALSE, return_plot = FALSE){
+                          method = "global", average = "median", average_list = FALSE, return_plot = FALSE,
+                          chr_label_size = 4, cn_label_size = 3, size_x_axis_title = 14, size_y_axis_title = 14,
+                          sample_name_size = 3,  bin_point_alpha = 0.4, bin_point_size = 2, cn_line_width = 2, ...){
   
   # Check input to see if it's appropriate
   if(!is.logical(add_bins)){
@@ -112,7 +124,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   # Create an empty plot.
   plot <- ggplot2::ggplot() +
     ggplot2::xlim(-inter_chromosome_space, total_x_span+inter_chromosome_space*0.1) +
-    ggplot2::ylim(-3, max(sample_y_starts)+8) +
+    ggplot2::ylim(-2, max(sample_y_starts)+8) +
     ggplot2::theme_void()
   
   # Add sample names
@@ -121,7 +133,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
     ggplot2::geom_text(data = smp_names_df,
                        ggplot2::aes(x = x, y = y, label = label, fontface = "bold"),
                        hjust = 0,           # align text to the right
-                       size = 3)
+                       size = sample_name_size)
   
   # Add y axes
   y_ends <- sample_y_starts + prog_ploidy*length(progenitors) 
@@ -146,7 +158,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
     ggplot2::geom_text(data = y_ticks_labels_df,
                        ggplot2::aes(x = x, y = y, label = label),
                        hjust = 1, 
-                       size = 2.2)
+                       size = cn_label_size)
   
   # Define progenitor specific offsets
   prog_offsets <- c(0, real_x_spans_per_subG + (inter_chromosome_space * 2))
@@ -191,7 +203,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
     ggplot2::geom_text(data = chromo_labels_df,
                        ggplot2::aes(x = x, y = y, label = label),
                        hjust = 0.5, 
-                       size = 2)
+                       size = chr_label_size)
   
   # Add dotted lines for CN
   for(i in 1:nrow(chromo_axes_df)){
@@ -210,14 +222,29 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
       )
   }
   
-  # Add a legend 
+  # Add a legend and x and y labels 
   plot <- plot + ggplot2::geom_point(data = data.frame(name = factor(names(color_map), levels = names(color_map))), 
                                      ggplot2::aes(x = Inf, y = Inf, color = name), 
                                      alpha = 2) + 
     ggplot2::scale_color_manual(values = color_map, 
                                 labels = names(color_map), 
-                                name = "Subgenomes") +
-    ggplot2::theme(legend.position = "right")
+                                name = "Subgenomes",
+                                guide = ggplot2::guide_legend(override.aes = list(size = 5))  # make legend points bigger
+    ) +
+    ggplot2::theme(
+      legend.position = "right",
+      legend.box.margin = ggplot2::margin(0, 0, 0, -10)  # negative right margin pulls legend closer
+    ) +
+    ggplot2::labs(
+      x = "Chromosomes",
+      y = "Copy Number"
+    ) +
+    ggplot2::theme(
+      axis.title.x = ggplot2::element_text(color = "black", size = size_x_axis_title, 
+                                           vjust = 4),
+      axis.title.y = ggplot2::element_text(color = "black", size = size_y_axis_title, angle = 90,
+                                           vjust = -4)
+    )
   
   
   # Add bins and copy numbers to the plot
@@ -253,16 +280,15 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
           if(add_bins==TRUE){
             
             plot <- plot + 
-              ggplot2::geom_point(data = point_df, ggplot2::aes(x = x, y = y), size = 0.5, color = "black", alpha=0.2) +
-              ggplot2::geom_path(data = line_df, ggplot2::aes(x = x, y = y), color = color_map[[prog]], linewidth = 1.5)
+              ggplot2::geom_point(data = point_df, ggplot2::aes(x = x, y = y), size = bin_point_size, color = "black", alpha=bin_point_alpha) +
+              ggplot2::geom_path(data = line_df, ggplot2::aes(x = x, y = y), color = color_map[[prog]], linewidth = cn_line_width)
           }else{
             plot <- plot + 
-              ggplot2::geom_point(data = point_df,ggplot2:: aes(x = x, y = y), size = 0.5, color = "black", alpha=0.2) +
-              ggplot2::geom_path(data = line_df, ggplot2::aes(x = x, y = y), color = color_map[[prog]], linewidth = 1.5)
+              ggplot2::geom_path(data = line_df, ggplot2::aes(x = x, y = y), color = color_map[[prog]], linewidth = cn_line_width)
           }
         }else{
           plot <- plot + 
-            ggplot2::geom_point(data = point_df, ggplot2::aes(x = x, y = y), size = 0.3, color = color_map[[prog]], alpha=0.8)
+            ggplot2::geom_point(data = point_df, ggplot2::aes(x = x, y = y), size = bin_point_size, color = color_map[[prog]], alpha = bin_point_alpha)
         }
       }
     }
@@ -273,9 +299,9 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   if(output_dir!=FALSE){
     file_path <- paste0(output_dir,"/heal_multisample_genomewide_plot.pdf")
     if (file.exists(file_path)) {
-      Stop(paste0("Already a file at ", file_path,". Exiting.."))
+      stop(paste0("Already a file at ", file_path,". Exiting.."))
     } else {
-      ggsave(filename = file_path, plot = plot)
+      ggplot2::ggsave(filename = file_path, plot = plot, ...)
       cat(paste0("Plot saved at ", file_path,"."))
     }
   }
