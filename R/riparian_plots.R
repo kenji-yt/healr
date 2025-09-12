@@ -22,26 +22,32 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 ### PARALELIZE!!!
 #' Plot riparian style plots with copy number
 #'
-#' @param alignment A heal alignment object created with get_heal_alignment().
+#' @param alignment A heal alignment object created with get_alignment().
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param genespace_dir Path to a directory containing the syntenicRegion_coordinates.csv output file from GENESPACE.
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param colour_scales A list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range. Defaults to red and green colour ranges.
 #' @param theme Background settings. Options are 'dark' or 'light'. Default value is 'light'. 
+#' @param legend_text_size Size of the legend text as input to  ggplot2::element_text size argument ('5' by default).
+#' @param legend_title_size Size of the legend title as input to  ggplot2::element_text size argument ('7' by default).
+#' @param title_size Size of the title text as input to ggplot2::element_text size argument ('10' by default).
+#' @param device_vector A vector with the file types you wish to have, as input ggplot2::ggsave device argument (c('pdf', 'svg') by default).
 #' 
+#' @param ... Any arguments you wish to pass to ggplot2::ggsave().
+#'
 #' @returns Nothing. Creates riparian style plots with copy number information. 
 #' @export
 #'
 #' @examples
-plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir = FALSE, n_threads = 1, colour_scales = FALSE, theme = 'light'){
+plot_riparian <- function(alignment, heal_list, genespace_dir, output_dir = FALSE, n_threads = 1, colour_scales = FALSE, theme = 'light', legend_text_size =5, legend_title_size = 7, legend_spacing = 2, title_size = 5, device_vector = c("pdf", "svg"), ...){
   
   if(theme != "light" && theme != "dark"){
     stop("Invalid input for 'theme'. Please input 'light' or 'dark'. Exiting..")
   }
-  polyploid_samples <- names(heal_alignment)
+  polyploid_samples <- names(alignment)
 
-  progenitors <- gsub("^cn_", "", grep("cn", colnames(heal_alignment[[1]]), value = TRUE))
+  progenitors <- gsub("^cn_", "", grep("cn", colnames(alignment[[1]]), value = TRUE))
   
   if(length(progenitors) > 2){
     stop("More than two subgenomes detected. This function only works for two subgenomes at the moment. Exiting..")
@@ -64,7 +70,7 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
     region_id = regions_dt$blkID
   )
   
-  ## Here I define the dimensions of the plot and the positions of each chromosome
+  ## Here I define the dimensions of the <- and the positions of each chromosome
   # First get the approximate length of each chromosome
   subgenome_sizes_list <- foreach::foreach(prog = progenitors)%do%{
     chromosomes <- unique(heal_list[[prog]]$bins$chr)
@@ -136,7 +142,7 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
       ggplot2::theme_void() +
       ggplot2::labs(title = smp) +
       ggplot2::theme(
-        plot.title = ggplot2::element_text(hjust = 0.5, size = 16, face = "bold")
+        plot.title = ggplot2::element_text(hjust = 0.5, size = title_size, face = "bold")
       )
     # Drawing the chromosomes and their copy number. 
     
@@ -148,10 +154,10 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
     
     for(prog in progenitors){
       chr_col_name <- paste0("chr_", prog)
-      chromosomes <- unique(heal_alignment[[smp]][[chr_col_name]])
+      chromosomes <- unique(alignment[[smp]][[chr_col_name]])
       
       for(chr in chromosomes){
-        chromo_dt <- heal_alignment[[smp]][heal_alignment[[smp]][[chr_col_name]]==chr,]
+        chromo_dt <- alignment[[smp]][alignment[[smp]][[chr_col_name]]==chr,]
         order_by <- paste0("start_", prog)
         data.table::setorderv(chromo_dt, order_by)
         cn_blocks <- rle(chromo_dt[[paste0("cn_", prog)]])
@@ -237,11 +243,16 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
       ggplot2::scale_fill_manual(values = c(
         scales::gradient_n_pal(colour_scales[[progenitors[1]]])(seq(0, 1, length.out = n_chromo_by_subgenome[[progenitors[1]]])),
         scales::gradient_n_pal(colour_scales[[progenitors[2]]])(seq(0, 1, length.out = n_chromo_by_subgenome[[progenitors[2]]])))
+      ) +
+      ggplot2::theme(
+        legend.text = ggplot2::element_text(size = legend_text_size),
+        legend.title = ggplot2::element_text(size = legend_title_size),
+        legend.key.height = ggplot2::unit(legend_spacing, "lines")  # increase spacing between items
       )
 
     # Let's define the ribbons (rivers)
     # We work on a alignment ordered by subgenome one 
-    ordered_alignment <- heal_alignment[[smp]]
+    ordered_alignment <- alignment[[smp]]
     order_by <- c(paste0("chr_", progenitors[1]), paste0("start_", progenitors[1]))
     data.table::setorderv(ordered_alignment, order_by)
     ### We go through each unique copy number combination AND synteny region. 
@@ -321,12 +332,7 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
         ggplot2::theme(
           plot.background = ggplot2::element_rect(fill = "black"),
           panel.background = ggplot2::element_rect(fill = "black"),
-          #panel.grid.major = ggplot2::element_line(color = "gray30"),
-          #panel.grid.minor = ggplot2::element_line(color = "gray20"),
           text = ggplot2::element_text(color = "white"),
-          #axis.text = ggplot2::element_text(color = "white"),
-          #axis.title = ggplot2::element_text(color = "white"),
-          #plot.title = ggplot2::element_text(color = "white", size = 16, face = "bold"),
           legend.background = ggplot2::element_rect(fill = "black"),
           legend.key = ggplot2::element_rect(fill = "black"),
           legend.text = ggplot2::element_text(color = "white"),
@@ -338,8 +344,9 @@ plot_riparian <- function(heal_alignment, heal_list, genespace_dir, output_dir =
     
     if(!is.logical(output_dir)){
       dir.create(file.path(output_dir))
-      ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.svg"), plot=plot, width=20, height=8)
-      ggplot2::ggsave(file=paste0(output_dir, "/", smp, "_riparian.pdf"), plot=plot, width=20, height=8)
+      for(t in device_vector){
+        ggplot2::ggsave(file=paste0(output_dir, "/", smp, "/", smp, "_riparian.", t), device = t, plot=plot, ...)
+      }
     }
   }
 }

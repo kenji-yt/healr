@@ -19,8 +19,7 @@
 #' @param bin_point_alpha The transparency of the normalized bin count values as input to ggplot2::goem_point alpha argument ('0.4' by default). 
 #' @param bin_point_size Size of the normalized bin count values as input to ggplot2::goem_point size argument ('2' by default).
 #' @param cn_line_width Thickness of the line showing the copy number as input to ggplot2::geom_path linewidth argument ('2' by default).
-#' 
-#' @param ... Any arguments you wish to pass to ggplot2::ggsave()
+#' @param ... Any arguments you wish to pass to ggplot2::ggsave().
 #' 
 #' @return Either nothing of a ggplot object showing several samples together. The plot is always printed. 
 #' @export

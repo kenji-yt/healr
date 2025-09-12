@@ -99,7 +99,7 @@ summarize_aln <- function(alignment, n_threads=1){
     names(chr_col_names) <- progenitors
     
     cn_col_names <- gsub("chr", "cn", chr_col_names)
-    ratio_name <- paste(names(cn_col_names), collapse=":"
+    ratio_name <- paste(names(cn_col_names), collapse=":")
     
     summary_per_prog_list <- foreach::foreach(prog=progenitors)%do%{
       
@@ -165,7 +165,7 @@ summarize_aln <- function(alignment, n_threads=1){
       }
       
       total_prog_count_dt <- data.table::data.table(bp_length=unlist(total_count_list))
-      total_prog_count_dt$percentage <- total_prog_count_dt$bp_length/sum(total_prog_count_dt$bp_length)*100
+      total_prog_count_dt$percentage <- round(total_prog_count_dt$bp_length/sum(total_prog_count_dt$bp_length)*100, 2)
       total_prog_count_dt[[ratio_name]] <- unique_ratios
       total_prog_count_dt <- total_prog_count_dt[order(total_prog_count_dt[[ratio_name]]),]
       

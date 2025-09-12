@@ -252,14 +252,13 @@ correct_gc <- function(heal_list, n_threads=1, output_dir=FALSE, print_plots=TRU
       
       smp_output_dir <- paste0(output_dir, "/", smp)
       dir.create(smp_output_dir)
-      raw_file <- paste0(smp_output_dir, "/", smp, "_GC_raw.png")
-      ggplot2::ggsave(filename = raw_file, plot_list[[smp]]$raw, device = "png", width = 6, height = 4, units = "in")
-      corrected_file <- paste0(smp_output_dir, "/", smp, "_GC_corrected.png")
-      ggplot2::ggsave(filename = corrected_file, plot_list[[smp]]$corrected, device = "png", width = 6, height = 4, units = "in")
-      
+      file <- paste0(smp_output_dir, "/", smp, "_GC_correction.png")
+      png(file)
+      gridExtra::grid.arrange(plot_list[[smp]]$raw, plot_list[[smp]]$corrected)
+      dev.off()
+
       if(print_plots==TRUE){
-        print(plot_list[[smp]]$raw)
-        print(plot_list[[smp]]$corrected)
+        gridExtra::grid.arrange(plot_list[[smp]]$raw, plot_list[[smp]]$corrected)
       }
     }
     
@@ -270,14 +269,11 @@ correct_gc <- function(heal_list, n_threads=1, output_dir=FALSE, print_plots=TRU
       
       for(smp in sample_names){
         
-        print(plot_list[[smp]]$raw)
-        print(plot_list[[smp]]$corrected)
+        gridExtra::grid.arrange(plot_list[[smp]]$raw, plot_list[[smp]]$corrected)
         
       }
     }
   }
-  
-  return(corrected_heal_list)
 }
 
 #' Replace copy number spans shorter than user defined length by border value.
