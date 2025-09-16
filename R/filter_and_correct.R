@@ -2,13 +2,13 @@
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param mappability_threshold Threshold average per bin mappability value below which bins are ignored ('0.9' by default).
-#' @param gc_quantile Bins with GC content below first and above last quantiles are ignored. Set to 'FALSE' for no filtering ('FALSE' by default).
+#' @param gc_quantile Bins with GC content below first and above last quantiles are ignored. Set to 'FALSE' for no filtering ('0.8' by default).
 #' @param count_threshold How many standard deviations above the count mean to consider a bin as outlier. Set to 'FALSE' for no count filtering (2 by default).
 #' @param replace_by_NA Should outliers count values be set to NA ('TRUE' by default). Otherwise outliers are set to the threshold defined by count_threshold.
 #'
 #' @return A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
 #' @export
-filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = FALSE, count_threshold = 2, replace_by_NA = TRUE) {
+filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = 0.8, count_threshold = 2, replace_by_NA = TRUE) {
   
   # Filtering the data
   if (count_threshold != FALSE) {
