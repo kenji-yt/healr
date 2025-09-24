@@ -68,33 +68,27 @@ You can name the progenitor and polyploid sample directories as you wish, as lon
 
   In HEAL, the "bins.bed" files are create with "bedtools makewindow" (Quinlan & Hall, 2010). GC content is then counted in these bins using "bedtools nuc". Average per base pair mappability must also be computed in these bins. Per base mappability is first obtained using genmap (Pockrandt et al., 2020). Then, it is averaged within bins using a custom awk script on genmap outputs.<br>
 
-If you use HEAL, one of the outputs will be a *healr* input directory which you can then manually re-analyse.<br>
+If you use HEAL, one of the outputs will be a *healr* input directory which you can then manually re-analyse. <br>
 
 ## Parsing the input directory
 
   The first step in a **healr** analysis is to create a "heal-list" object. This is done using the count_heal_data() function which parses the input directory and counts reads in bins for each bam file using featureCounts (Liao et al., 2014). The heal-list object is just a standard list with one item for each subgenome. These items are themselves lists containing at least a "bins" item. The "bins" item is a data table containing the genomic position, GC content, average mappability and read count for each sample in bins. Later there will also be a "CN" item which is a data table with inferred copy number instead of read counts.<br>
 
-Let's parse an example input directory:
-```{r, include = FALSE}
-input_directory <- "/srv/kenlab/kenji/heal_dirs/healr/vignettes/example_input_dir/"
-genespace_output_directory <- "/srv/kenlab/kenji/heal_dirs/test_genespace_dir/"
-num_threads <- 2
-#par(mfrow = c(1, 2))
-source("/srv/kenlab/kenji/heal_dirs/rename_chromo.R")
-```
-```{r count data, message=FALSE, warning=FALSE}
-# input_directory <- "/path/to/input/directory"
-# num_threads <- number of threads you want to use for parrallel processing
+Normally the first step would be to parse the input directory and count read in bins. You can do this with the count_heal_data():
+```{r count data, message=FALSE, warning=FALSE, eval=FALSE}
+input_directory <- "/path/to/input/directory"
+num_threads <- 10 # number of threads you want to use for parrallel processing
 count_list <- count_heal_data(input_dir = input_directory,
                               n_threads= num_threads,
                               paired_end = TRUE,
                               full_output = FALSE)
 ```
-```{r rename raw, include = FALSE}
-name_old <- count_list
-count_list <- rename_it(count_list)
+The reads have now been counted in the bins defined in the "*bins.bed" file (here 10 kbp bins). We can specify that the example data is paired-end and that we don't want the full featureCounts results, just the parsed count tables.<br>
+
+You can also read in a directory describing already parsed and counted reads using read_heal_list(). Such a directory can be produced by write_heal_list(). HEAL produces such a directory ("results/healr/healr_list"), enabling users to read in pre-counted data directly. 
+```{r read in counts, message=FALSE, warning=FALSE}
+count_list <- read_heal_list("A.kam_example_healr_list")
 ```
-The reads have now been counted in the bins defined in the "*bins.bed" file (here 10 kbp bins). We also specified that the example data is paired-end and that we don't want the full featureCounts results, just the parsed count tables.<br>
 
 Here you can see the structure of the heal-list object:
 ```{r list summary}
@@ -103,13 +97,13 @@ summary(count_list)
 You can visualize the read counts using the plot_bins() function. Here we specify that we only wish to see the counts for the sample called "sample_1" and at every chromosome called "chr1" (multiple subgenomes might have a chromosome called "chr1"). We also manually set a vector of colors with which to plot each subgenome (here only two).<br>
 ```{r plot raw counts, fig.width=7, fig.height=5}
 plot_bins(heal_list = count_list,
-          view_sample = "sample_1",
+          view_sample = "HM_RS7_G1_1",
           specific_chr = "chr1",
           color_map = c("purple3", "goldenrod3"))
 ```
 _**Figure 1:** Raw read counts within 10kb bins over chromosome "chr1"._<br><br>
 
-There are two subgenomes with a chromosome labelled "chr1" which is why two plots are shown. In fact our example data is that of a synthetic allotetraploid with diploid progenitors (Arabidopsis kamchatica: ID=HM_RS2K_G1_2) so there are only two subgenomes in total.<br>
+There are two subgenomes with a chromosome labelled "chr1" which is why two plots are shown. In fact our example data is that of a synthetic allotetraploid with diploid progenitors (Arabidopsis kamchatica: ID=HM_RS7_G1_1) so there are only two subgenomes in total.<br>
 
 Notice that counts at "chr1" of progenitor species 2 are very variable with visible chunks throughout the genome (Figure 1, second plot). This is symptomatic of large scale copy number variation. For species 1 there are a few bins with extremely high count values, the rest of the variation is dwarfed by these and is not clearly visible.<br>
 
