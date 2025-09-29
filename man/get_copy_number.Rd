@@ -11,7 +11,8 @@ get_copy_number(
   method = "global",
   average = "median",
   average_list = FALSE,
-  full_output = FALSE
+  full_output = FALSE,
+  manual_scale = FALSE
 )
 }
 \arguments{
@@ -28,6 +29,9 @@ get_copy_number(
 \item{average_list}{A list with one element per sample with each containing one element per subgenome with values used to assign copy numbers.}
 
 \item{full_output}{Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).}
+
+\item{manual_scale}{Manually set the value of multiples of average x ploidy to use during copy number assignment. The input should be a vector. The values in that vector will be used to set copy numbers going from 0 upwards.
+For a vector of length N, copy numbers above N+1 will be assigned based on their multiple of the average. The function is set to 'FALSE' by default, meaning standard assignment.}
 }
 \value{
 A list with one element per progenitor containing the bins and genes elements of the inpiut plus a data table with infered copy number per bin for each sample and GC and mappability for each bin.

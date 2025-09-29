@@ -39,11 +39,11 @@ plot_alignment(
 
 \item{n_threads}{Number of threads to use ('1' by default).}
 
-\item{add_bins}{Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "both" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.}
+\item{add_bins}{Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "all" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.}
 
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default).}
 
-\item{color_map}{A vector of colors for each progenitor. If "FALSE" the colors are choosen using rainbow().}
+\item{color_map}{A vector of colors for each progenitor. If "FALSE" the colors are choosen using viridis().}
 
 \item{specific_chr}{A vector of characters indicating which chromosomes to plot (plots all by default).}
 

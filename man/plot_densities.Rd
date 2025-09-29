@@ -38,7 +38,7 @@ plot_densities(
 
 \item{ylim_max}{Maximum ylim value ('FALSE' by default). If FALSE then the value is set for each sample as 3 times the standard deviation above the mean.}
 
-\item{color_vec}{A vector of colors for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colors are choosen using rainbow().}
+\item{color_vec}{A vector of colors for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colors are choosen using viridis().}
 
 \item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default)}
 
