@@ -2,12 +2,24 @@
 #'
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
 #' @param n_threads Number of threads to use ('1' by default).
-#' @param method The type of statistic computed ('median' by default). Options are 'median()', 'mean()', 'sd()', 'is.na()' and 'length()'.
+#' @param method The type of statistic computed ('median' by default). Options are 'median', 'mean', 'sd', 'is.na' and 'length'.
 #' @param sample_type Logical on choice to return information about wether the sample is polyploid or not.
 #'
 #' @return Information about the samples.
 #' @importFrom foreach %dopar%
 get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample_type = FALSE) {
+  
+  diff_is_null <- is.null(unlist(lapply(heal_list, function(list) {
+    list$diff
+  })))
+  if(!diff_is_null){
+    replace_list <- list(list(), list())
+    names(replace_list) <- names(heal_list)
+    for(prog in names(heal_list)){
+      replace_list[[prog]]$bins <- heal_list[[prog]]$diff
+    }
+    heal_list <- replace_list
+  }
   
   progenitors <- names(heal_list)
   sample_name_list <- lapply(heal_list, function(df) {
