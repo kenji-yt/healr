@@ -215,9 +215,9 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
     plot <- plot + 
       ggplot2::geom_segment(data = dotted_df,
                             ggplot2::aes(x = x_start, xend = x_end, y = y_start, yend = y_end),
-                            linewidth = 0.2,            # thickness
+                            linewidth = 0.2,            
                             alpha = 0.8,        
-                            linetype = "dotted"    # or "dashed", "dotdash", etc.
+                            linetype = "dotted" 
       )
   }
   
@@ -267,7 +267,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
       for(chr in current_chromo){
         
         which_rows <- heal_list[[prog]]$bins$chr == chr
-        x_vec <- heal_list[[prog]]$bins$start[which_rows] + x_start_vec_list[[prog]][[chr]]
+        x_vec <- heal_list[[prog]]$bins$start[which_rows] + x_start_vec_list[[prog]][[as.character(chr)]]
         y_pts <- normalized[which_rows] + sample_y_starts[[smp]]
         
         point_df <- data.frame(x=x_vec, y=y_pts)

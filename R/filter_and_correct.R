@@ -5,10 +5,15 @@
 #' @param gc_quantile Bins with GC content below first and above last quantiles are ignored. Set to 'FALSE' for no filtering ('80' by default).
 #' @param count_threshold How many standard deviations above the count mean to consider a bin as outlier. Set to 'FALSE' for no count filtering (2 by default).
 #' @param replace_by_NA Should outliers count values be set to NA ('TRUE' by default). Otherwise outliers are set to the threshold defined by count_threshold.
+#' @param log_file A file to write the filtering statistics to ('FALSE' by default).
 #'
 #' @return A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
 #' @export
-filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = 80, count_threshold = 2, replace_by_NA = TRUE) {
+filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = 80, count_threshold = 2, replace_by_NA = TRUE, log_file = FALSE) {
+  
+  if(log_file!=FALSE){
+    sink(log_file, append = TRUE, split = TRUE)
+  }
   
   # Filtering the data
   if (count_threshold != FALSE) {
@@ -98,8 +103,14 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = 80
     }
   }
 
+  if(log_file!=FALSE){
+    sink()
+  }
+  
   names(filtered_list) <- names(heal_list)
   return(filtered_list)
+  
+  
 }
 
 
@@ -251,7 +262,7 @@ correct_gc <- function(heal_list, n_threads=1, output_dir=FALSE, print_plots=TRU
     for(smp in sample_names){
       
       smp_output_dir <- paste0(output_dir, "/", smp)
-      dir.create(smp_output_dir)
+      dir.create(smp_output_dir, recursive = TRUE)
       file <- paste0(smp_output_dir, "/", smp, "_GC_correction.png")
       png(file)
       gridExtra::grid.arrange(plot_list[[smp]]$raw, plot_list[[smp]]$corrected)

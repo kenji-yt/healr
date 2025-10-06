@@ -2,7 +2,7 @@
 #'
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
 #' @param n_threads Number of threads to use ('1' by default).
-#' @param method The type of statistic computed ('median' by default). Options are 'median', 'mean', 'sd', 'is.na' and 'length'.
+#' @param method The type of statistic computed ('median' by default). Options are 'median', 'local_median' (by subgenome), 'mean', 'local_mean', 'sd', 'is.na' and 'length'.
 #' @param sample_type Logical on choice to return information about wether the sample is polyploid or not.
 #'
 #' @return Information about the samples.
