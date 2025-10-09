@@ -332,23 +332,38 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
 #' @export
 #'
 plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
-                      n_threads = 1, prog_ploidy = 2, plot_cn = FALSE,
-                      add_bins = TRUE, color_map = FALSE, specific_chr = FALSE,
+                      n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, 
+                      add_bins = TRUE, add_DNAcopy = FALSE, color_map = FALSE, specific_chr = FALSE,
                       return_list = FALSE, method = "global", average = "median",
                       average_list = FALSE, linewidth=2, ylim_max=8, ...) {
   
   # Check input to see if it's appropriate
   if(!is.logical(add_bins)){
-    stop("add bins must be either TRUE or FALSE (logical). Exiting..")
+    stop("'add_bins' must be either TRUE or FALSE (logical). Exiting..")
   }
+  
+  if(!is.logical(add_DNAcopy)){
+    stop("'add_DNAcopy' must be either TRUE or FALSE (logical). Exiting..")
+  }
+  
   cn_exist <- unlist(lapply(heal_list, function(list) {
     list$CN
   }))
   if (is.null(cn_exist) && plot_cn == TRUE) {
-    stop("ERROR: plot_cn set to 'TRUE' but no CN data table found in heal_list. Setting plot_cn to 'FALSE'. \n")
+    stop("ERROR: 'plot_cn' set to 'TRUE' but no CN data table found in heal_list. Setting 'plot_cn' to 'FALSE'. \n")
     plot_cn <- FALSE
   }
 
+  if(add_DNAcopy == TRUE){
+    DNAcopy_exist <- unlist(lapply(heal_list, function(list) {
+      list$DNAcopy
+    }))
+    if (is.null(DNAcopy_exist) && add_DNAcopy == TRUE) {
+      stop("ERROR: 'add_DNAcopy' set to 'TRUE' but no DNAcopy output found in heal_list. Setting 'add_DNAcopy' to 'FALSE'. \n")
+      add_DNAcopy <- FALSE
+    }
+  }
+  
   # Get the averages for normalization
   if(method == "global"){
     average_list <- get_sample_stats(heal_list, method = average)
@@ -378,7 +393,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
   # Check if ploting only one sample or plotting all to directory.
   if (view_sample != FALSE) {
     if (sum(sample_names == view_sample) == 0) {
-      stop("Sample name not recognized for viewing of counts or coverage Exiting..")
+      stop("Sample name not recognized for viewing of counts or coverage. Exiting..")
     }
 
     if (output_dir == FALSE) {
@@ -398,6 +413,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
 
   # Plot each sample
   for (smp in samples) {
+    
     if (output_dir != FALSE) {
       ref_dir <- paste0(output_dir, "/", smp, "/")
       dir.create(ref_dir, showWarnings = FALSE, recursive = TRUE)
@@ -410,6 +426,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
     }
 
     plot_prog_list <- foreach::foreach(prog = current_prog) %do% {
+      
       if (output_dir != FALSE) {
         dir.create(paste0(ref_dir, "/", prog, "/"), showWarnings = FALSE, recursive = TRUE)
       }
@@ -422,6 +439,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
 
       doParallel::registerDoParallel(n_threads)
       plot_list <- foreach::foreach(chr = chromo) %dopar% {
+        
         if (output_dir != FALSE) {
           out_file <- paste0(ref_dir, "/", prog, "/", chr, ".png")
         }
@@ -433,10 +451,28 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
         x <- heal_list[[prog]]$bins$start[which_bin_rows]
         y_vec_pts <- heal_list[[prog]]$bins[[smp]][which_bin_rows]
 
+        if(add_DNAcopy == TRUE){
+          
+          which_index <- heal_list[[prog]]$DNAcopy[[smp]]$output$chrom==chr
+          start_vec <- heal_list[[prog]]$DNAcopy[[smp]]$output$loc.start[which_index]
+          end_vec <- heal_list[[prog]]$DNAcopy[[smp]]$output$loc.end[which_index]
+          
+          if(plot_cn == TRUE){
+            normalized_mean_vec <- heal_list[[prog]]$DNAcopy[[smp]]$output$seg.mean[which_index] / average_list[[smp]][[prog]] * prog_ploidy
+            DNAcopy_mean <- rep(normalized_mean_vec)
+          }else{
+            DNAcopy_mean <- rep(heal_list[[prog]]$DNAcopy[[smp]]$output$seg.mean[which_index], each = 2)
+          }
+          
+          DNAcopy_df <- data.frame(x_start = start_vec, x_end = end_vec, mean = DNAcopy_mean) 
+        }
+        
         if (plot_cn == TRUE) {
+          
           y_vec_line <- heal_list[[prog]]$CN[[smp]][which_cn_rows]
+          
           if (add_bins == TRUE) {
-            
+          
             y_vec_pts <- (y_vec_pts / average_list[[smp]][[prog]]) * prog_ploidy
              
           }
@@ -451,6 +487,16 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
             ggplot2::ylim(0, ylim_max) +
             ggplot2::labs(title = paste(chr, smp), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
+          
+          if(add_DNAcopy == TRUE){
+            bin_plot <- bin_plot + 
+              ggplot2::geom_segment(
+                data = DNAcopy_df,
+                ggplot2::aes(x = x_start, xend = x_end, y = mean, yend = mean),
+                color = "red",
+                linewidth = 0.7
+              )
+          }
 
           if (output_dir != FALSE) {
             ggplot2::ggsave(filename = out_file, bin_plot, device = "png", width = 6, height = 4, units = "in")
@@ -466,6 +512,16 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
             ggplot2::scale_color_manual(values = color_map) +
             ggplot2::labs(title = paste(chr, smp), x = "Position", y = "Counts") +
             ggplot2::theme_bw()
+          
+          if(add_DNAcopy == TRUE){
+            bin_plot <- bin_plot + 
+              ggplot2::geom_segment(
+                data = DNAcopy_df,
+                ggplot2::aes(x = x_start, xend = x_end, y = mean, yend = mean),
+                color = "red",
+                linewidth = 0.7
+              )
+          }
 
           if (output_dir != FALSE) {
             ggplot2::ggsave(filename = out_file, bin_plot, device = "png", width = 6, height = 4, units = "in")
@@ -798,7 +854,6 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
   }
 
   doParallel::registerDoParallel(n_threads)
-  
   catch_all <- foreach::foreach(smp = polyploid_samples) %dopar% {
     if (output_dir != FALSE) {
       dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
@@ -846,8 +901,11 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
     }else{
       graphics::contour(densities[[smp]][[cn_labels[1]]], ylim = c(0, ylim_max), col = color_vec[cn_labels[1]], main = smp)
     }
-    for (i in 2:length(cn_labels)) {
-      graphics::contour(densities[[smp]][[cn_labels[i]]], ylim = c(0, ylim_max), col = color_vec[cn_labels[i]], add = TRUE)
+    
+    if(length(cn_labels)>1){
+      for (i in 2:length(cn_labels)) {
+        graphics::contour(densities[[smp]][[cn_labels[i]]], ylim = c(0, ylim_max), col = color_vec[cn_labels[i]], add = TRUE)
+      }
     }
 
     if (show_discordant == TRUE) {
