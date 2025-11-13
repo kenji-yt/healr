@@ -9,7 +9,7 @@ correct_cn_with_density(
   densities,
   alignment,
   heal_list,
-  n_threads,
+  n_threads = 1,
   prog_ploidy = 2
 )
 }

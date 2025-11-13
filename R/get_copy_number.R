@@ -5,16 +5,19 @@
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param method Which method to use to assign a copy number to each segment ('global', 'local' or 'manual'. 'global' by default). Global uses average over both subgenomes, local uses per subgenome average and manual uses values set by users in 'average_list'. 
 #' @param average Average measure used to assign a copy number in each segment ('median' or 'mean'. 'median' by default).
-#' @param average_list A list with one element per sample with each containing one element per subgenome with values used to assign copy numbers.
+#' @param average_list A named list with one element per sample each containing a named list with one element per subgenome with values used to assign copy numbers.
 #' @param full_output Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).
 #' @param manual_scale Manually set the value of multiples of average x ploidy to use during copy number assignment. The input should be a vector. The values in that vector will be used to set copy numbers going from 0 upwards. 
 #' For a vector of length N, copy numbers above N+1 will be assigned based on their multiple of the average. The function is set to 'FALSE' by default, meaning standard assignment.  
+#' 
 #' @return  A list with one element per progenitor containing the bins and genes elements of the inpiut plus a data table with infered copy number per bin for each sample and GC and mappability for each bin.
 #' @export
 #'
 #' @importFrom foreach %dopar%
 #' @importFrom foreach %do%
-get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global", average = "median", average_list = FALSE, full_output = FALSE, manual_scale = FALSE){
+get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global",
+                            average = "median", average_list = FALSE, full_output = FALSE,
+                            manual_scale = FALSE){
   
   
   if (intersect(method, c("global", "local", "manual")) == 0 || length(average) != 1) {

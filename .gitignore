@@ -6,3 +6,5 @@
 .quarto
 .healr.Rproj
 inst/doc
+/doc/
+/Meta/

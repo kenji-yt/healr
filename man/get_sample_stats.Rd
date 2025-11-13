@@ -16,7 +16,7 @@ get_sample_stats(
 
 \item{n_threads}{Number of threads to use ('1' by default).}
 
-\item{method}{The type of statistic computed ('median' by default). Options are 'median', 'mean', 'sd', 'is.na' and 'length'.}
+\item{method}{The type of statistic computed ('median' by default). Options are 'median', 'local_median' (by subgenome), 'mean', 'local_mean', 'sd', 'is.na' and 'length'.}
 
 \item{sample_type}{Logical on choice to return information about wether the sample is polyploid or not.}
 }

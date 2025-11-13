@@ -2,14 +2,15 @@
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param mappability_threshold Threshold average per bin mappability value below which bins are ignored ('0.9' by default).
-#' @param gc_quantile Bins with GC content below first and above last quantiles are ignored. Set to 'FALSE' for no filtering ('80' by default).
-#' @param count_threshold How many standard deviations above the count mean to consider a bin as outlier. Set to 'FALSE' for no count filtering (2 by default).
+#' @param gc_threshold How many standard deviations away from the GC content median to consider a bin as outlier. Set to 'FALSE' for no filtering ('2' by default).
+#' @param count_threshold How many standard deviations above the count median to consider a bin as outlier. Set to 'FALSE' for no count filtering ('2' by default).
 #' @param replace_by_NA Should outliers count values be set to NA ('TRUE' by default). Otherwise outliers are set to the threshold defined by count_threshold.
 #' @param log_file A file to write the filtering statistics to ('FALSE' by default).
 #'
 #' @return A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
 #' @export
-filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = 80, count_threshold = 2, replace_by_NA = TRUE, log_file = FALSE) {
+filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2,
+                        count_threshold = 2, replace_by_NA = TRUE, log_file = FALSE) {
   
   if(log_file!=FALSE){
     sink(log_file, append = TRUE, split = TRUE)
@@ -17,13 +18,13 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = 80
   
   # Filtering the data
   if (count_threshold != FALSE) {
-    smp_means <- get_sample_stats(heal_list, method = "mean")
+    smp_medians <- get_sample_stats(heal_list, method = "median")
     smp_sd <- get_sample_stats(heal_list, method = "sd")
 
     filtered_list <- lapply(heal_list, function(df) {
       current_samples <- setdiff(colnames(df$bins), c("chr", "start", "mappability", "gc_content", "end"))
       for (smp in current_samples) {
-        threshold_value <- smp_means[[smp]][[1]] + count_threshold * smp_sd[[smp]]
+        threshold_value <- smp_medians[[smp]][[1]] + count_threshold * smp_sd[[smp]]
         if (replace_by_NA == TRUE) {
           df$bins[[smp]][df$bins[[smp]] > threshold_value] <- NA
         } else {
@@ -41,25 +42,33 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = 80
   cat("| Filtering bins:  |\n")
   cat("===================\n")
   cat("\n")
+  
+  if (gc_threshold != FALSE) {
+    gc_vec <- unlist(lapply(heal_list, function(prog_list){
+      prog_list$bins$gc_content
+    }))
+    gc_median <- median(gc_vec)
+    gc_sd <- sd(gc_vec)
+  }
+    
   filtered_list <- foreach::foreach(pr_name = names(heal_list)) %do% {
     prog <- heal_list[[pr_name]]
 
     mappa_keep <- prog$bins$mappability >= mappability_threshold
 
-    if (gc_quantile != FALSE) {
-      gc_quant <- stats::quantile(prog$bins$gc_content, probs = seq(0, 1, 1 / gc_quantile))
-      gc_min <- gc_quant[2]
-      gc_max <- gc_quant[length(gc_quant) - 1]
+    if (gc_threshold != FALSE) {
+      gc_min <- gc_median - gc_threshold * gc_sd
+      gc_max <- gc_median + gc_threshold * gc_sd
       gc_keep <- prog$bins$gc_content >= gc_min & prog$bins$gc_content <= gc_max
 
       which_keep <- gc_keep & mappa_keep
 
       mappa_perc <- round(sum(mappa_keep) / nrow(prog$bins), 2)
-      gc_perc <- 1 - 2 * (1 / gc_quantile)
+      gc_perc <- round(sum(gc_keep) / nrow(prog$bins), 2)
       total_perc <- round(sum(which_keep) / nrow(prog$bins), 2)
       cat(
         paste0(pr_name, " filtering:  ", total_perc * 100, "% passed filters. \n"),
-        paste0("                ", gc_perc * 100, "% passed ", gc_quantile, "th GC quantile filter. \n"),
+        paste0("                ", gc_perc * 100, "% passed ", gc_threshold, " standard deviation away from median GC filter. \n"),
         paste0("                ", mappa_perc * 100, "% passed ", mappability_threshold, " mappability filter. \n")
       )
       cat("\n")
@@ -118,23 +127,26 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_quantile = 80
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param n_threads Number of threads to use ('1' by default).
-#' @param window_size Size of the gc windows in which to compute the medians ('0.01' by default). 
-#' @param loess_span The span variable to pass to the loess() function (0.75 by default).
-#' @param local_normalize The subgenomes have different averages, correct GC based on local medians ('FALSE' by default). 
+#' @param n_windows Number of gc windows in which to compute the medians ('10' by default). 
+#' @param loess_span The span variable to pass to the loess() function ('0.75' by default).
+#' @param local_normalize Use local medians to normalize ('FALSE' by default). 
 #' @param prog_ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param output_dir Either the name of a directory to write all plots to (will create one if nonexistent) or FALSE (plots are printed only). Defaults to FALSE. 
-#' @param print_plots Should plots of the raw and corrected read counts be created (default = TRUE).
-#' @param ymax How many standard deviations above the count median should the plot limit be (default = 1).
-#' @param point_size Size of points on plots (default = 0.01).
-#' @param alpha Transparency of points on plots (default = 0.5).
-#' @param linewidth Width of loess regression line (default = 1). 
+#' @param ymax The y limit of the plots (default = '4').
+#' @param cex Size of points on plots (default = '1').
+#' @param pch Point type (default = '1').
+#' @param alpha Point transparency (default = '0.3')
+#' @param linewidth Width of loess regression line (default = '3'). 
+#' @param device Plot device (as argument to ggplot2::ggsave) ('pdf' by default).
 #'
 #' @returns A heal list with the counts in the 'bins' data tables corrected based on GC content effect. 
 #' Also returns a list of lots of corrected and uncorrected counts in the 'gc_correction_plots' list item.
 #' @export
 #'
 #' @examples
-correct_gc <- function(heal_list, n_threads=1, window_size = 0.01, loess_span = 0.75, prog_ploidy = 2, local_normalize = FALSE, output_dir=FALSE, print_plots=TRUE, ymax=1, point_size=0.01, alpha=0.5, linewidth = 1){
+correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75,
+                       prog_ploidy = 2, local_normalize = FALSE, output_dir=FALSE,
+                       ymax = 4, cex = 1, pch = 1, alpha = 0.3, linewidth = 3, device = "pdf"){
   
   smp_types <- get_sample_stats(heal_list = heal_list, sample_type = TRUE)
   
@@ -145,196 +157,124 @@ correct_gc <- function(heal_list, n_threads=1, window_size = 0.01, loess_span = 
   }
   
   polyploid_samples <- smp_types$sample[smp_types$type=="polyploid"]
+  progenitors <- names(heal_list)
+  
+  # Make a vector to identify the progenitor
+  prog_vec <- unlist(foreach::foreach(i = 1:length(heal_list))%do%{
+    return(rep(progenitors[i], nrow(heal_list[[progenitors[i]]]$bins)))
+  })
   
   gc_list <- lapply(heal_list, function(prog_list) {
     return(prog_list$bins$gc_content)
   })
   gc_vec <- unlist(gc_list, use.names = FALSE)
-  
+
+  # Normalize and get the relationship over all sample
   doParallel::registerDoParallel(n_threads)
-  corrected_values_and_plots_list <- foreach::foreach(smp = polyploid_samples)%dopar%{
-  
-    count_list <- lapply(heal_list, function(prog_list) {
-      return(prog_list$bins[[smp]])
+  gc_and_norm_counts_list <- foreach::foreach(smp = polyploid_samples)%dopar%{
+    
+    norm_counts_vec <- unlist(foreach::foreach(prog = progenitors)%do%{
+      normalized_counts <- heal_list[[prog]]$bins[[smp]] / smp_medians[[smp]][[prog]] * prog_ploidy
+      return(normalized_counts)
     })
     
-    if(local_normalize == TRUE){
-      for(prog_name in names(count_list)){
-        count_list[[prog_name]] <- count_list[[prog_name]]/smp_medians[[smp]][[prog_name]] * prog_ploidy
-      }
-    }
-    count_vec <- unlist(count_list, use.names = FALSE)
-  
-    ## Take the 0.01 edge values closest to & including the min and max
-    min_round <- round(min(gc_vec), digits = 2)
-    max_round <- round(max(gc_vec), digits = 2)
-    
-    gc_range <- seq(min_round, max_round, window_size)
-    
-    min_vec <- c(min(gc_vec)-0.0001, min_round) # the 0.001 is to enable less or equal opperation below
-    gc_range[1] <- min_vec[which.min(min_vec)]
-    
-    max_vec_2 <- c(max(gc_vec), max_round)
-    gc_range[length(gc_range)] <- max_vec_2[which.max(max_vec_2)]
-    
-    median_list <- foreach::foreach(i = 1:(length(gc_range)-1))%do%{
-      return(median(count_vec[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]], na.rm = TRUE))
-    }
-    median_vec <- unlist(median_list)
-    
-    gc_midpoints <- gc_range[1:(length(gc_range)-1)] + window_size/2
-    model <- loess(median_vec ~ gc_midpoints, span = loess_span)
-    smooth_counts <- predict(model)
-    
-    if(local_normalize == TRUE){
-      offsets <- 2 - smooth_counts
-    }else{
-      offsets <- smp_medians[[smp]][[1]] - smooth_counts # Taking global median
-    }
-    
-    non_na_ranges <- which(!is.na(median_vec))
-    corrected_count_vec <- count_vec
-    for(i in 1:length(non_na_ranges)){
-      range_index <- non_na_ranges[i]
-      bottom <- gc_range[range_index]
-      top <- gc_range[range_index+1] 
-      corrected_count_vec[gc_vec>bottom & gc_vec<=top] <- count_vec[gc_vec>bottom & gc_vec<=top] + offsets[i]
-    }
-    
-    ggplot_dt <- data.frame(gc_content=gc_vec, read_counts=count_vec)
-    gg_line_dt <- data.frame(midpoints=gc_midpoints[!is.na(median_vec)], loess=smooth_counts)
-    ggplot_dt_corrected <- data.frame(gc_content=gc_vec, corrected_read_counts=corrected_count_vec)
-    
-    
-    plot_list <- list()
-   
-    if(local_normalize == TRUE){
-      title = paste0(smp, " Local Normalized")
-      average_line_val = 2 
-    }else{
-      title = smp
-      average_line_val = smp_medians[[smp]][[1]]
-    }
-    
-    plot_list$raw <- ggplot2::ggplot(ggplot_dt, ggplot2::aes(gc_content, read_counts)) +
-      ggplot2::geom_point(size = point_size, alpha = alpha) + 
-      ggplot2::geom_line(data = gg_line_dt, ggplot2::aes(x = midpoints, y = loess), color = "blue", linewidth = linewidth) +
-      ggplot2::geom_hline(yintercept = average_line_val, color = "red", linetype = "dashed", linewidth = 0.5) +
-      ggplot2::ylim(min(count_vec),median(count_vec, na.rm = TRUE)+ymax*sd(count_vec, na.rm = TRUE)) + 
-      ggplot2::labs(
-        x = "GC content", 
-        y = "Read Counts", 
-        title = title
-      )
-    plot_list$corrected <- ggplot2::ggplot(ggplot_dt_corrected, ggplot2::aes(gc_content, corrected_read_counts)) +
-      ggplot2::geom_point(size = point_size, alpha = alpha) + 
-      ggplot2::geom_hline(yintercept = average_line_val, color = "red", linetype = "dashed", linewidth = 0.5) +
-      ggplot2::ylim(min(count_vec),median(count_vec, na.rm = TRUE)+ymax*sd(count_vec, na.rm = TRUE)) + 
-      ggplot2::labs(
-        x = "GC content", 
-        y = "Corrected Read Counts",
-        title = title
-      )
-    
-    output_list <- list(corrected_count_vec, plot_list)
-    names(output_list) <- c("corrected_counts", "plots")
-    return(output_list)
+    out_table <- data.table::data.table(gc = gc_vec, count = norm_counts_vec, sample = rep(smp, length(gc_vec)), progenitor = prog_vec)
   }
   doParallel::stopImplicitCluster()
-    
-  names(corrected_values_and_plots_list) <- polyploid_samples
   
-  corrected_counts_list <- lapply(corrected_values_and_plots_list, function(smp){
-    return(smp$corrected_counts)
-  })
-  corrected_counts_dt <- data.table::as.data.table(corrected_counts_list)
-  colnames(corrected_counts_dt) <- polyploid_samples
+  gc_and_norm_counts_dt <- data.table::rbindlist(gc_and_norm_counts_list)
   
-  dt_nrows <- cumsum(unlist(lapply(heal_list, function(prog_list) {
-    return(nrow(prog_list$bins))
-  })))
+  # Get regular intervals of GC spaning the range, and get median read count in each interval
+  start <- min(gc_and_norm_counts_dt$gc) - 0.000001 # To make more than below
+  end <- max(gc_and_norm_counts_dt$gc)
   
-  per_prog_dt_list<- foreach::foreach(i = 1:length(dt_nrows))%do%{
-    if(i == 1){ 
-      start <- 1
+  total_range <- end - start
+  step <- total_range / (n_windows + 1)
+  
+  gc_range <- seq(from = start, to = end, by = step)
+  
+  median_list <- foreach::foreach(i = 1:(length(gc_range)-1))%do%{
+    return(median(gc_and_norm_counts_dt$count[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]], na.rm = TRUE))
+  }
+  median_vec <- unlist(median_list)
+  
+  mid_points <- gc_range[1:(length(gc_range)-1)] + (step/2)
+  
+  loess_model <- loess(median_vec ~ mid_points, span = loess_span)
+  smooth_counts <- predict(loess_model)
+  
+  # Correct counts
+  offset <- 2 - smooth_counts
+  gc_and_norm_counts_dt$corrected <- gc_and_norm_counts_dt$count
+  
+  for(i in 1:(length(gc_range)-1)){
+    gc_and_norm_counts_dt$corrected[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]] <- gc_and_norm_counts_dt$corrected[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]] + offset[i]
+  }
+  
+  # Show plots
+  if(output_dir != FALSE){
+    if(device == "svg"){
+      svg(paste0(output_dir, "/gc_correction.", device), width = 14, height = 7)
+    }else if(device == "pdf"){
+      pdf(paste0(output_dir, "/gc_correction.", device), width = 14, height = 7)
+    }else if(device == "png"){
+      png(paste0(output_dir, "/gc_correction.", device), width = 14, height = 7)
     }else{
-      start <- dt_nrows[i-1]+1
-    }
-    end <- dt_nrows[i]
-    prog_dt <- corrected_counts_dt[start:end, ]
-    return(prog_dt)
-  }
-  names(per_prog_dt_list) <- names(dt_nrows)
-  
-  corrected_heal_list <- foreach::foreach(prog =  names(dt_nrows))%do%{
-    bins_no_count_dt <- heal_list[[prog]]$bins[, 1:5]
-    corrected_counts_dt <- per_prog_dt_list[[prog]]
-    corrected_bins_dt <- cbind(bins_no_count_dt, corrected_counts_dt)
-    
-    heal_list[[prog]]$bins <- corrected_bins_dt
-    
-    return(heal_list[[prog]])
-  }
-  
-  names(corrected_heal_list) <- names(heal_list)
-  
-  # If we use locally normalized entries we convert values back to counts. 
-  if(local_normalize == TRUE){
-    
-    for(prog in names(corrected_heal_list)){
-      
-      doParallel::registerDoParallel(n_threads)
-      back_to_normal_values <- foreach::foreach(smp = polyploid_samples)%dopar%{
-        
-        returned_to_original_scale <- corrected_heal_list[[prog]]$bins[[smp]] / 2 * smp_medians[[smp]][[prog]]
-        returned_to_original_scale[which(returned_to_original_scale < 0)] <- 0
-        return(returned_to_original_scale)
-      }
-      doParallel::stopImplicitCluster()
-      
-      names(back_to_normal_values) <- polyploid_samples
-      
-      corrected_dt_sample <- data.table::as.data.table(back_to_normal_values)
-      corrected_heal_list[[prog]]$bins[, (polyploid_samples) := corrected_dt_sample]
+      stop("Device not valid. Choose from 'pdf', 'png' or 'svg'.")
     }
   }
   
-  plot_list <- lapply(corrected_values_and_plots_list, function(smp){
-    return(smp$plots)
-  })
+  par(mfrow = c(1, 2))
+  plot(gc_and_norm_counts_dt$gc, gc_and_norm_counts_dt$count,
+       main = "LOESS Fit of Normalized Read Count ~ GC content", ylim = c(0, ymax),
+       xlab = "GC content", ylab = "Normalized Count", pch = pch, col = rgb(0, 0, 0, alpha = alpha), cex = cex)
+  abline(h = 2, lty = 2)
+  lines(mid_points, smooth_counts, col = "blue", lwd = linewidth)
+  segments(
+    x0 = mid_points,
+    y0 = smooth_counts - (0.03 / 2),  
+    x1 = mid_points,
+    y1 = smooth_counts + (0.03 / 2),   
+    col = "blue", lwd = linewidth + 3)
+  
+  plot(gc_and_norm_counts_dt$gc, gc_and_norm_counts_dt$corrected,
+       main = "GC Corrected Read Count ~ GC content", ylim = c(0, ymax),
+       xlab = "GC content", ylab = "Corrected Normalized Count", pch = pch, col = rgb(0, 0, 0, alpha = alpha), cex = cex)
+  abline(h = 2, lty = 2)
   
   if(output_dir != FALSE){
-    
-    sample_names <- names(plot_list)
-    
-    for(smp in sample_names){
-      
-      smp_output_dir <- paste0(output_dir, "/", smp)
-      dir.create(smp_output_dir, recursive = TRUE)
-      file <- paste0(smp_output_dir, "/", smp, "_GC_correction.png")
-      png(file)
-      gridExtra::grid.arrange(plot_list[[smp]]$raw, plot_list[[smp]]$corrected)
-      dev.off()
-
-      if(print_plots==TRUE){
-        gridExtra::grid.arrange(plot_list[[smp]]$raw, plot_list[[smp]]$corrected)
-      }
-    }
-    
-  }else{
-    
-    if(print_plots==TRUE){
-      sample_names <- names(plot_list)
-      
-      for(smp in sample_names){
-        
-        gridExtra::grid.arrange(plot_list[[smp]]$raw, plot_list[[smp]]$corrected)
-        
-      }
-    }
+    dev.off()
   }
   
-  return(corrected_heal_list)
+  # Use the relationship to normalize counts in all samples
+  corrected_bins_dt <- foreach::foreach(prog = progenitors)%do%{
+    
+    doParallel::registerDoParallel(n_threads)
+    corrected_values <- foreach::foreach(smp = polyploid_samples)%dopar%{
+      
+      norm_corrected <- gc_and_norm_counts_dt$count[gc_and_norm_counts_dt$progenitor == prog & gc_and_norm_counts_dt$sample == smp]
+      corrected_vec <- norm_corrected * smp_medians[[smp]][[prog]] / prog_ploidy
+      
+      return(corrected_vec)
+    }
+    doParallel::stopImplicitCluster()
+    names(corrected_values) <- polyploid_samples
+    
+    smp_dt <- data.table::as.data.table(corrected_values)
+    
+    bin_info_dt <- heal_list[[prog]]$bins[, 1:5]
+    
+    prog_corrected_dt <- cbind(bin_info_dt, smp_dt)
+    
+    return(prog_corrected_dt)
+  }
+  names(corrected_bins_dt) <- progenitors
+  
+  for(prog in progenitors){
+    heal_list[[prog]]$bins <- corrected_bins_dt[[prog]]
+  }
+  
+  return(heal_list)
 }
 
 #' Replace copy number spans shorter than user defined length by border value.

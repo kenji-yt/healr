@@ -31,5 +31,13 @@ You can install the development version of healr from
 devtools::install_github("kenji-yt/healr")
 ```
 
+## Bugs, Suggestions, Help
+
+If you wish to report an error/bug, ask for help, or suggest changes and
+new features, please open an issue
+[here](https://github.com/kenji-yt/healr/issues).
+
+## Usage
+
 Details on how to use *healr* can be found in the vignette of the
 package.

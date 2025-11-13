@@ -345,7 +345,7 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, output_dir = FALS
     if(!is.logical(output_dir)){
       dir.create(file.path(output_dir))
       for(t in device_vector){
-        ggplot2::ggsave(file=paste0(output_dir, "/", smp, "/", smp, "_riparian.", t), device = t, plot=plot, ...)
+        ggplot2::ggsave(file=paste0(output_dir, "/", smp, "/", smp, "_riparian.", t), device = t, plot=plot, create.dir = TRUE, ...)
       }
     }
   }

@@ -4,7 +4,15 @@
 \alias{plot_heal_heat_map}
 \title{Plot pairwise heatmap}
 \usage{
-plot_heal_heat_map(alignment, view_samples = FALSE, output_dir = FALSE)
+plot_heal_heat_map(
+  alignment,
+  view_samples = FALSE,
+  output_dir = FALSE,
+  xrange = FALSE,
+  yrange = FALSE,
+  device = "pdf",
+  ...
+)
 }
 \arguments{
 \item{alignment}{A heal alignment object created with get_heal_alignment().}
@@ -12,6 +20,14 @@ plot_heal_heat_map(alignment, view_samples = FALSE, output_dir = FALSE)
 \item{view_samples}{A vector of sample names to plot (as character)('FALSE' by default).}
 
 \item{output_dir}{The name of a directory to write all plots to. Will create one if nonexistent.}
+
+\item{xrange}{A sequence of value to show for the x axis, such as start:finish (example 1:5) ('FALSE' by default). Make sure to set both xrange and yrange.}
+
+\item{yrange}{A sequence of value to show for the y axis, such as start:finish (example 1:5) ('FALSE' by default). Make sure to set both xrange and yrange.}
+
+\item{device}{Plot device (as argument to ggplot2::ggsave) ('pdf' by default).}
+
+\item{...}{Any arguments you wish to pass to ggplot2::ggsave().}
 }
 \value{
 Nothing. Plots are shown and/or saved to output_dir.

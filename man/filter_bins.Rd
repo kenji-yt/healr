@@ -7,9 +7,10 @@
 filter_bins(
   heal_list,
   mappability_threshold = 0.9,
-  gc_quantile = 80,
+  gc_threshold = 2,
   count_threshold = 2,
-  replace_by_NA = TRUE
+  replace_by_NA = TRUE,
+  log_file = FALSE
 )
 }
 \arguments{
@@ -17,11 +18,13 @@ filter_bins(
 
 \item{mappability_threshold}{Threshold average per bin mappability value below which bins are ignored ('0.9' by default).}
 
-\item{gc_quantile}{Bins with GC content below first and above last quantiles are ignored. Set to 'FALSE' for no filtering ('80' by default).}
+\item{gc_threshold}{How many standard deviations away from the GC content median to consider a bin as outlier. Set to 'FALSE' for no filtering ('2' by default).}
 
-\item{count_threshold}{How many standard deviations above the count mean to consider a bin as outlier. Set to 'FALSE' for no count filtering (2 by default).}
+\item{count_threshold}{How many standard deviations above the count median to consider a bin as outlier. Set to 'FALSE' for no count filtering ('2' by default).}
 
 \item{replace_by_NA}{Should outliers count values be set to NA ('TRUE' by default). Otherwise outliers are set to the threshold defined by count_threshold.}
+
+\item{log_file}{A file to write the filtering statistics to ('FALSE' by default).}
 }
 \value{
 A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).

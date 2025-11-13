@@ -19,6 +19,7 @@
 #' @param bin_point_alpha The transparency of the normalized bin count values as input to ggplot2::goem_point alpha argument ('0.4' by default). 
 #' @param bin_point_size Size of the normalized bin count values as input to ggplot2::goem_point size argument ('2' by default).
 #' @param cn_line_width Thickness of the line showing the copy number as input to ggplot2::geom_path linewidth argument ('2' by default).
+#' @param device Plot device (as argument to ggplot2::ggsave) ('pdf' by default).
 #' @param ... Any arguments you wish to pass to ggplot2::ggsave().
 #' 
 #' @return Either nothing of a ggplot object showing several samples together. The plot is always printed. 
@@ -28,8 +29,9 @@
 plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
                           prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE,
                           method = "global", average = "median", average_list = FALSE, return_plot = FALSE,
-                          chr_label_size = 4, cn_label_size = 3, size_x_axis_title = 14, size_y_axis_title = 14,
-                          sample_name_size = 3,  bin_point_alpha = 0.4, bin_point_size = 2, cn_line_width = 2, ...){
+                          chr_label_size = 4, cn_label_size = 3, size_x_axis_title = 14, 
+                          size_y_axis_title = 14, sample_name_size = 3,  bin_point_alpha = 0.4,
+                          bin_point_size = 2, cn_line_width = 2, device = "pdf", ...){
   
   # Check input to see if it's appropriate
   if(!is.logical(add_bins)){
@@ -79,7 +81,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   }
   
   samples <- rev(view_samples)
-  
+       
   cat(paste0("Plotting copy number for ", paste(samples, collapse = ", "), ".\n"))
   
   if (output_dir != FALSE) {
@@ -296,11 +298,11 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   print(plot)
   
   if(output_dir!=FALSE){
-    file_path <- paste0(output_dir,"/heal_multisample_genomewide_plot.pdf")
+    file_path <- paste0(output_dir,"/heal_multisample_genomewide_plot.", device)
     if (file.exists(file_path)) {
       stop(paste0("Already a file at ", file_path,". Exiting.."))
     } else {
-      ggplot2::ggsave(filename = file_path, plot = plot, ...)
+      ggplot2::ggsave(filename = file_path, plot = plot, device = device, ...)
       cat(paste0("Plot saved at ", file_path,"."))
     }
   }
@@ -326,6 +328,10 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
 #' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
 #' @param average_list Same as in get_copy_number(). 
 #' @param ylim_max Maximum y axis value when plotting copy number. 
+#' @param device Plot device (as argument to ggplot2::ggsave) ('png' by default).
+#' @param width Width of the plot output (as argument to ggplot2::ggsave) ('6' by default).
+#' @param height Height of the plot output (as argument to ggplot2::ggsave) ('4' by default).
+#' @param units Units of the plot output (as argument to ggplot2::ggsave) ('in' by default).
 #' @param ... Any arguments you wish to pass to ggplot2::geom_point()
 #'
 #' @return Either nothing or a list of plots.
@@ -333,9 +339,10 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
 #'
 plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
                       n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, 
-                      add_bins = TRUE, add_DNAcopy = FALSE, color_map = FALSE, specific_chr = FALSE,
-                      return_list = FALSE, method = "global", average = "median",
-                      average_list = FALSE, linewidth=2, ylim_max=8, ...) {
+                      add_bins = TRUE, add_DNAcopy = FALSE, color_map = FALSE, 
+                      specific_chr = FALSE, return_list = FALSE, method = "global", 
+                      average = "median", average_list = FALSE, linewidth=2, ylim_max=8, 
+                      device = "png", width = 6, height = 4, units = "in", ...) {
   
   # Check input to see if it's appropriate
   if(!is.logical(add_bins)){
@@ -441,7 +448,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
       plot_list <- foreach::foreach(chr = chromo) %dopar% {
         
         if (output_dir != FALSE) {
-          out_file <- paste0(ref_dir, "/", prog, "/", chr, ".png")
+          out_file <- paste0(ref_dir, "/", prog, "/", chr, ".", device)
         }
 
         
@@ -461,10 +468,11 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
             normalized_mean_vec <- heal_list[[prog]]$DNAcopy[[smp]]$output$seg.mean[which_index] / average_list[[smp]][[prog]] * prog_ploidy
             DNAcopy_mean <- rep(normalized_mean_vec)
           }else{
-            DNAcopy_mean <- rep(heal_list[[prog]]$DNAcopy[[smp]]$output$seg.mean[which_index], each = 2)
+            DNAcopy_mean <- rep(heal_list[[prog]]$DNAcopy[[smp]]$output$seg.mean[which_index])
           }
           
-          DNAcopy_df <- data.frame(x_start = start_vec, x_end = end_vec, mean = DNAcopy_mean) 
+          DNAcopy_df <- data.frame(x_start = start_vec, x_end = end_vec, mean = DNAcopy_mean, color_legend = rep("Segment Mean", length(end_vec)))
+          color_map <- c(color_map, "Segment Mean" = "red")
         }
         
         if (plot_cn == TRUE) {
@@ -474,36 +482,47 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
           if (add_bins == TRUE) {
           
             y_vec_pts <- (y_vec_pts / average_list[[smp]][[prog]]) * prog_ploidy
+            
+            color_map <- c(color_map, "Normalized Count" = "black")
              
           }
 
-          plot_df <- data.frame(start = x, counts = y_vec_pts, copy = y_vec_line, progenitor = rep(prog, length(y_vec_line)))
+          plot_df <- data.frame(start = x, counts = y_vec_pts, copy = y_vec_line, Legend = rep("Copy Number", length(y_vec_line)))
 
+          final_color_map <- color_map
+          names(final_color_map)[names(color_map)==prog] <- "Copy Number"
+          
           bin_plot <- ggplot2::ggplot() +
-            ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, color = progenitor), linewidth = linewidth) +
-            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = progenitor), ..., size = 1, alpha = 0.1) +
+            ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, color = Legend), linewidth = linewidth) +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = Legend), ..., size = 1, alpha = 0.1) +
             ggplot2::theme_minimal() +
-            ggplot2::scale_color_manual(values = color_map) +
+            ggplot2::scale_color_manual(values = final_color_map) +
             ggplot2::ylim(0, ylim_max) +
-            ggplot2::labs(title = paste(chr, smp), x = "Position", y = "Copy Number") +
+            ggplot2::labs(title = paste0(chr, "; ", smp, "; ", prog), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
+        
+          if(add_bins == TRUE){
+            bin_plot <- bin_plot +
+              ggplot2::geom_point(ggplot2::aes(x = NA, y = NA, color = "Normalized Count"), shape = 16) 
+          }
           
           if(add_DNAcopy == TRUE){
             bin_plot <- bin_plot + 
               ggplot2::geom_segment(
                 data = DNAcopy_df,
-                ggplot2::aes(x = x_start, xend = x_end, y = mean, yend = mean),
-                color = "red",
-                linewidth = 0.7
-              )
+                ggplot2::aes(x = x_start, xend = x_end, y = mean, yend = mean, color = color_legend),
+                linewidth = 0.7) +
+              ggplot2::scale_color_manual(values = final_color_map)
           }
 
           if (output_dir != FALSE) {
-            ggplot2::ggsave(filename = out_file, bin_plot, device = "png", width = 6, height = 4, units = "in")
+            ggplot2::ggsave(filename = out_file, bin_plot, device = device, width = width, height = height, units = units)
           } else {
             return(bin_plot)
           }
+          
         } else {
+          
           plot_df <- data.frame(start = x, counts = y_vec_pts, progenitor = rep(prog, length(y_vec_pts)))
 
           bin_plot <- ggplot2::ggplot() +
@@ -517,14 +536,13 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
             bin_plot <- bin_plot + 
               ggplot2::geom_segment(
                 data = DNAcopy_df,
-                ggplot2::aes(x = x_start, xend = x_end, y = mean, yend = mean),
-                color = "red",
-                linewidth = 0.7
-              )
+                ggplot2::aes(x = x_start, xend = x_end, y = mean, yend = mean, color = color_legend),
+                linewidth = 0.7) +
+              ggplot2::scale_color_manual(values = color_map)
           }
 
           if (output_dir != FALSE) {
-            ggplot2::ggsave(filename = out_file, bin_plot, device = "png", width = 6, height = 4, units = "in")
+            ggplot2::ggsave(filename = out_file, bin_plot, device = device, width = width, height = height, units = units)
           } else {
             return(bin_plot)
           }
@@ -566,12 +584,21 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
 #' @param return_list Logical: return a list of plots if view_sample.
 #' @param ylim_max Maximum y axis value when plotting copy number. 
+#' @param device Plot device (as argument to ggplot2::ggsave) ('png' by default).
+#' @param width Width of the plot output (as argument to ggplot2::ggsave) ('6' by default).
+#' @param height Height of the plot output (as argument to ggplot2::ggsave) ('4' by default).
+#' @param units Units of the plot output (as argument to ggplot2::ggsave) ('in' by default).
 #' @param ... Any arguments you wish to pass to ggplot2::geom_point()
 #'
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_alignment <- function(heal_list, alignment, method = "global", average = "median", average_list=FALSE, view_sample = FALSE, output_dir = FALSE, n_threads = 1, add_bins = FALSE, prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE, return_list = FALSE, ylim_max=8, ...) {
+plot_alignment <- function(heal_list, alignment, method = "global",
+                           average = "median", average_list=FALSE, view_sample = FALSE,
+                           output_dir = FALSE, n_threads = 1, add_bins = FALSE,
+                           prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE,
+                           return_list = FALSE, ylim_max=8, 
+                           device = "png", width = 6, height = 4, units = "in", ...) {
   
   if (!add_bins %in% c(FALSE, "ref", "all")) {
     stop("Please input a valid 'add_bins' value. Allowed are: FALSE, 'ref' and 'all'. Exiting..")
@@ -664,7 +691,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
       plot_list <- foreach::foreach(chr = chromo) %dopar% {
 
         if (output_dir != FALSE) {
-          out_file <- paste0(ref_dir, "/", chr, ".png")
+          out_file <- paste0(ref_dir, "/", chr, ".", device)
         }
 
         # Get the current reference line data
@@ -690,7 +717,7 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
           y_vec_line <- c(y_vec_line, y_alt) 
         }
 
-        lines_df <- data.frame(start = x_vec_line, copy = y_vec_line, subgenome = subgnm_group)
+        lines_df <- data.frame(start = x_vec_line, copy = y_vec_line, Legend = subgnm_group)
         
         # if add bins, create a data table with bin information
         if (add_bins != FALSE) {
@@ -704,7 +731,9 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
           y_vec_pts <- (y_vec_pts / average_list[[smp]][[ref]]) * prog_ploidy 
           
           subgnm_group <- rep(ref, length(y_vec_pts))
-
+          
+          color_map <- c(color_map, "Normalized Count" = "black")
+          
           # add bins of alt if all
           if (add_bins == "all") {
             for (alt in alt_gnms) {
@@ -741,33 +770,34 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
             }
           }
 
-          pts_df <- data.frame(start = x_vec_pts, points = y_vec_pts, subgenome = subgnm_group)
+          pts_df <- data.frame(start = x_vec_pts, points = y_vec_pts, Legend = subgnm_group)
 
           bin_plot <- ggplot2::ggplot() +
-            ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, color = subgenome), linewidth = 2) +
-            ggplot2::geom_point(data = pts_df, ggplot2::aes(x = start, y = points, color = subgenome), ..., size = 1, alpha = 0.1) +
+            ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, color = Legend), linewidth = 2) +
+            ggplot2::geom_point(data = pts_df, ggplot2::aes(x = start, y = points, color = Legend), ..., size = 1, alpha = 0.1) +
+            ggplot2::geom_point(ggplot2::aes(x = NA, y = NA, color = "Normalized Count"), shape = 16) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
             ggplot2::ylim(-0.1, ylim_max) +
-            ggplot2::labs(title = paste(chr, ref, smp), x = "Position", y = "Copy Number") +
+            ggplot2::labs(title = paste(chr, "; ", smp, "; ", ref), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
 
           if (output_dir != FALSE) {
-            ggplot2::ggsave(filename = out_file, bin_plot, device = "png", width = 6, height = 4, units = "in")
+            ggplot2::ggsave(filename = out_file, bin_plot, device = device, width = width, height = height, units = units)
           } else {
             return(bin_plot)
           }
         } else {
           aln_plot <- ggplot2::ggplot() +
-            ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, color = subgenome), linewidth = 2) +
+            ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, color = Legend), linewidth = 2) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
             ggplot2::ylim(-0.1, ylim_max) +
-            ggplot2::labs(title = paste(chr, smp, ref), x = "Position", y = "Copy Number") +
+            ggplot2::labs(title = paste(chr, "; ", smp, "; ", ref), x = "Position", y = "Copy Number") +
             ggplot2::theme_bw()
 
           if (output_dir != FALSE) {
-            ggplot2::ggsave(filename = out_file, aln_plot, device = "png", width = 6, height = 4, units = "in")
+            ggplot2::ggsave(filename = out_file, aln_plot, device = device, width = width, height = height, units = units)
           } else {
             return(aln_plot)
           }
@@ -816,7 +846,11 @@ plot_alignment <- function(heal_list, alignment, method = "global", average = "m
 #' @export
 #'
 #' @importFrom data.table :=
-plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, show_discordant = FALSE, heal_list = FALSE, alignment = FALSE, corrected_alignment = FALSE, ylim_max = FALSE, color_vec = FALSE, prog_ploidy = 2, n_threads = 1, normalize = FALSE, average = "median", average_list = FALSE){
+plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
+                           show_discordant = FALSE, heal_list = FALSE, alignment = FALSE,
+                           corrected_alignment = FALSE, ylim_max = FALSE, color_vec = FALSE,
+                           prog_ploidy = 2, n_threads = 1, normalize = FALSE,
+                           average = "median", average_list = FALSE){
   
   is_align_and_count_data <- is.list(alignment) & is.list(heal_list)
   if (show_discordant == TRUE & !is_align_and_count_data) {
@@ -1029,81 +1063,22 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE, s
 }
 
 
-#' Plot linear regression of copy number at anchors between each pair of progenitors
-#'
-#' @param alignment A heal alignment object created with get_heal_alignment().
-#' @param view_samples A vector of sample names to plot (as character)('FALSE' by default).
-#' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
-#' @param color The color of the points ("blue4" by default).
-#' @param alpha The transparency of the points (0.1 by default).
-#' @param width The jitter of points along the x axis.
-#' @param height The jitter of points along the x axis.
-#'
-#' @return Nothing. Plots are shown and/or saved to output_dir.
-#' @export
-#'
-plot_linear_alignment <- function(alignment, view_samples = FALSE, output_dir = FALSE, color = "blue4", alpha = 0.1, width = 0.2, height = 0.2) {
-  
-  polyploid_samples <- names(alignment)
-
-  if (!isFALSE(view_samples)) {
-    if (length(intersect(polyploid_samples, view_samples)) == 0) {
-      stop("Sample names not recognized (or not polyploid) for viewing of alignment. Exiting..")
-    }
-
-    cat(paste("Plotting for:", view_samples, " \n"))
-    polyploid_samples <- view_samples
-  } else if (isFALSE(output_dir)) {
-    stop("No output directory and no 'view_samples' set. One must be set. Exiting..")
-  } else {
-    cat(paste0("Plotting all samples to ", output_dir, ".", "\n"))
-  }
-
-
-  for (smp in polyploid_samples) {
-    cn_cols <- grep("cn_", colnames(alignment[[smp]]), value = TRUE)
-    all_pairs <- utils::combn(cn_cols, 2)
-
-    for (i in 1:ncol(all_pairs)) {
-      
-      pair <- all_pairs[, i]
-      progenitors <- sub("cn_", "", pair)
-      
-      if (output_dir != FALSE) {
-        dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-        out_file <- paste0(output_dir, "/", pair[1], "_vs_", pair[2], "_linear.png")
-      }
-
-      input_dt <- data.table::data.table(x = alignment[[smp]][[pair[1]]], y = alignment[[smp]][[pair[2]]])
-
-      plot <- ggplot2::ggplot(input_dt, ggplot2::aes(x = x, y = y)) +
-        ggplot2::geom_jitter(color = color, alpha = alpha, width = width, height = height) +
-        ggplot2::labs(
-          title = smp,
-          x = paste("Infered CN in", progenitors[1]), y = paste("Infered CN in", progenitors[2])
-        ) +
-        ggplot2::theme_minimal()
-
-      if (output_dir != FALSE) {
-        ggplot2::ggsave(filename = out_file, plot, device = "png", width = 6, height = 4, units = "in")
-      } else {
-        print(plot)
-      }
-    }
-  }
-}
-
-
 #' Plot pairwise heatmap
 #'
 #' @param alignment A heal alignment object created with get_heal_alignment().
 #' @param view_samples A vector of sample names to plot (as character)('FALSE' by default).
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
+#' @param xrange A sequence of value to show for the x axis, such as start:finish (example 1:5) ('FALSE' by default). Make sure to set both xrange and yrange.
+#' @param yrange A sequence of value to show for the y axis, such as start:finish (example 1:5) ('FALSE' by default). Make sure to set both xrange and yrange.
+#' @param device Plot device (as argument to ggplot2::ggsave) ('pdf' by default).
+#' @param ... Any arguments you wish to pass to ggplot2::ggsave().
 #'
 #' @return Nothing. Plots are shown and/or saved to output_dir.
 #' @export
 #'
-plot_heal_heat_map <- function(alignment, view_samples = FALSE, output_dir = FALSE) {
+plot_heal_heat_map <- function(alignment, view_samples = FALSE,
+                               output_dir = FALSE, xrange = FALSE,
+                               yrange = FALSE, device = "pdf", ...) {
   
   polyploid_samples <- names(alignment)
 
@@ -1142,9 +1117,51 @@ plot_heal_heat_map <- function(alignment, view_samples = FALSE, output_dir = FAL
 
       count_table <- as.data.frame(table(input_dt))
       colnames(count_table) <- c("x", "y", "count")
-      count_table$x <- as.factor(count_table$x)
-      count_table$y <- as.factor(count_table$y)
-
+     
+      # Use the manually provided ranges if they exist. 
+      if(!is.logical(xrange)){
+        if(!is.logical(yrange)){
+          
+          xrange <- as.character(xrange)
+          yrange <- as.character(yrange)
+          
+          full_grid <- expand.grid(x = xrange, y = yrange, stringsAsFactors = FALSE)
+          
+          count_table_full <- merge(full_grid, count_table, by = c("x", "y"), all.x = TRUE)
+          
+          count_table_full$count[is.na(count_table_full$count)] <- 0
+          count_table <- count_table_full
+        
+        }else{
+          
+          xrange <- as.character(xrange)
+          y_min <- min(as.numeric(count_table$y))
+          y_max <- max(as.numeric(count_table$y))
+          yrange <- as.character(y_min:y_max)
+          
+          full_grid <- expand.grid(x = xrange, y = yrange, stringsAsFactors = FALSE)
+          
+          count_table_full <- merge(full_grid, count_table, by = c("x", "y"), all.x = TRUE)
+          
+          count_table_full$count[is.na(count_table_full$count)] <- 0
+          count_table <- count_table_full 
+        }
+      }else if(!is.logical(yrange)){
+        
+        x_min <- min(as.numeric(count_table$x))
+        x_max <- max(as.numeric(count_table$x))
+        xrange <- as.character(x_min:x_max)
+        yrange <- as.character(yrange)
+        
+        full_grid <- expand.grid(x = xrange, y = yrange, stringsAsFactors = FALSE)
+        
+        count_table_full <- merge(full_grid, count_table, by = c("x", "y"), all.x = TRUE)
+        
+        count_table_full$count[is.na(count_table_full$count)] <- 0
+        count_table <- count_table_full
+      }
+      
+    
       plot <- ggplot2::ggplot(count_table, ggplot2::aes(x = x, y = y, fill = count)) +
         ggplot2::geom_tile(color = "black") +
         ggplot2::scale_fill_gradient(low = "blue", high = "red", na.value = "grey50") +
@@ -1153,10 +1170,10 @@ plot_heal_heat_map <- function(alignment, view_samples = FALSE, output_dir = FAL
           x = paste("Infered CN in", progenitors[1]), y = paste("Infered CN in", progenitors[2])
         ) +
         ggplot2::theme_minimal()
-
+      
       if (output_dir != FALSE) {
-        out_file <- paste0(output_dir, "/", smp, "/", pair[1], "_vs_", pair[2], "_heat.png")
-        ggplot2::ggsave(filename = out_file, plot, device = "png", width = 6, height = 4, units = "in")
+        out_file <- paste0(output_dir, "/", smp, "/", pair[1], "_vs_", pair[2], "_heat.", device)
+        ggplot2::ggsave(filename = out_file, plot, device = device, width = 6, height = 4, units = "in", ...)
       } else {
         print(plot)
       }

@@ -12,6 +12,7 @@ plot_bins(
   prog_ploidy = 2,
   plot_cn = FALSE,
   add_bins = TRUE,
+  add_DNAcopy = FALSE,
   color_map = FALSE,
   specific_chr = FALSE,
   return_list = FALSE,
@@ -20,6 +21,10 @@ plot_bins(
   average_list = FALSE,
   linewidth = 2,
   ylim_max = 8,
+  device = "png",
+  width = 6,
+  height = 4,
+  units = "in",
   ...
 )
 }
@@ -51,6 +56,14 @@ plot_bins(
 \item{average_list}{Same as in get_copy_number().}
 
 \item{ylim_max}{Maximum y axis value when plotting copy number.}
+
+\item{device}{Plot device (as argument to ggplot2::ggsave) ('png' by default).}
+
+\item{width}{Width of the plot output (as argument to ggplot2::ggsave) ('6' by default).}
+
+\item{height}{Height of the plot output (as argument to ggplot2::ggsave) ('4' by default).}
+
+\item{units}{Units of the plot output (as argument to ggplot2::ggsave) ('in' by default).}
 
 \item{...}{Any arguments you wish to pass to ggplot2::geom_point()}
 }
