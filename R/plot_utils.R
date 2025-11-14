@@ -503,7 +503,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
         
           if(add_bins == TRUE){
             bin_plot <- bin_plot +
-              ggplot2::geom_point(ggplot2::aes(x = NA, y = NA, color = "Normalized Count"), shape = 16) 
+              ggplot2::geom_point(ggplot2::aes(x = 0, y = -100, color = "Normalized Count"), shape = 16) 
           }
           
           if(add_DNAcopy == TRUE){
