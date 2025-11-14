@@ -775,7 +775,7 @@ plot_alignment <- function(heal_list, alignment, method = "global",
           bin_plot <- ggplot2::ggplot() +
             ggplot2::geom_line(data = lines_df, ggplot2::aes(x = start, y = copy, color = Legend), linewidth = 2) +
             ggplot2::geom_point(data = pts_df, ggplot2::aes(x = start, y = points, color = Legend), ..., size = 1, alpha = 0.1) +
-            ggplot2::geom_point(ggplot2::aes(x = NA, y = NA, color = "Normalized Count"), shape = 16) +
+            ggplot2::geom_point(ggplot2::aes(x = 0, y = -100, color = "Normalized Count"), shape = 16) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
             ggplot2::ylim(-0.1, ylim_max) +
