@@ -21,6 +21,12 @@ inference) to obtain copy number ratio for homeologous genes. The copy
 number information and ratio can be plotted and summarized in a number
 of way using *healr* functions.
 
+## Bugs, Suggestions, Help
+
+If you wish to report an error/bug, ask for help, or suggest changes and
+new features, please open an issue
+[here](https://github.com/kenji-yt/healr/issues).
+
 ## Installation
 
 You can install the development version of healr from
@@ -28,16 +34,14 @@ You can install the development version of healr from
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("kenji-yt/healr")
+devtools::install_github("kenji-yt/healr", build_vignettes = TRUE)
 ```
-
-## Bugs, Suggestions, Help
-
-If you wish to report an error/bug, ask for help, or suggest changes and
-new features, please open an issue
-[here](https://github.com/kenji-yt/healr/issues).
 
 ## Usage
 
 Details on how to use *healr* can be found in the vignette of the
-package.
+package. You can see the vignette by running:
+
+``` r
+browseVignettes("healr")
+```

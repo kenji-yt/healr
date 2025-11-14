@@ -35,7 +35,7 @@ library(healr)
 
 ## Input Data 
 
-**healr** requires an input directory structured in the following manner: 
+**healr** requires an input directory structured in a specific way. If you used HEAL you can skip this part. If not, you must create an input directory structured in the following manner: 
 ```
 input_directory/
 ├── progenitors/
