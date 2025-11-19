@@ -26,7 +26,7 @@ get_copy_number(
 
 \item{average}{Average measure used to assign a copy number in each segment ('median' or 'mean'. 'median' by default).}
 
-\item{average_list}{A list with one element per sample with each containing one element per subgenome with values used to assign copy numbers.}
+\item{average_list}{A named list with one element per sample each containing a named list with one element per subgenome with values used to assign copy numbers.}
 
 \item{full_output}{Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).}
 
