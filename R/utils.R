@@ -6,6 +6,7 @@
 #' @param sample_type Logical on choice to return information about wether the sample is polyploid or not.
 #'
 #' @return Information about the samples.
+#' @export
 #' @importFrom foreach %dopar%
 get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample_type = FALSE) {
   
@@ -93,10 +94,4 @@ get_sample_stats <- function(heal_list, n_threads = 1, method = "median", sample
 
     return(sample_stats)
   }
-}
-
-
-get_offset <- function(){
-  
-  
 }
