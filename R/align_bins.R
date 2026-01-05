@@ -248,7 +248,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
       
       # Assign CN to anchors overlapping multiple based on overlap length
       doParallel::registerDoParallel(n_threads)
-      multiple_cn_anchors <- foreach::foreach(i = 1:length(multiple_overlap_anchors)) %do% {
+      multiple_cn_anchors <- foreach::foreach(i = 1:length(multiple_overlap_anchors)) %dopar% {
         
         anchor_id <- names(multiple_overlap_anchors[i])
         sub_dt <- cn_anchors_and_bins[[prog]][cn_anchors_and_bins[[prog]][[prog_id_col]]==anchor_id]

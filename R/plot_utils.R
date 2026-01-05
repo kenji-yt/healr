@@ -312,6 +312,76 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   }
 }
 
+plot_cn_heat <- function(heal_list, prog_ploidy = 2){
+
+  # Check if CN exists
+  cn_is_null <- is.null(unlist(lapply(heal_list, function(list) {
+    list$CN
+  })))
+  if (cn_is_null) {
+    stop("No CN data table found in heal_list. Make sure the input heal_list contains CN data. \n")
+  }
+
+  progenitors <- names(heal_list)
+  
+  smp_stats <- get_sample_stats(heal_list, sample_type = TRUE)
+  polyploid_samples <- smp_stats$sample[smp_stats$type=="polyploid"]
+  
+  # get CN, chr and prog for each samples. 
+  dt_prog_list <- foreach::foreach(prog = progenitors)%do%{
+    
+    col_keep <- c("chr", polyploid_samples)
+    dt_prog <- heal_list[[prog]]$CN[, ..col_keep]
+    dt_prog$prog <- rep(prog, nrow(dt_prog))
+    return(dt_prog)
+  }
+  dt_all <- rbindlist(dt_prog_list)
+  
+  dt_all$bin_index <- 1:nrow(dt_all)
+  
+  # Make in right format for heat map
+  dt_long <- as.data.table(tidyr::pivot_longer(
+    data = dt_all,
+    cols = -c(bin_index, chr, prog),
+    names_to = "sample",
+    values_to = "CN"
+  ))
+  
+  # Get position of chr labels 
+  rle_chr <- rle(dt_all$chr) 
+  end_pos <- c(0, cumsum(rle_chr$lengths))
+  chr_lab_pos <- end_pos + (rle_chr$lengths/2)
+  
+  chr_labels <- data.frame(label = rle_chr$values,
+                           x_pos = chr_lab_pos[1:length(chr_lab_pos)-1],
+                           y_pos = rep(0, length(rle_chr$values)))
+  
+  ggplot2::ggplot(dt_long, ggplot2::aes(x = bin_index, y = sample, fill = CN)) +
+    ggplot2::geom_tile() +
+    ggplot2::scale_fill_gradient2(
+      low = "blue",
+      mid = "white",
+      high = "red",
+      midpoint = 2,
+      limits = c(0, length(progenitors)*prog_ploidy),
+      oob = scales::squish
+    ) +
+    ggplot2::geom_text(data = chr_labels,
+                       ggplot2::aes(x = x_pos, y = y_pos, label = label),
+                       angle = 90,
+                       size = 3,
+                       inherit.aes = FALSE) +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      x = "",
+      y = "Sample",
+      fill = "Copy Number"
+    )
+
+}
+
+
+
 #' Plotting function for heal_list.
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).

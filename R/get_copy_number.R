@@ -112,17 +112,17 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
       })
       names(sgmnts_list) <- sample_current_prog
       
-      cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, prog$gc_content, data.frame(cn_list))
-      colnames(cn_dt) <- c("chr", "start", "end", "gc_content", sample_current_prog)
-      data.table::setkey(cn_dt, chr, start, end, gc_content)
+      cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, prog$gc_content, prog$mappability, data.frame(cn_list))
+      colnames(cn_dt) <- c("chr", "start", "end", "gc_content", "mappability", sample_current_prog)
+      data.table::setkey(cn_dt, chr, start, end, gc_content, mappability)
       
       return(list(bins = heal_list[[pr_name]]$bins, CN = cn_dt, DNAcopy = sgmnts_list))
       
     } else {
       
-      cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, prog$gc_content, data.frame(sample_CN))
-      colnames(cn_dt) <- c("chr", "start", "end", "gc_content", sample_current_prog)
-      data.table::setkey(cn_dt, chr, start, end, gc_content)
+      cn_dt <- data.table::data.table(prog$chr, prog$start, prog$end, prog$gc_content, prog$mappability, data.frame(sample_CN))
+      colnames(cn_dt) <- c("chr", "start", "end", "gc_content", "mappability", sample_current_prog)
+      data.table::setkey(cn_dt, chr, start, end, gc_content, mappability)
       
       return(list(bins = heal_list[[pr_name]]$bins, CN = cn_dt))
     }

@@ -17,16 +17,12 @@ sigmoid <- function(y, x_start, x_end, k=7) {
   return(x)
 }
 
-#Dont forget to try and understand why it all works with bottom_x[1], bottom_x[length] but some alt anchors are outside the regions range (on its own chromosome), but this never happens 
-#with the progenitor. 
-### PARALELIZE!!!
 #' Plot riparian style plots with copy number
 #'
 #' @param alignment A heal alignment object created with get_alignment().
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param genespace_dir Path to a directory containing the syntenicRegion_coordinates.csv output file from GENESPACE.
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
-#' @param n_threads Number of threads to use ('1' by default).
 #' @param colour_scales A list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range. Defaults to red and green colour ranges.
 #' @param theme Background settings. Options are 'dark' or 'light'. Default value is 'light'. 
 #' @param legend_text_size Size of the legend text as input to  ggplot2::element_text size argument ('5' by default).
@@ -40,7 +36,7 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 #' @export
 #'
 #' @examples
-plot_riparian <- function(alignment, heal_list, genespace_dir, output_dir = FALSE, n_threads = 1, colour_scales = FALSE, theme = 'light', legend_text_size =5, legend_title_size = 7, legend_spacing = 2, title_size = 5, device_vector = c("pdf", "svg"), ...){
+plot_riparian <- function(alignment, heal_list, genespace_dir, output_dir = FALSE, colour_scales = FALSE, theme = 'light', legend_text_size =5, legend_title_size = 7, legend_spacing = 2, title_size = 5, device_vector = c("pdf", "svg"), ...){
   
   if(theme != "light" && theme != "dark"){
     stop("Invalid input for 'theme'. Please input 'light' or 'dark'. Exiting..")
