@@ -312,7 +312,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   }
 }
 
-plot_cn_heat <- function(heal_list, prog_ploidy = 2){
+plot_cn_heat <- function(heal_list, prog_ploidy = 2, chr_label_size = 4){
 
   # Check if CN exists
   cn_is_null <- is.null(unlist(lapply(heal_list, function(list) {
@@ -352,22 +352,27 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2){
   end_pos <- c(0, cumsum(rle_chr$lengths))
   chr_lab_pos <- end_pos + (rle_chr$lengths/2)
   
+  ### Set size at bottom based on chr label length
+  k <- 0.035 # k is a small constant converting mm to data units.
+  max_chr_chars <- max(nchar(rle_chr$values))
+  extra_bottom_space <- max_chr_chars * chr_label_size * k  
+  
   chr_labels <- data.frame(label = rle_chr$values,
                            x_pos = chr_lab_pos[1:length(chr_lab_pos)-1],
-                           y_pos = rep(0, length(rle_chr$values)))
+                           y_pos = rep( (- extra_bottom_space - 0.5)  / 2, length(rle_chr$values)))
   
   # Get position of chr edges dashed lines
-  grad_pos_dt <- data.table::data.table(x = end_pos, xend = end_pos, y = rep(-0.5, length(end_pos)), yend = rep(length(polyploid_samples) + 0.5, length(end_pos)))
+  grad_pos_dt <- data.table::data.table(x = end_pos, xend = end_pos, y = rep(- extra_bottom_space - 1, length(end_pos)), yend = rep(length(polyploid_samples) + 0.5, length(end_pos)))
   
   # Get position of subgenome edges
   sub_g_edge_dt <- data.table::rbindlist(foreach::foreach(prog = progenitors)%do%{
     
     x_pos <- max(dt_all$bin_index[dt_all$prog == prog])
     y_pos <- length(polyploid_samples) + 1.5
-    return(data.table::data.table(x = x_pos, xend = x_pos, y = -0.5, yend = y_pos))
+    return(data.table::data.table(x = x_pos, xend = x_pos, y = - extra_bottom_space - 1, yend = y_pos))
     
   })
-  sub_g_edge_dt <- rbind(data.table::data.table(x = 0, xend = 0, y = -0.5, yend = length(polyploid_samples) + 1.5), sub_g_edge_dt)
+  sub_g_edge_dt <- rbind(data.table::data.table(x = 0, xend = 0, y = - extra_bottom_space - 1, yend = length(polyploid_samples) + 1.5), sub_g_edge_dt)
   
   # Get position of progenitor/subgenome label
   pos_and_prog_dt <- data.table::rbindlist(foreach::foreach(prog = progenitors)%do%{
@@ -379,10 +384,13 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2){
   })
   
   # Cap the subgenome labels
-  cap_of_plot <- data.table::data.table(x = 0, xend = max(dt_all$bin_index), y = length(polyploid_samples) + 1.5, yend = length(polyploid_samples) + 1.5)
+  cap_of_plot <- data.table::data.table(x = c(0,0),
+                                        xend = c(max(dt_all$bin_index), max(dt_all$bin_index)),
+                                        y = c(length(polyploid_samples) + 1.5, - extra_bottom_space - 1),
+                                        yend = c(length(polyploid_samples) + 1.5, - extra_bottom_space - 1))
   
   # Make the right plot
-  out_plot <- ggplot2::ggplot(dt_long, ggplot2::aes(x = bin_index, y = sample, fill = CN)) +
+  outplot <- ggplot2::ggplot(dt_long, ggplot2::aes(x = bin_index, y = sample, fill = CN)) +
     ggplot2::geom_tile() +
     ggplot2::scale_fill_gradient2(
       low = "blue",
@@ -397,12 +405,14 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2){
       axis.text.x = ggplot2::element_blank(),
       axis.ticks.x = ggplot2::element_blank()) +
     ggplot2::coord_cartesian(clip = "off") +
-    ggplot2::scale_y_discrete(expand = ggplot2::expansion(add = c(2, 0))) +
+    ggplot2::scale_y_discrete(
+      expand = ggplot2::expansion(add = c(extra_bottom_space + 1, 0))
+    ) +
     ggplot2::geom_text(
       data = chr_labels,
       ggplot2::aes(x = x_pos, y = y_pos, label = label),
       angle = 90,
-      size = 4,
+      size = chr_label_size,
       inherit.aes = FALSE
     ) +
     ggplot2::geom_text(
@@ -429,7 +439,7 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2){
       ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
       linetype = "solid",
       color = "black",
-      size = 0.7,
+      size = 0.8,
       inherit.aes = FALSE  
     ) + 
     ggplot2::geom_segment(
@@ -437,7 +447,7 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2){
       ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
       linetype = "solid",
       color = "black",
-      size = 0.7,
+      size = 0.8,
       inherit.aes = FALSE  
     )
   
