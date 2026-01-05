@@ -312,7 +312,31 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   }
 }
 
-plot_cn_heat <- function(heal_list, prog_ploidy = 2, chr_label_size = 4){
+#' Plot a heat map of all CN 
+#'
+#' @param heal_list List in heal format with CN information (such as output from get_copy_number()).
+#' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
+#' @param sample_label_size Size of the sample labels ('10' by default).
+#' @param chr_limits Show chromosome edges with dashed lines ('FALSE' by default).
+#' @param chr_limit_thickness Thickness of chromosome limit lines ('0.5' by default).
+#' @param chr_labels Show chromosome labels ('FALSE' by default).
+#' @param chr_label_size Size of chromosome labels ('4' by default).
+#' @param subgenome_limits Show subgenome limits with solid lines ('FALSE' by default).
+#' @param subgenome_limit_thickness Thickness of subgenome limit lines ('0.8' by default).
+#' @param subgenome_labels Show subgenome labels ('FALSE' by default).
+#' @param subgenome_label_size Size of subgenome labels ('5' by default).
+#' @param separate_subgenome_plots Plot each subgenome separately ('FALSE' by default).
+#'
+#' @returns
+#' @export
+#'
+#' @examples
+plot_cn_heat <- function(heal_list, prog_ploidy = 2, sample_label_size = 10,
+                         chr_limits = FALSE, chr_limit_thickness = 0.5,
+                         chr_labels = FALSE, chr_label_size = 4,
+                         subgenome_limits = FALSE, subgenome_limit_thickness = 0.8,
+                         subgenome_labels = FALSE, subgenome_label_size = 5, 
+                         separate_subgenome_plots = FALSE){
 
   # Check if CN exists
   cn_is_null <- is.null(unlist(lapply(heal_list, function(list) {
@@ -403,7 +427,8 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2, chr_label_size = 4){
     ggplot2::theme_minimal() +
     ggplot2::theme(
       axis.text.x = ggplot2::element_blank(),
-      axis.ticks.x = ggplot2::element_blank()) +
+      axis.ticks.x = ggplot2::element_blank(),
+      axis.text.y = ggplot2::element_text(size = sample_label_size)) +
     ggplot2::coord_cartesian(clip = "off") +
     ggplot2::scale_y_discrete(
       expand = ggplot2::expansion(add = c(extra_bottom_space + 1, 0))
@@ -418,12 +443,12 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2, chr_label_size = 4){
     ggplot2::geom_text(
       data = pos_and_prog_dt,
       ggplot2::aes(x = x_pos, y = y_pos, label = label),
-      size = 5,
+      size = subgenome_label_size,
       inherit.aes = FALSE
     ) +
     ggplot2::labs(
       x = "",
-      y = "Sample",
+      y = "",
       fill = "Copy Number"
     ) +
     ggplot2::geom_segment(
@@ -431,7 +456,7 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2, chr_label_size = 4){
       ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
       linetype = "dashed",
       color = "black",
-      size = 0.5,
+      size = chr_limit_thickness,
       inherit.aes = FALSE  
     ) +
     ggplot2::geom_segment(
@@ -439,7 +464,7 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2, chr_label_size = 4){
       ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
       linetype = "solid",
       color = "black",
-      size = 0.8,
+      size = subgenome_limit_thickness,
       inherit.aes = FALSE  
     ) + 
     ggplot2::geom_segment(
@@ -447,7 +472,7 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2, chr_label_size = 4){
       ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
       linetype = "solid",
       color = "black",
-      size = 0.8,
+      size = subgenome_limit_thickness,
       inherit.aes = FALSE  
     )
   
