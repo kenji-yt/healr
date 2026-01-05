@@ -356,28 +356,92 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2){
                            x_pos = chr_lab_pos[1:length(chr_lab_pos)-1],
                            y_pos = rep(0, length(rle_chr$values)))
   
-  ggplot2::ggplot(dt_long, ggplot2::aes(x = bin_index, y = sample, fill = CN)) +
+  # Get position of chr edges dashed lines
+  grad_pos_dt <- data.table::data.table(x = end_pos, xend = end_pos, y = rep(-0.5, length(end_pos)), yend = rep(length(polyploid_samples) + 0.5, length(end_pos)))
+  
+  # Get position of subgenome edges
+  sub_g_edge_dt <- data.table::rbindlist(foreach::foreach(prog = progenitors)%do%{
+    
+    x_pos <- max(dt_all$bin_index[dt_all$prog == prog])
+    y_pos <- length(polyploid_samples) + 1.5
+    return(data.table::data.table(x = x_pos, xend = x_pos, y = -0.5, yend = y_pos))
+    
+  })
+  sub_g_edge_dt <- rbind(data.table::data.table(x = 0, xend = 0, y = -0.5, yend = length(polyploid_samples) + 1.5), sub_g_edge_dt)
+  
+  # Get position of progenitor/subgenome label
+  pos_and_prog_dt <- data.table::rbindlist(foreach::foreach(prog = progenitors)%do%{
+    
+    x_pos <- mean(dt_all$bin_index[dt_all$prog==prog])
+    y_pos <- length(polyploid_samples) + 1
+    return(data.table::data.table(label=prog, x_pos=x_pos, y_pos=y_pos))
+    
+  })
+  
+  # Cap the subgenome labels
+  cap_of_plot <- data.table::data.table(x = 0, xend = max(dt_all$bin_index), y = length(polyploid_samples) + 1.5, yend = length(polyploid_samples) + 1.5)
+  
+  # Make the right plot
+  out_plot <- ggplot2::ggplot(dt_long, ggplot2::aes(x = bin_index, y = sample, fill = CN)) +
     ggplot2::geom_tile() +
     ggplot2::scale_fill_gradient2(
       low = "blue",
       mid = "white",
       high = "red",
       midpoint = 2,
-      limits = c(0, length(progenitors)*prog_ploidy),
+      limits = c(0, length(progenitors) * prog_ploidy),
       oob = scales::squish
     ) +
-    ggplot2::geom_text(data = chr_labels,
-                       ggplot2::aes(x = x_pos, y = y_pos, label = label),
-                       angle = 90,
-                       size = 3,
-                       inherit.aes = FALSE) +
     ggplot2::theme_minimal() +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_blank(),
+      axis.ticks.x = ggplot2::element_blank()) +
+    ggplot2::coord_cartesian(clip = "off") +
+    ggplot2::scale_y_discrete(expand = ggplot2::expansion(add = c(2, 0))) +
+    ggplot2::geom_text(
+      data = chr_labels,
+      ggplot2::aes(x = x_pos, y = y_pos, label = label),
+      angle = 90,
+      size = 4,
+      inherit.aes = FALSE
+    ) +
+    ggplot2::geom_text(
+      data = pos_and_prog_dt,
+      ggplot2::aes(x = x_pos, y = y_pos, label = label),
+      size = 5,
+      inherit.aes = FALSE
+    ) +
     ggplot2::labs(
       x = "",
       y = "Sample",
       fill = "Copy Number"
+    ) +
+    ggplot2::geom_segment(
+      data = grad_pos_dt,
+      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      linetype = "dashed",
+      color = "black",
+      size = 0.5,
+      inherit.aes = FALSE  
+    ) +
+    ggplot2::geom_segment(
+      data = sub_g_edge_dt,
+      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      linetype = "solid",
+      color = "black",
+      size = 0.7,
+      inherit.aes = FALSE  
+    ) + 
+    ggplot2::geom_segment(
+      data = cap_of_plot,
+      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+      linetype = "solid",
+      color = "black",
+      size = 0.7,
+      inherit.aes = FALSE  
     )
-
+  
+  return(outplot)
 }
 
 
