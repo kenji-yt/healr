@@ -2,7 +2,9 @@
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param view_samples A vector of sample names to be plotted. Samples will be plotted in the order provided. Default value is "all", which shows all samples. 
-#' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
+#' @param output_dir The name of a directory to write the plot to. Will create one if nonexistent.
+#' @param device Plot device (as argument to ggplot2::ggsave) ('pdf' by default).
+#' @param return_plot Logical: return the ggplot2 object ('FALSE' by default).
 #' @param prog_ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param plot_cn Logical: plot a line indicating infered copy number ('FALSE' by default in CN has been estimated).
 #' @param add_bins Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).
@@ -10,7 +12,6 @@
 #' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default). 
 #' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
 #' @param average_list Same as in get_copy_number(). 
-#' @param return_plot Logical: return the ggplot2 object ('FALSE' by default).
 #' @param chr_label_size Size of the chromosome labels as input to ggplot2::geom_text size argument ('4' by default).
 #' @param cn_label_size Size of the copy number labels as input to ggplot2::geom_text size argument ('3' by default).
 #' @param size_x_axis_title Size of the x axis title as input to ggplot2::element_text size argument ('14' by default).
@@ -19,19 +20,18 @@
 #' @param bin_point_alpha The transparency of the normalized bin count values as input to ggplot2::goem_point alpha argument ('0.4' by default). 
 #' @param bin_point_size Size of the normalized bin count values as input to ggplot2::goem_point size argument ('2' by default).
 #' @param cn_line_width Thickness of the line showing the copy number as input to ggplot2::geom_path linewidth argument ('2' by default).
-#' @param device Plot device (as argument to ggplot2::ggsave) ('pdf' by default).
 #' @param ... Any arguments you wish to pass to ggplot2::ggsave().
 #' 
 #' @return Either nothing of a ggplot object showing several samples together. The plot is always printed. 
 #' @export
 #' 
 #' @examples
-plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
+plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  device = "pdf", return_plot = FALSE,
                           prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE,
-                          method = "global", average = "median", average_list = FALSE, return_plot = FALSE,
+                          method = "global", average = "median", average_list = FALSE,
                           chr_label_size = 4, cn_label_size = 3, size_x_axis_title = 14, 
                           size_y_axis_title = 14, sample_name_size = 3,  bin_point_alpha = 0.4,
-                          bin_point_size = 2, cn_line_width = 2, device = "pdf", ...){
+                          bin_point_size = 2, cn_line_width = 2, ...){
   
   # Check input to see if it's appropriate
   if(!is.logical(add_bins)){
@@ -77,7 +77,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
   }
   
   if (length(intersect(sample_names, view_samples)) == 0) {
-    stop("Sample names not recognized for viewing of counts or coverage. Exiting..")
+    stop("Sample names not recognized. Exiting..")
   }
   
   samples <- rev(view_samples)
@@ -88,7 +88,8 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
     if(dir.exists(output_dir)){
       cat(paste0("Saving plot to ", output_dir, ".", "\n"))
     }else{
-      stop(paste0("Output directory ", output_dir, " does not exist. Exiting.."))
+      cat(paste0("Creating ", output_dir))
+      dir.create(output_dir, recursive = TRUE)
     }
   }
 
@@ -315,28 +316,29 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,
 #' Plot a heat map of all CN 
 #'
 #' @param heal_list List in heal format with CN information (such as output from get_copy_number()).
+#' @param view_samples A vector of sample names to be plotted. Samples will be plotted in the order provided. Default value is "all", which shows all samples. 
+#' @param output_dir The name of a directory to write the plots to. Will create one if nonexistent.
+#' @param device Plot device (as argument to ggplot2::ggsave) ('pdf' by default).
+#' @param return_plot Logical: return the ggplot2 object ('FALSE' by default).
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param sample_label_size Size of the sample labels ('10' by default).
 #' @param chr_limits Show chromosome edges with dashed lines ('FALSE' by default).
 #' @param chr_limit_thickness Thickness of chromosome limit lines ('0.5' by default).
 #' @param chr_labels Show chromosome labels ('FALSE' by default).
 #' @param chr_label_size Size of chromosome labels ('4' by default).
-#' @param subgenome_limits Show subgenome limits with solid lines ('FALSE' by default).
+#' @param subgenome_labels Show subgenome labels and limits ('FALSE' by default).
 #' @param subgenome_limit_thickness Thickness of subgenome limit lines ('0.8' by default).
-#' @param subgenome_labels Show subgenome labels ('FALSE' by default).
 #' @param subgenome_label_size Size of subgenome labels ('5' by default).
-#' @param separate_subgenome_plots Plot each subgenome separately ('FALSE' by default).
 #'
 #' @returns
 #' @export
 #'
 #' @examples
-plot_cn_heat <- function(heal_list, prog_ploidy = 2, sample_label_size = 10,
+plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE, 
+                         return_plot = FALSE, device = "pdf", prog_ploidy = 2, sample_label_size = 10,
                          chr_limits = FALSE, chr_limit_thickness = 0.5,
-                         chr_labels = FALSE, chr_label_size = 4,
-                         subgenome_limits = FALSE, subgenome_limit_thickness = 0.8,
-                         subgenome_labels = FALSE, subgenome_label_size = 5, 
-                         separate_subgenome_plots = FALSE){
+                         chr_labels = FALSE, chr_label_size = 4, subgenome_labels = FALSE,
+                         subgenome_limit_thickness = 0.8, subgenome_label_size = 5){
 
   # Check if CN exists
   cn_is_null <- is.null(unlist(lapply(heal_list, function(list) {
@@ -348,13 +350,38 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2, sample_label_size = 10,
 
   progenitors <- names(heal_list)
   
+  
   smp_stats <- get_sample_stats(heal_list, sample_type = TRUE)
   polyploid_samples <- smp_stats$sample[smp_stats$type=="polyploid"]
+  
+  # Define which samples the users wishes on the plot
+  if(length(view_samples)==1){
+    if(view_samples=="all"){
+      view_samples <- polyploid_samples 
+    }
+  }
+  
+  if (length(intersect(polyploid_samples, view_samples)) == 0) {
+    stop("Sample names not recognized. Exiting..")
+  }
+  
+  samples <- view_samples
+  
+  cat(paste0("Plotting copy number for ", paste(samples, collapse = ", "), ".\n"))
+  
+  if (output_dir != FALSE) {
+    if(dir.exists(output_dir)){
+      cat(paste0("Saving plot to ", output_dir, ".", "\n"))
+    }else{
+      cat(paste0("Creating ", output_dir))
+      dir.create(output_dir, recursive = TRUE)
+    }
+  }
   
   # get CN, chr and prog for each samples. 
   dt_prog_list <- foreach::foreach(prog = progenitors)%do%{
     
-    col_keep <- c("chr", polyploid_samples)
+    col_keep <- c("chr", samples)
     dt_prog <- heal_list[[prog]]$CN[, ..col_keep]
     dt_prog$prog <- rep(prog, nrow(dt_prog))
     return(dt_prog)
@@ -371,49 +398,8 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2, sample_label_size = 10,
     values_to = "CN"
   ))
   
-  # Get position of chr labels 
-  rle_chr <- rle(dt_all$chr) 
-  end_pos <- c(0, cumsum(rle_chr$lengths))
-  chr_lab_pos <- end_pos + (rle_chr$lengths/2)
-  
-  ### Set size at bottom based on chr label length
-  k <- 0.035 # k is a small constant converting mm to data units.
-  max_chr_chars <- max(nchar(rle_chr$values))
-  extra_bottom_space <- max_chr_chars * chr_label_size * k  
-  
-  chr_labels <- data.frame(label = rle_chr$values,
-                           x_pos = chr_lab_pos[1:length(chr_lab_pos)-1],
-                           y_pos = rep( (- extra_bottom_space - 0.5)  / 2, length(rle_chr$values)))
-  
-  # Get position of chr edges dashed lines
-  grad_pos_dt <- data.table::data.table(x = end_pos, xend = end_pos, y = rep(- extra_bottom_space - 1, length(end_pos)), yend = rep(length(polyploid_samples) + 0.5, length(end_pos)))
-  
-  # Get position of subgenome edges
-  sub_g_edge_dt <- data.table::rbindlist(foreach::foreach(prog = progenitors)%do%{
-    
-    x_pos <- max(dt_all$bin_index[dt_all$prog == prog])
-    y_pos <- length(polyploid_samples) + 1.5
-    return(data.table::data.table(x = x_pos, xend = x_pos, y = - extra_bottom_space - 1, yend = y_pos))
-    
-  })
-  sub_g_edge_dt <- rbind(data.table::data.table(x = 0, xend = 0, y = - extra_bottom_space - 1, yend = length(polyploid_samples) + 1.5), sub_g_edge_dt)
-  
-  # Get position of progenitor/subgenome label
-  pos_and_prog_dt <- data.table::rbindlist(foreach::foreach(prog = progenitors)%do%{
-    
-    x_pos <- mean(dt_all$bin_index[dt_all$prog==prog])
-    y_pos <- length(polyploid_samples) + 1
-    return(data.table::data.table(label=prog, x_pos=x_pos, y_pos=y_pos))
-    
-  })
-  
-  # Cap the subgenome labels
-  cap_of_plot <- data.table::data.table(x = c(0,0),
-                                        xend = c(max(dt_all$bin_index), max(dt_all$bin_index)),
-                                        y = c(length(polyploid_samples) + 1.5, - extra_bottom_space - 1),
-                                        yend = c(length(polyploid_samples) + 1.5, - extra_bottom_space - 1))
-  
-  # Make the right plot
+
+  # Make the plot
   outplot <- ggplot2::ggplot(dt_long, ggplot2::aes(x = bin_index, y = sample, fill = CN)) +
     ggplot2::geom_tile() +
     ggplot2::scale_fill_gradient2(
@@ -430,53 +416,155 @@ plot_cn_heat <- function(heal_list, prog_ploidy = 2, sample_label_size = 10,
       axis.ticks.x = ggplot2::element_blank(),
       axis.text.y = ggplot2::element_text(size = sample_label_size)) +
     ggplot2::coord_cartesian(clip = "off") +
-    ggplot2::scale_y_discrete(
-      expand = ggplot2::expansion(add = c(extra_bottom_space + 1, 0))
-    ) +
-    ggplot2::geom_text(
-      data = chr_labels,
-      ggplot2::aes(x = x_pos, y = y_pos, label = label),
-      angle = 90,
-      size = chr_label_size,
-      inherit.aes = FALSE
-    ) +
-    ggplot2::geom_text(
-      data = pos_and_prog_dt,
-      ggplot2::aes(x = x_pos, y = y_pos, label = label),
-      size = subgenome_label_size,
-      inherit.aes = FALSE
-    ) +
     ggplot2::labs(
       x = "",
       y = "",
       fill = "Copy Number"
-    ) +
-    ggplot2::geom_segment(
+    ) 
+  
+  # show chromosome labels
+  if(chr_labels == TRUE){
+    
+    # Get position of chr labels 
+    rle_chr <- rle(dt_all$chr) 
+    end_pos <- c(0, cumsum(rle_chr$lengths))
+    chr_lab_pos <- end_pos + (rle_chr$lengths/2)
+    
+    ### Set size at bottom based on chr label length
+    k <- 0.035 # k is a small constant converting mm to data units.
+    max_chr_chars <- max(nchar(rle_chr$values))
+    extra_bottom_space <- max_chr_chars * chr_label_size * k  
+    
+    chr_labels_dt <- data.frame(label = rle_chr$values,
+                                x_pos = chr_lab_pos[1:length(chr_lab_pos)-1],
+                                y_pos = rep( (- extra_bottom_space - 0.5)  / 2, length(rle_chr$values)))
+    
+    outplot <- outplot + 
+      ggplot2::scale_y_discrete(
+        expand = ggplot2::expansion(add = c(extra_bottom_space + 1, 0))
+      ) +
+      ggplot2::geom_text(
+        data = chr_labels_dt,
+        ggplot2::aes(x = x_pos, y = y_pos, label = label),
+        angle = 90,
+        size = chr_label_size,
+        inherit.aes = FALSE
+      )
+  }
+  
+  # Show chromosome limits 
+  if(chr_limits == TRUE){
+    
+    if(chr_labels == TRUE){
+      # Get position of chr edges dashed lines
+      grad_pos_dt <- data.table::data.table(x = end_pos, xend = end_pos, y = rep(- extra_bottom_space - 1, length(end_pos)), yend = rep(length(samples) + 0.5, length(end_pos)))
+    }else{
+      
+      rle_chr <- rle(dt_all$chr) 
+      end_pos <- c(0, cumsum(rle_chr$lengths))
+      grad_pos_dt <- data.table::data.table(x = end_pos, xend = end_pos, y = rep(0.5, length(end_pos)), yend = rep(length(samples) + 0.5, length(end_pos)))
+    }
+        
+    outplot <- outplot + ggplot2::geom_segment(
       data = grad_pos_dt,
       ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
       linetype = "dashed",
       color = "black",
       size = chr_limit_thickness,
       inherit.aes = FALSE  
-    ) +
-    ggplot2::geom_segment(
-      data = sub_g_edge_dt,
-      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
-      linetype = "solid",
-      color = "black",
-      size = subgenome_limit_thickness,
-      inherit.aes = FALSE  
-    ) + 
-    ggplot2::geom_segment(
-      data = cap_of_plot,
-      ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
-      linetype = "solid",
-      color = "black",
-      size = subgenome_limit_thickness,
-      inherit.aes = FALSE  
     )
+  } 
   
-  return(outplot)
+  
+  # Show subgenome labels and limits 
+  if(subgenome_labels == TRUE){
+    
+    # Get position of subgenome edges
+    sub_g_edge_dt <- data.table::rbindlist(foreach::foreach(prog = progenitors)%do%{
+      
+      x_pos <- max(dt_all$bin_index[dt_all$prog == prog])
+      y_pos <- length(samples) + 1.5
+      
+      if(chr_labels == TRUE){
+        return(data.table::data.table(x = x_pos, xend = x_pos, y = - extra_bottom_space - 1, yend = y_pos))
+      }else{
+        return(data.table::data.table(x = x_pos, xend = x_pos, y = 0.5, yend = y_pos))
+      }
+    })
+    
+    if(chr_labels == TRUE){
+      sub_g_edge_dt <- rbind(data.table::data.table(x = 0, xend = 0, y = - extra_bottom_space - 1, yend = length(samples) + 1.5), sub_g_edge_dt)
+    }else{
+      sub_g_edge_dt <- rbind(data.table::data.table(x = 0, xend = 0, y = 0.5, yend = length(samples) + 1.5), sub_g_edge_dt)
+    }
+    # Get position of progenitor/subgenome label
+    pos_and_prog_dt <- data.table::rbindlist(foreach::foreach(prog = progenitors)%do%{
+      
+      x_pos <- mean(dt_all$bin_index[dt_all$prog==prog])
+      y_pos <- length(samples) + 1
+      return(data.table::data.table(label=prog, x_pos=x_pos, y_pos=y_pos))
+      
+    })
+    
+    outplot <- outplot + ggplot2::geom_text(
+      data = pos_and_prog_dt,
+      ggplot2::aes(x = x_pos, y = y_pos, label = label),
+      size = subgenome_label_size,
+      inherit.aes = FALSE
+    ) +
+      ggplot2::geom_segment(
+        data = sub_g_edge_dt,
+        ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+        linetype = "solid",
+        color = "black",
+        size = subgenome_limit_thickness,
+        inherit.aes = FALSE  
+      )
+  }
+  
+  
+  if(subgenome_labels == TRUE){
+    
+    if(chr_labels == TRUE){
+      # Cap the subgenome labels
+      cap_of_plot <- data.table::data.table(x = c(0,0),
+                                            xend = c(max(dt_all$bin_index), max(dt_all$bin_index)),
+                                            y = c(length(samples) + 1.5, - extra_bottom_space - 1),
+                                            yend = c(length(samples) + 1.5, - extra_bottom_space - 1))
+    }else{
+      # Cap the subgenome labels
+      cap_of_plot <- data.table::data.table(x = c(0,0),
+                                            xend = c(max(dt_all$bin_index), max(dt_all$bin_index)),
+                                            y = c(length(samples) + 1.5, 0.5),
+                                            yend = c(length(samples) + 1.5, 0.5))
+    }
+    # Cap the plot if necessary
+    outplot <- outplot + ggplot2::geom_segment(
+        data = cap_of_plot,
+        ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
+        linetype = "solid",
+        color = "black",
+        size = subgenome_limit_thickness,
+        inherit.aes = FALSE  
+      )
+  }
+  
+  print(outplot)
+  
+  if(output_dir!=FALSE){
+    file_path <- paste0(output_dir,"/heal_cn_heatmap_plot.", device)
+    if (file.exists(file_path)) {
+      stop(paste0("Already a file at ", file_path,". Exiting.."))
+    } else {
+      ggplot2::ggsave(filename = file_path, plot = outplot, device = device, ...)
+      cat(paste0("Plot saved at ", file_path,"."))
+    }
+  }
+  
+  if(return_plot==TRUE){
+    return(outplot)
+  }
+
 }
 
 
