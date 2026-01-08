@@ -329,6 +329,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
 #' @param subgenome_labels Show subgenome labels and limits ('FALSE' by default).
 #' @param subgenome_limit_thickness Thickness of subgenome limit lines ('0.8' by default).
 #' @param subgenome_label_size Size of subgenome labels ('5' by default).
+#' @param ... Any arguments you wish to pass to ggplot2::ggsave().
 #'
 #' @returns
 #' @export
@@ -338,7 +339,7 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
                          return_plot = FALSE, device = "pdf", prog_ploidy = 2, sample_label_size = 10,
                          chr_limits = FALSE, chr_limit_thickness = 0.5,
                          chr_labels = FALSE, chr_label_size = 4, subgenome_labels = FALSE,
-                         subgenome_limit_thickness = 0.8, subgenome_label_size = 5){
+                         subgenome_limit_thickness = 0.8, subgenome_label_size = 5, ...){
 
   # Check if CN exists
   cn_is_null <- is.null(unlist(lapply(heal_list, function(list) {
