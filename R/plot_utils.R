@@ -387,12 +387,12 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
     dt_prog$prog <- rep(prog, nrow(dt_prog))
     return(dt_prog)
   }
-  dt_all <- rbindlist(dt_prog_list)
+  dt_all <- data.table::rbindlist(dt_prog_list)
   
   dt_all$bin_index <- 1:nrow(dt_all)
   
   # Make in right format for heat map
-  dt_long <- as.data.table(tidyr::pivot_longer(
+  dt_long <- data.table::as.data.table(tidyr::pivot_longer(
     data = dt_all,
     cols = -c(bin_index, chr, prog),
     names_to = "sample",
