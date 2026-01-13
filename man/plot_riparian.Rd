@@ -9,7 +9,6 @@ plot_riparian(
   heal_list,
   genespace_dir,
   output_dir = FALSE,
-  n_threads = 1,
   colour_scales = FALSE,
   theme = "light",
   legend_text_size = 5,
@@ -28,8 +27,6 @@ plot_riparian(
 \item{genespace_dir}{Path to a directory containing the syntenicRegion_coordinates.csv output file from GENESPACE.}
 
 \item{output_dir}{The name of a directory to write all plots to. Will create one if nonexistent.}
-
-\item{n_threads}{Number of threads to use ('1' by default).}
 
 \item{colour_scales}{A list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range. Defaults to red and green colour ranges.}
 

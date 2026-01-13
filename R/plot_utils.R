@@ -331,7 +331,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
 #' @param subgenome_label_size Size of subgenome labels ('5' by default).
 #' @param ... Any arguments you wish to pass to ggplot2::ggsave().
 #'
-#' @returns
+#' @returns Either nothing of a ggplot object showing CN in heat map style for several samples together. The plot is always printed. 
 #' @export
 #'
 #' @examples

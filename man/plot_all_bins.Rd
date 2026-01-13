@@ -8,6 +8,8 @@ plot_all_bins(
   heal_list,
   view_samples = "all",
   output_dir = FALSE,
+  device = "pdf",
+  return_plot = FALSE,
   prog_ploidy = 2,
   plot_cn = FALSE,
   add_bins = TRUE,
@@ -15,7 +17,6 @@ plot_all_bins(
   method = "global",
   average = "median",
   average_list = FALSE,
-  return_plot = FALSE,
   chr_label_size = 4,
   cn_label_size = 3,
   size_x_axis_title = 14,
@@ -24,7 +25,6 @@ plot_all_bins(
   bin_point_alpha = 0.4,
   bin_point_size = 2,
   cn_line_width = 2,
-  device = "pdf",
   ...
 )
 }
@@ -33,7 +33,11 @@ plot_all_bins(
 
 \item{view_samples}{A vector of sample names to be plotted. Samples will be plotted in the order provided. Default value is "all", which shows all samples.}
 
-\item{output_dir}{The name of a directory to write all plots to. Will create one if nonexistent.}
+\item{output_dir}{The name of a directory to write the plot to. Will create one if nonexistent.}
+
+\item{device}{Plot device (as argument to ggplot2::ggsave) ('pdf' by default).}
+
+\item{return_plot}{Logical: return the ggplot2 object ('FALSE' by default).}
 
 \item{prog_ploidy}{of the progenitors (Assumed to be equal. '2' by default).}
 
@@ -48,8 +52,6 @@ plot_all_bins(
 \item{average}{The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default).}
 
 \item{average_list}{Same as in get_copy_number().}
-
-\item{return_plot}{Logical: return the ggplot2 object ('FALSE' by default).}
 
 \item{chr_label_size}{Size of the chromosome labels as input to ggplot2::geom_text size argument ('4' by default).}
 
@@ -66,8 +68,6 @@ plot_all_bins(
 \item{bin_point_size}{Size of the normalized bin count values as input to ggplot2::goem_point size argument ('2' by default).}
 
 \item{cn_line_width}{Thickness of the line showing the copy number as input to ggplot2::geom_path linewidth argument ('2' by default).}
-
-\item{device}{Plot device (as argument to ggplot2::ggsave) ('pdf' by default).}
 
 \item{...}{Any arguments you wish to pass to ggplot2::ggsave().}
 }
