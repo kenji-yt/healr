@@ -6,10 +6,10 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-*healr* provides function for the study of homeologous exchanges in
+*healr* provides function for the study of homoeologous exchanges in
 neo-polyploids. It is a module of
 [HEAL](https://github.com/kenji-yt/HEAL), a snakemake workflow
-automating the main steps related to homeologous exchange estimation.
+automating the main steps related to homoeologous exchange estimation.
 While we recommend using *healr* after having processed your data with
 HEAL, you can use *healr* independantly from HEAL. Functions from
 *healr* enable copy number inference at a subgenome level using
@@ -17,7 +17,7 @@ subgenome classified bam-files (for example from
 [eagle-rc](https://github.com/tony-kuo/eagle?tab=readme-ov-file#eagle-rc)).
 Then, inferred copy numbers can be combined with
 [GENESPACE](https://github.com/jtlovell/GENESPACE) output (synteny
-inference) to obtain copy number ratio for homeologous genes. The copy
+inference) to obtain copy number ratio for homoeologous genes. The copy
 number information and ratio can be plotted and summarized in a number
 of way using *healr* functions.
 
