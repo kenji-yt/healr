@@ -287,7 +287,7 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, output_dir = FALS
         if(orientation >= 0){
           bottom_corners_x <- c(final_block_dt[[paste0("start_", progenitors[2])]][1], final_block_dt[[paste0("end_", progenitors[2])]][length(final_block_dt[[paste0("end_", progenitors[2])]])])
         }else if(orientation < 0){
-          bottom_corners_x <- c(final_block_dt[[paste0("end_", progenitors[2])]][length(final_block_dt[[paste0("end_", progenitors[2])]])], final_block_dt[[paste0("start_", progenitors[2])]][1])
+          bottom_corners_x <- c(final_block_dt[[paste0("end_", progenitors[2])]][1], final_block_dt[[paste0("start_", progenitors[2])]][length(final_block_dt[[paste0("end_", progenitors[2])]])])
         }
         
         # Now we offset top and bottom positions based on the chromosome. 
