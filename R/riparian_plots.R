@@ -22,6 +22,7 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 #' @param alignment A heal alignment object created with get_alignment().
 #' @param heal_list List in heal format (such as output from count_heal_data()).
 #' @param genespace_dir Path to a directory containing the syntenicRegion_coordinates.csv output file from GENESPACE.
+#' @param view_samples A vector of sample names to be plotted. Samples will be plotted in the order provided. Default value is "all", which shows all samples. 
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param colour_scales A list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range. Defaults to red and green colour ranges.
 #' @param theme Background settings. Options are 'dark' or 'light'. Default value is 'light'. 
@@ -36,13 +37,28 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 #' @export
 #'
 #' @examples
-plot_riparian <- function(alignment, heal_list, genespace_dir, output_dir = FALSE, colour_scales = FALSE, theme = 'light', legend_text_size =5, legend_title_size = 7, legend_spacing = 2, title_size = 5, device_vector = c("pdf", "svg"), ...){
+plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "all", output_dir = FALSE, colour_scales = FALSE, theme = 'light', legend_text_size = 5, legend_title_size = 7, legend_spacing = 2, title_size = 5, device_vector = c("pdf", "svg"), ...){
   
   if(theme != "light" && theme != "dark"){
     stop("Invalid input for 'theme'. Please input 'light' or 'dark'. Exiting..")
   }
-  polyploid_samples <- names(alignment)
-
+  
+  if(view_samples != "all"){
+    
+    if(length(intersect(names(alignment), view_samples)) == 0){
+      stop("Sample names provided in 'view_samples' are not valid. Exiting..")
+    }else{
+      polyploid_samples <- intersect(names(alignment), view_samples)
+      if(length(polyploid_samples) < length(view_samples)){
+        cat(paste("Some sample names from 'view_samples' not present in alignment \n"))
+      }
+    }
+  }else{
+    polyploid_samples <- names(alignment)
+  }
+  
+  cat(paste("Plotting for:", polyploid_samples, " \n"))
+  
   progenitors <- gsub("^cn_", "", grep("cn", colnames(alignment[[1]]), value = TRUE))
   
   if(length(progenitors) > 2){
@@ -312,7 +328,7 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, output_dir = FALS
       return(ribbon_dt_per_block_list)
     }
     
-    ribbon_dt_list <- do.call(c, ribbon_dt_list) # We combine all lists into one big list. Each entry is a ribbon defining data table.
+    ribbon_dt_list <- do.call(base::c, ribbon_dt_list) # We combine all lists into one big list. Each entry is a ribbon defining data table.
     
     ### Add the ribbons to the plot
     for (i in seq_along(ribbon_dt_list)) {
