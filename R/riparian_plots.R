@@ -131,7 +131,7 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "a
       
     } else {
       
-      start_location <- chromo_sizes / 2
+      start_location <- - chromo_sizes / 2
       names(start_location) <- names(chromo_sizes)
       return(start_location)
     }
