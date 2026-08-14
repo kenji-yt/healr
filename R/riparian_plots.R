@@ -26,6 +26,7 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param colour_scales A list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range. Defaults to red and green colour ranges.
 #' @param theme Background settings. Options are 'dark' or 'light'. Default value is 'light'. 
+#' @param show_legend A logical argument determing if a legend showing each chromosome name should be shown ('TRUE' by default). 
 #' @param legend_text_size Size of the legend text as input to  ggplot2::element_text size argument ('5' by default).
 #' @param legend_title_size Size of the legend title as input to  ggplot2::element_text size argument ('7' by default).
 #' @param title_size Size of the title text as input to ggplot2::element_text size argument ('10' by default).
@@ -37,7 +38,7 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 #' @export
 #'
 #' @examples
-plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "all", output_dir = FALSE, colour_scales = FALSE, theme = 'light', legend_text_size = 5, legend_title_size = 7, legend_spacing = 2, title_size = 5, device_vector = c("pdf", "svg"), ...){
+plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "all", output_dir = FALSE, colour_scales = FALSE, theme = 'light', show_legend = TRUE, legend_text_size = 5, legend_title_size = 7, legend_spacing = 2, title_size = 5, device_vector = c("pdf", "svg"), ...){
   
   if(theme != "light" && theme != "dark"){
     stop("Invalid input for 'theme'. Please input 'light' or 'dark'. Exiting..")
@@ -261,7 +262,12 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "a
         legend.title = ggplot2::element_text(size = legend_title_size),
         legend.key.height = ggplot2::unit(legend_spacing, "lines")  # increase spacing between items
       )
-
+    
+    # Determine if the legend should be shown or not
+    if(!show_legend){
+      plot <- plot + ggplot2::theme(legend.position = "none")
+    }
+  
     # Let's define the ribbons (rivers)
     # We work on a alignment ordered by subgenome one 
     ordered_alignment <- alignment[[smp]]
