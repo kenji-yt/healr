@@ -257,7 +257,7 @@ read_heal_alignment <- function(alignment_directory, ...){
   
   sample_files <- list.files(path = alignment_directory, full.names = FALSE, recursive = FALSE)
   sample_names <- gsub(".csv", "", sample_files)
-  sample_paths <- paste0(alignment_directory, sample_files)
+  sample_paths <- paste0(alignment_directory, "/", sample_files)
   names(sample_paths) <- sample_names
   
   for(smp in sample_names){

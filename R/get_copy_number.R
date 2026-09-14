@@ -20,11 +20,11 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
                             manual_scale = FALSE){
   
   
-  if (intersect(method, c("global", "local", "manual")) == 0 || length(average) != 1) {
+  if (!method %in% c("global", "local", "manual") || length(method) != 1) {
     stop("Invalid method input. Choose either 'global', 'local' or 'manual'")
   }
   
-  if (intersect(average, c("median", "mean")) == 0 || length(average) != 1) {
+  if (!average %in% c("median", "mean") || length(average) != 1) {
     stop("Invalid average input. Choose either 'median' or 'mean'")
   }
 
@@ -44,7 +44,7 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
     if (!identical(names(average_list), samples)){
       stop("Invalid average_list input. When method == 'manual' you must provide a average_list with values of median for each sample subgenome.")
     }
-  }else if (normalize == "manual" & is.logical(average_list)){
+  }else if (method == "manual" & is.logical(average_list)){
     stop("No 'average_list' provided. When method == 'manual' you must provide an 'average_list' with values of median for each sample subgenome.")
   }
   
@@ -66,7 +66,7 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
       only_na_chromo <- unique(smooth_cna$chrom)[unlist(only_na_chromo_list)]
      
       smooth_not_na_cna <- smooth_cna
-      if(length(only_na_chromo>1)){
+      if(length(only_na_chromo)>=1){
         for(rm_chr in only_na_chromo){
           smooth_not_na_cna <- smooth_not_na_cna[smooth_not_na_cna$chrom!=rm_chr,]
         }
@@ -88,11 +88,17 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
         }))
       } 
       
-      copy_number <- rep(NA, length(prog$chr))
-
+      # copy_number aligned to the segmented data (all NA-chromosome-removed) 
+      keep   <- !(prog$chr %in% only_na_chromo)
+      cn_seg <- rep(NA, nrow(smooth_not_na_cna))
       for (i in 1:nrow(sgmnts$segRows)) {
-        copy_number[sgmnts$segRows[i, 1]:sgmnts$segRows[i, 2]] <- rep(estimated_CN[i], length(sgmnts$segRows[i, 1]:sgmnts$segRows[i, 2]))
+        rows <- sgmnts$segRows[i, 1]:sgmnts$segRows[i, 2]
+        cn_seg[rows] <- estimated_CN[i]
       }
+      
+      # scatter back into the full-length vector
+      copy_number <- rep(NA, nrow(prog))
+      copy_number[keep] <- cn_seg
       
       if (full_output == TRUE) {
         return(list(cn=copy_number, sgmnts=sgmnts))

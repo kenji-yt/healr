@@ -54,7 +54,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
     average_list <- get_sample_stats(heal_list, method = paste0("local_", average))
     sample_names <- names(average_list)
     
-  }else if (method == "manual" & average_list != FALSE){
+  }else if (method == "manual" & is.list(average_list)){
     sample_names <- names(average_list)
   }
   
@@ -638,7 +638,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
     average_list <- get_sample_stats(heal_list, method = paste0("local_", average))
     sample_names <- names(average_list)
     
-  }else if (method == "manual" & average_list != FALSE){
+  }else if (method == "manual" & is.list(average_list)){
     sample_names <- names(average_list)
   }
   
@@ -704,6 +704,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
 
       doParallel::registerDoParallel(n_threads)
       plot_list <- foreach::foreach(chr = chromo) %dopar% {
+        
         
         if (output_dir != FALSE) {
           out_file <- paste0(ref_dir, "/", prog, "/", chr, ".", device)
@@ -873,7 +874,7 @@ plot_alignment <- function(heal_list, alignment, method = "global",
     average_list <- get_sample_stats(heal_list, method = paste0("local_", average))
     sample_names <- names(average_list)
     
-  }else if (method == "manual" & average_list != FALSE){
+  }else if (method == "manual" & is.list(average_list)){
     sample_names <- names(average_list)
   }
   
@@ -1122,7 +1123,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
   if(normalize == "local"){
     local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
     
-  }else if (normalize == "manual" & average_list != FALSE){
+  }else if (normalize == "manual" & is.list(average_list)){
     if (!identical(names(average_list), polyploid_samples)){
       stop("Invalid average_list input. When method == 'manual' you must provide an average_list with values of median for each sample subgenome.")
     }
