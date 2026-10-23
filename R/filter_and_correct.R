@@ -148,15 +148,13 @@ correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75
                        prog_ploidy = 2, local_normalize = FALSE, output_dir=FALSE,
                        ymax = 4, cex = 1, pch = 1, alpha = 0.3, linewidth = 3, device = "pdf"){
   
-  smp_types <- get_sample_stats(heal_list = heal_list, sample_type = TRUE)
-  
   if(local_normalize == TRUE){
     smp_medians <- get_sample_stats(heal_list = heal_list, method = "local_median")
   }else{
     smp_medians <- get_sample_stats(heal_list = heal_list, method = "median")
   }
   
-  polyploid_samples <- smp_types$sample[smp_types$type=="polyploid"]
+  polyploid_samples <- names(smp_medians)
   progenitors <- names(heal_list)
   
   # Make a vector to identify the progenitor
@@ -290,8 +288,7 @@ correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75
 #' @examples
 remove_short_spans <- function(heal_list, max_length = 1, n_threads = 1){
   
-  smp_types <- get_sample_stats(heal_list = heal_list, sample_type = TRUE)
-  samples <- smp_types$sample
+  samples <- names(get_sample_stats(heal_list = heal_list))
   
   progenitors <- names(heal_list)
   

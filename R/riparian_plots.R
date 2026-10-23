@@ -34,17 +34,21 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 #' 
 #' @param ... Any arguments you wish to pass to ggplot2::ggsave().
 #'
+#' @details With more than two subgenomes, one plot is made for each pair of subgenomes. Plots are then saved in 'output_dir/<subgenome1>_vs_<subgenome2>/<sample>/'.
+#'
 #' @returns Nothing. Creates riparian style plots with copy number information. 
 #' @export
 #'
 #' @examples
-plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "all", output_dir = FALSE, colour_scales = FALSE, theme = 'light', show_legend = TRUE, legend_text_size = 5, legend_title_size = 7, legend_spacing = 2, title_size = 5, device_vector = c("pdf", "svg"), ...){
+plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "all", output_dir = FALSE, colour_scales = FALSE,
+                          theme = 'light', show_legend = TRUE, legend_text_size = 5, legend_title_size = 7, legend_spacing = 2,
+                          title_size = 5, device_vector = c("pdf", "svg"), ...){
   
   if(theme != "light" && theme != "dark"){
     stop("Invalid input for 'theme'. Please input 'light' or 'dark'. Exiting..")
   }
   
-  if(view_samples != "all"){
+  if(!identical(view_samples, "all")){
     
     if(length(intersect(names(alignment), view_samples)) == 0){
       stop("Sample names provided in 'view_samples' are not valid. Exiting..")
@@ -59,11 +63,22 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "a
   }
   
   cat(paste("Plotting for:", polyploid_samples, " \n"))
+
+  progenitors <- gsub("^cn_", "", grep("^cn_", colnames(alignment[[1]]), value = TRUE))
   
-  progenitors <- gsub("^cn_", "", grep("cn", colnames(alignment[[1]]), value = TRUE))
-  
+  # More than two subgenomes: one riparian plot per pair of subgenomes
   if(length(progenitors) > 2){
-    stop("More than two subgenomes detected. This function only works for two subgenomes at the moment. Exiting..")
+    for(pair in utils::combn(progenitors, 2, simplify = FALSE)){
+      pair_cols <- as.vector(outer(c("chr_", "start_", "end_", "id_", "cn_"), pair, paste0))
+      pair_alignment <- lapply(alignment[polyploid_samples], function(aln) aln[, pair_cols, with = FALSE])
+      pair_output_dir <- if(is.logical(output_dir)) output_dir else file.path(output_dir, paste0(pair[1], "_vs_", pair[2]))
+      pair_colour_scales <- if(is.list(colour_scales)) colour_scales[pair] else colour_scales
+      plot_riparian(alignment = pair_alignment, heal_list = heal_list[pair], genespace_dir = genespace_dir,
+                    output_dir = pair_output_dir, colour_scales = pair_colour_scales, theme = theme,
+                    show_legend = show_legend, legend_text_size = legend_text_size, legend_title_size = legend_title_size,
+                    legend_spacing = legend_spacing, title_size = title_size, device_vector = device_vector, ...)
+    }
+    return(invisible(NULL))
   }
   
   # Get the syntenic regions data table
@@ -74,7 +89,7 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "a
   regions_dt <- data.table::fread(path_to_regions_csv, quote = "\"")
   # Remove self blocks 
   regions_dt <- regions_dt[!regions_dt$genome1==regions_dt$genome2, ]
-  regions_dt <- regions_dt[regions_dt$genome1==progenitors[1]]
+  regions_dt <- regions_dt[regions_dt$genome1==progenitors[1] & regions_dt$genome2==progenitors[2]]
   
   # Make a GRanges object
   region_gr_prog1 <- GenomicRanges::GRanges(
@@ -153,7 +168,7 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "a
       ggplot2::xlim(-max_x_span/2 - inter_chromosome_space, max_x_span/2 + inter_chromosome_space) +
       ggplot2::ylim(-2.6, 2.6) +
       ggplot2::theme_void() +
-      ggplot2::labs(title = smp) +
+      ggplot2::labs(title = paste0(smp, ": ", progenitors[1], " (top) vs ", progenitors[2], " (bottom)")) +
       ggplot2::theme(
         plot.title = ggplot2::element_text(hjust = 0.5, size = title_size, face = "bold")
       )
@@ -230,7 +245,7 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "a
     
     blocks_dt$Chromosome <- factor(
       blocks_dt$Chromosome,
-      levels = c(sort(unique(grep(progenitors[1], blocks_dt$Chromosome, value = TRUE))), sort(unique(grep(progenitors[2], blocks_dt$Chromosome, value = TRUE))))
+      levels = c(sort(unique(blocks_dt$Chromosome[endsWith(blocks_dt$Chromosome, paste0(" ", progenitors[1]))])), sort(unique(blocks_dt$Chromosome[endsWith(blocks_dt$Chromosome, paste0(" ", progenitors[2]))])))
     )
 
     if(is.logical(colour_scales)){
@@ -358,7 +373,7 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "a
         )
     }
     
-    print(plot)
+    if (interactive() || is.logical(output_dir)) print(plot)
     
     if(!is.logical(output_dir)){
       dir.create(file.path(output_dir))

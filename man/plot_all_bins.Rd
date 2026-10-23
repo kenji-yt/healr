@@ -25,6 +25,7 @@ plot_all_bins(
   bin_point_alpha = 0.4,
   bin_point_size = 2,
   cn_line_width = 2,
+  y_max = FALSE,
   ...
 )
 }
@@ -68,6 +69,8 @@ plot_all_bins(
 \item{bin_point_size}{Size of the normalized bin count values as input to ggplot2::goem_point size argument ('2' by default).}
 
 \item{cn_line_width}{Thickness of the line showing the copy number as input to ggplot2::geom_path linewidth argument ('2' by default).}
+
+\item{y_max}{Upper limit of the y axis of each sample panel. Bins with normalized counts above y_max + prog_ploidy are not shown, and higher copy numbers are drawn just above that limit. Defaults to the total ploidy (prog_ploidy times the number of subgenomes).}
 
 \item{...}{Any arguments you wish to pass to ggplot2::ggsave().}
 }

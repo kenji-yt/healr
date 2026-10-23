@@ -20,6 +20,7 @@
 #' @param bin_point_alpha The transparency of the normalized bin count values as input to ggplot2::goem_point alpha argument ('0.4' by default). 
 #' @param bin_point_size Size of the normalized bin count values as input to ggplot2::goem_point size argument ('2' by default).
 #' @param cn_line_width Thickness of the line showing the copy number as input to ggplot2::geom_path linewidth argument ('2' by default).
+#' @param y_max Upper limit of the y axis of each sample panel. Bins with normalized counts above y_max + prog_ploidy are not shown, and higher copy numbers are drawn just above that limit. Defaults to the total ploidy (prog_ploidy times the number of subgenomes).
 #' @param ... Any arguments you wish to pass to ggplot2::ggsave().
 #' 
 #' @return Either nothing of a ggplot object showing several samples together. The plot is always printed. 
@@ -31,7 +32,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
                           method = "global", average = "median", average_list = FALSE,
                           chr_label_size = 4, cn_label_size = 3, size_x_axis_title = 14, 
                           size_y_axis_title = 14, sample_name_size = 3,  bin_point_alpha = 0.4,
-                          bin_point_size = 2, cn_line_width = 2, ...){
+                          bin_point_size = 2, cn_line_width = 2, y_max = FALSE, ...){
   
   # Check input to see if it's appropriate
   if(!is.logical(add_bins)){
@@ -58,8 +59,14 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
     sample_names <- names(average_list)
   }
   
-  
   progenitors <- names(heal_list)
+  
+  # Height of each sample's y axis (default: the total ploidy)
+  if (isFALSE(y_max)) {
+    y_max <- prog_ploidy * length(progenitors)
+  }
+  # Bins above this value are not drawn, higher copy numbers are drawn just above it
+  max_value <- y_max + prog_ploidy
   
   # Get the colour map
   if (isFALSE(color_map)) {
@@ -96,7 +103,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
     
   
   # Get y position of each sample
-  sample_y_starts <- 0:(length(samples)-1)*8
+  sample_y_starts <- 0:(length(samples)-1)*(max_value + 2)
   names(sample_y_starts) <- samples
   
   
@@ -126,11 +133,11 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
   # Create an empty plot.
   plot <- ggplot2::ggplot() +
     ggplot2::xlim(-inter_chromosome_space, total_x_span+inter_chromosome_space*0.1) +
-    ggplot2::ylim(-2, max(sample_y_starts)+8) +
+    ggplot2::ylim(-2, max(sample_y_starts) + max_value + 2) +
     ggplot2::theme_void()
   
   # Add sample names
-  smp_names_df <- data.frame(x = 0, y = sample_y_starts + prog_ploidy*length(progenitors) + prog_ploidy, label = names(sample_y_starts))
+  smp_names_df <- data.frame(x = 0, y = sample_y_starts + max_value, label = names(sample_y_starts))
   plot <- plot + 
     ggplot2::geom_text(data = smp_names_df,
                        ggplot2::aes(x = x, y = y, label = label, fontface = "bold"),
@@ -138,7 +145,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
                        size = sample_name_size)
   
   # Add y axes
-  y_ends <- sample_y_starts + prog_ploidy*length(progenitors) 
+  y_ends <- sample_y_starts + y_max
   y_axes_df <- data.frame(x_start = 0, x_end = 0, y_start = sample_y_starts, y_end = y_ends)
   plot <- plot + 
     ggplot2::geom_segment(data = y_axes_df,
@@ -146,12 +153,12 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
   
   # Add ticks 
   tick_location <- sample_y_starts
-  for(i in 1:(prog_ploidy*length(progenitors))){
+  for(i in 1:y_max){
     tick_location <- c(tick_location, sample_y_starts + i)
   }
   y_axes_ticks_df <- data.frame(x_start = -inter_chromosome_space*0.6, x_end = 0, y_start = tick_location, y_end = tick_location)
   
-  tick_labels <- rep(0:(prog_ploidy*length(progenitors)), length(sample_y_starts))
+  tick_labels <- rep(0:y_max, length(sample_y_starts))
   y_ticks_labels_df <- data.frame(x = -inter_chromosome_space*0.8, y = sort(tick_location), label = tick_labels)
   
   plot <- plot + 
@@ -163,7 +170,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
                        size = cn_label_size)
   
   # Define progenitor specific offsets
-  prog_offsets <- c(0, real_x_spans_per_subG + (inter_chromosome_space * 2))
+  prog_offsets <- c(0, cumsum(real_x_spans_per_subG + (inter_chromosome_space * 2)))
   prog_offsets <- prog_offsets[1:length(progenitors)]
   names(prog_offsets) <- progenitors
   
@@ -255,10 +262,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
     current_chromo <- unique(heal_list[[prog]]$bins$chr)
     
     for(smp in samples){
-      
-      # Set a max allowed CN
-      max_value <- prog_ploidy*(length(progenitors)+1)
-      
+    
       # Normalize and filter
       normalized <- heal_list[[prog]]$bins[[smp]] / average_list[[smp]][[prog]] * prog_ploidy
       normalized[normalized > max_value] <- NA
@@ -296,7 +300,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
     }
   }
   
-  print(plot)
+  if (interactive() || isFALSE(output_dir)) print(plot)
   
   if(output_dir!=FALSE){
     file_path <- paste0(output_dir,"/heal_multisample_genomewide_plot.", device)
@@ -351,9 +355,7 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
 
   progenitors <- names(heal_list)
   
-  
-  smp_stats <- get_sample_stats(heal_list, sample_type = TRUE)
-  polyploid_samples <- smp_stats$sample[smp_stats$type=="polyploid"]
+  polyploid_samples <- names(get_sample_stats(heal_list))
   
   # Define which samples the users wishes on the plot
   if(length(view_samples)==1){
@@ -550,7 +552,7 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
       )
   }
   
-  print(outplot)
+  if (interactive() || isFALSE(output_dir)) print(outplot)
   
   if(output_dir!=FALSE){
     file_path <- paste0(output_dir,"/heal_cn_heatmap_plot.", device)
@@ -652,9 +654,6 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
   }
   names(color_map) <- progenitors
 
-  # sample type
-  smp_type_map <- get_sample_stats(heal_list, sample_type = TRUE)
-
   # Check if ploting only one sample or plotting all to directory.
   if (view_sample != FALSE) {
     if (sum(sample_names == view_sample) == 0) {
@@ -668,7 +667,6 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
     }
     samples <- view_sample
 
-    smp_type_map <- smp_type_map[smp_type_map$sample == view_sample, ]
   } else if (output_dir == FALSE) {
     stop("No output directory and no 'view_sample' set. One must be set.")
   } else {
@@ -684,11 +682,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
       dir.create(ref_dir, showWarnings = FALSE, recursive = TRUE)
     }
 
-    if (smp_type_map$type[smp_type_map$sample == smp] != "polyploid") {
-      current_prog <- smp_type_map$type[smp_type_map$sample == smp]
-    } else {
-      current_prog <- progenitors
-    }
+    current_prog <- progenitors
 
     plot_prog_list <- foreach::foreach(prog = current_prog) %do% {
       

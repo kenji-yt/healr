@@ -63,26 +63,25 @@ count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = 
   
   progenitors <- list.files(path = prog_dir)
 
-
   counts <- foreach::foreach(prog = progenitors) %do% {
     # get paths ----------------
 
-    cat(paste("Counting reads in bins for progenitor or subgenome", prog, ".", "\n"))
+    cat(paste0("Counting reads in bins for progenitor or subgenome ", prog, ".", "\n"))
 
-    current_prog_dir <- list.files(path = prog_dir, pattern = prog, full.names = TRUE)
-
+    current_prog_dir <- file.path(prog_dir, prog)
+    
     gc_path <- list.files(path = current_prog_dir, pattern = "gc.bed$", full.names = TRUE)
     map_path <- list.files(path = current_prog_dir, pattern = "mappability.bed$", full.names = TRUE)
     bins_path <- list.files(path = current_prog_dir, pattern = "bins.bed$", full.names = TRUE)
 
     if (length(gc_path) != 1 || length(map_path) != 1 || length(bins_path) != 1) {
-      stop(paste("Not exactly one mappability, GC content or bins file for progenitor", prog, ". Exiting!"))
+      stop(paste0("Not exactly one mappability, GC content or bins file for progenitor ", prog, ". Exiting!"))
     }
 
 
     # load data --------------------
 
-    gc_dt <- data.table::fread(gc_path, select = c(1, 2, 4))
+    gc_dt <- data.table::fread(gc_path, select = c(1, 2, 5))
     colnames(gc_dt) <- c("chr", "start", "gc_content")
     data.table::setkey(gc_dt, chr, start, gc_content)
     data.table::setorder(gc_dt, chr, start)
@@ -115,18 +114,15 @@ count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = 
 
     # count in bins --------------
 
-    all_dirs <- list.dirs(path = input_dir, full.names = TRUE, recursive = TRUE)
-    prog_dirs <- all_dirs[grepl(prog, all_dirs)]
-    bam_paths <- list.files(prog_dirs, pattern = ".bam$", full.names = TRUE, recursive = TRUE)
-
-    feature_count_list <- Rsubread::featureCounts(bam_paths, annot.ext = anno_bins, isPairedEnd = paired_end, nthreads = n_threads, allowMultiOverlap = TRUE)
-
+    sample_dirs <- list.dirs(path = poly_dir, full.names = TRUE, recursive = FALSE)
+    bam_paths <- list.files(file.path(sample_dirs, prog), pattern = "\\.bam$", full.names = TRUE)
     sample_names <- basename(dirname(dirname(bam_paths)))
-    if (sum(sample_names == "progenitors") > 0) { # give random name.
-      sample_names[sample_names == "progenitors"] <- c(paste0("progenitors_", prog, "_", 1:sum(sample_names == "progenitors")))
-    } else if (sum(sample_names == prog) > 0) { # user defined (directory) name.
-      sample_names[sample_names == prog] <- basename(dirname(bam_paths))[sample_names == prog]
+    
+    if (anyDuplicated(sample_names) || length(sample_names) != length(sample_dirs)) {
+      stop(paste0("Each sample directory in ", poly_dir, "must contain exactly one .bam file in a subdirectory named ", prog, "."))
     }
+    
+    feature_count_list <- Rsubread::featureCounts(bam_paths, annot.ext = anno_bins, isPairedEnd = paired_end, nthreads = n_threads, allowMultiOverlap = TRUE)
 
     count_dt <- parse_counts_bins(feature_count_list = feature_count_list, gc_dt = gc_dt, map_dt = map_dt, sample_names = sample_names)
     

@@ -8,9 +8,11 @@ plot_riparian(
   alignment,
   heal_list,
   genespace_dir,
+  view_samples = "all",
   output_dir = FALSE,
   colour_scales = FALSE,
   theme = "light",
+  show_legend = TRUE,
   legend_text_size = 5,
   legend_title_size = 7,
   legend_spacing = 2,
@@ -26,11 +28,15 @@ plot_riparian(
 
 \item{genespace_dir}{Path to a directory containing the syntenicRegion_coordinates.csv output file from GENESPACE.}
 
+\item{view_samples}{A vector of sample names to be plotted. Samples will be plotted in the order provided. Default value is "all", which shows all samples.}
+
 \item{output_dir}{The name of a directory to write all plots to. Will create one if nonexistent.}
 
 \item{colour_scales}{A list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range. Defaults to red and green colour ranges.}
 
 \item{theme}{Background settings. Options are 'dark' or 'light'. Default value is 'light'.}
+
+\item{show_legend}{A logical argument determing if a legend showing each chromosome name should be shown ('TRUE' by default).}
 
 \item{legend_text_size}{Size of the legend text as input to  ggplot2::element_text size argument ('5' by default).}
 
@@ -47,4 +53,7 @@ Nothing. Creates riparian style plots with copy number information.
 }
 \description{
 Plot riparian style plots with copy number
+}
+\details{
+With more than two subgenomes, one plot is made for each pair of subgenomes. Plots are then saved in 'output_dir/\if{html}{\out{<subgenome1>}}\emph{vs}\if{html}{\out{<subgenome2>}}/\if{html}{\out{<sample>}}/'.
 }

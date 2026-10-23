@@ -55,7 +55,7 @@ parse_genespace_input <- function(genespace_dir) {
 get_conserved_anchors <- function(genespace_dir) {
   syn_hits_list <- parse_genespace_input(genespace_dir)
 
-  # Pick on genome as reference and keep only data tables containing this genome.
+  # Pick one genome as reference and keep only data tables containing this genome.
   genomes_per_hits_dt_list <- strsplit(names(syn_hits_list), "_vs_")
   reference_genome <- unlist(genomes_per_hits_dt_list)[1]
   which_has_ref <- which(sapply(genomes_per_hits_dt_list, function(x) reference_genome %in% x))
@@ -71,7 +71,10 @@ get_conserved_anchors <- function(genespace_dir) {
   merge_dt <- merge_dt[syn_hits_list[which_has_ref][[1]]$isAnchor == TRUE, ]
   colnames(merge_dt) <- c(paste0("chr_", reference_genome), paste0("start_", reference_genome), paste0("end_", reference_genome), paste0("id_", reference_genome))
 
-  for (hits_dt in syn_hits_list[which_has_ref]) {
+  kept_genomes <- reference_genome
+  
+  for (hits_dt in c(syn_hits_list[which_has_ref], syn_hits_list[-which_has_ref])) { # go through each syn hits file but start with all pairs to the reference. 
+    # We do this to first create anchors dt with all genomes first (merging all pairs to ref). Then we merge in all pairs without ref, thus keeping only genes which are anchors throughout. 
     anchors_dt <- hits_dt[hits_dt$isAnchor == TRUE, ]
     genome_1 <- anchors_dt$genome1[1]
     genome_2 <- anchors_dt$genome2[1]
@@ -88,11 +91,9 @@ get_conserved_anchors <- function(genespace_dir) {
 
     merge_dt <- merge(merge_dt, anchors_dt, by = intersect(names(merge_dt), names(anchors_dt)))
 
-    which_relevant <- which(colnames(merge_dt) %in% c(
-      paste0(c("chr_", "start_", "end_", "id_"), genome_1),
-      paste0(c("chr_", "start_", "end_", "id_"), genome_2)
-    ))
-
+    kept_genomes <- union(kept_genomes, c(genome_1, genome_2))
+    which_relevant <- which(colnames(merge_dt) %in% as.vector(outer(c("chr_", "start_", "end_", "id_"), kept_genomes, paste0)))
+    
     merge_dt <- merge_dt[, ..which_relevant]
   }
 
@@ -117,7 +118,7 @@ map_bins_to_anchors <- function(anchors_dt, heal_list, genespace_dir, n_threads=
   sample_names <- unlist(lapply(heal_list, function(prog) {
     setdiff(colnames(prog$bins), c("chr", "start", "end", "mappability", "gc_content"))
   }))
-  polyploid_samples <- names(table(sample_names))[table(sample_names) == 2]
+  polyploid_samples <- sort(unique(sample_names))
 
   anchors_dt <- get_conserved_anchors(genespace_dir)
 
@@ -209,7 +210,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
   sample_names <- unlist(lapply(heal_list, function(prog) {
     setdiff(colnames(prog$bins), c("chr", "start", "end", "mappability", "gc_content"))
   }))
-  polyploid_samples <- names(table(sample_names))[table(sample_names) == 2]
+  polyploid_samples <- sort(unique(sample_names))
   progenitors <- names(heal_list)
 
   total_ploidy <- length(progenitors) * prog_ploidy
@@ -248,7 +249,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
       
       # Assign CN to anchors overlapping multiple based on overlap length
       doParallel::registerDoParallel(n_threads)
-      multiple_cn_anchors <- foreach::foreach(i = 1:length(multiple_overlap_anchors)) %dopar% {
+      multiple_cn_anchors <- foreach::foreach(i = seq_along(multiple_overlap_anchors)) %dopar% {
         
         anchor_id <- names(multiple_overlap_anchors[i])
         sub_dt <- cn_anchors_and_bins[[prog]][cn_anchors_and_bins[[prog]][[prog_id_col]]==anchor_id]
@@ -293,8 +294,8 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
     alignment_draft <- Reduce(function(...) merge(..., by = common_cols, all = FALSE), assigned_list)
     
     method_cols <- grep("_method$", names(alignment_draft), value = TRUE)
-    # Create new column "method" by comparing values row-wise
-    alignment_draft[, method := ifelse(apply(.SD, 1, function(x) length(unique(x)) == 1), "unique", "multiple"), .SDcols = method_cols]
+    # Create new column "method" by comparing values row-wise. Set to unique only if all values are unique, else multiple. 
+    alignment_draft[, method := ifelse(apply(.SD, 1, function(x) all(x == "unique")), "unique", "multiple"), .SDcols = method_cols]
     alignment_draft[, (method_cols) := NULL]
     
     cn_cols <- grep("^cn_", names(alignment_draft), value = TRUE)
@@ -350,7 +351,7 @@ get_heal_alignment <- function(heal_list, genespace_dir, n_threads = 1, prog_plo
           
           overlap <- 0
           for(prog in progenitors){
-            cn_prog <- concord_dt[[prog]]
+            cn_prog <- concord_dt[[prog]][r]
             overlap <- overlap + overlap_list[[prog]][[as.character(cn_prog)]]
           }
           overlap_vec <- c(overlap_vec, overlap)

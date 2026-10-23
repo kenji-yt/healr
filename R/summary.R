@@ -20,13 +20,7 @@ summarize_cn <- function(heal_list, n_threads=1){
   
   summary_per_sample_list <- foreach::foreach(smp=samples)%do%{
     
-    which_prog <- unlist(lapply(heal_list, function(prog_list){
-      return(sum(colnames(prog_list$CN)==smp)==1)
-    }))
-    
-    valid_progenitors <- progenitors[which_prog]
-    
-    per_prog_dt_list <- foreach::foreach(prog=valid_progenitors)%do%{
+    per_prog_dt_list <- foreach::foreach(prog=progenitors)%do%{
       
       chromo <- unique(heal_list[[prog]]$CN$chr)
       
@@ -49,7 +43,7 @@ summarize_cn <- function(heal_list, n_threads=1){
       summary_list[[paste0("total_count_table_", prog)]] <- count_table
       return(summary_list)
     }
-    names(per_prog_dt_list) <- valid_progenitors
+    names(per_prog_dt_list) <- progenitors
     
     totals <- lapply(per_prog_dt_list, function(prog){
       which_total <- grep("total", names(prog))

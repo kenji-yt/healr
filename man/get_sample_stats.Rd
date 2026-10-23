@@ -4,12 +4,7 @@
 \alias{get_sample_stats}
 \title{Get general statistics about the each sample.}
 \usage{
-get_sample_stats(
-  heal_list,
-  n_threads = 1,
-  method = "median",
-  sample_type = FALSE
-)
+get_sample_stats(heal_list, n_threads = 1, method = "median")
 }
 \arguments{
 \item{heal_list}{Output list in heal format (such as output from count_heal_data()).}
@@ -17,8 +12,6 @@ get_sample_stats(
 \item{n_threads}{Number of threads to use ('1' by default).}
 
 \item{method}{The type of statistic computed ('median' by default). Options are 'median', 'local_median' (by subgenome), 'mean', 'local_mean', 'sd', 'is.na' and 'length'.}
-
-\item{sample_type}{Logical on choice to return information about wether the sample is polyploid or not.}
 }
 \value{
 Information about the samples.
