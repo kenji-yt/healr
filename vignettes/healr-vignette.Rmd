@@ -388,9 +388,9 @@ This function outputs a list for each polyploid sample with per-subgenome distri
 
 One can notice from the summary above that the only copy numbers combinations above 1% are concordant ones. There seems to be bias towards A.lyrata in the 3 to 1 ratio, and a bias towards A.halleri in the 4 to 0 ratio. It is unclear what to make of this specific result, and whether it is relevant or significant at all. However, there is surely some interesting biological insights that can be gleaned from these results, especially once we start looking at the specific physical distribution of these exchanges.<br>
 
-### Genome model plots
+### heal riparian plots
 
-The ultimate way to visualize what is happening to the genomes of your samples is to show both copy number and synteny relationships in a "genome model plot". These plots can be obtained with the plot_riparian() function:
+Another way to visualize what is happening to the genomes of your samples is to show both copy number and synteny relationships in a "heal riparian plot" (inspired by the GENESPACE riparian plots). These plots can be obtained with the plot_riparian() function:
 ```{r genome model plot, fig.width=10, fig.height=7}
 plot_riparian(alignment = alignment_list,
               title_size = 14,
@@ -401,7 +401,7 @@ plot_riparian(alignment = alignment_list,
 ```
 _**Figure 13:** Genome model plot for a synthetic Arabidopsis kamchatica sample._<br><br>
 
-One can appreciate the reciprocity between copy number changes on one subgenome and those on the other. We can see from this image that exchanges occur between syntenic regions even when these have been inverted in the species. For example, looking at chromosome 7 we can see that the first part of the A.halleri chromosome has been lost and likely replaced by the central part of the A.lyrata genome. The A.lyrata sequence is there now most likely at the distal end of a chromosome and has a new neighbourhood. This can have biological consequences, for example by driving new patterns of expression.<br><br>  
+We can see from this image that exchanges occur between syntenic regions even when these have been inverted in the species. For example, looking at chromosome 7 we can see that the first part of the A.halleri chromosome has been lost and likely replaced by the central part of the A.lyrata genome. The A.lyrata sequence is there now most likely at the distal end of a chromosome and has a new neighbourhood.<br><br>  
 
 ## Future directions 
 

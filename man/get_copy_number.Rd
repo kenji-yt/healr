@@ -12,7 +12,8 @@ get_copy_number(
   average = "median",
   average_list = FALSE,
   full_output = FALSE,
-  manual_scale = FALSE
+  manual_scale = FALSE,
+  seed = 1
 )
 }
 \arguments{
@@ -30,7 +31,9 @@ get_copy_number(
 
 \item{full_output}{Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).}
 
-\item{manual_scale}{Manually set the value of multiples of average x ploidy to use during copy number assignment. The input should be a vector. The values in that vector will be used to set copy numbers going from 0 upwards.
+\item{manual_scale}{Manually set the value of multiples of average x ploidy to use during copy number assignment. The input should be a vector. The values in that vector will be used to set copy numbers going from 0 upwards.}
+
+\item{seed}{Random seed used when running DNAcopy::segment(). This function uses permutations, seed can be set for reproducibility. Set to NULL for unseeded segmentation ('1' by default).
 For a vector of length N, copy numbers above N+1 will be assigned based on their multiple of the average. The function is set to 'FALSE' by default, meaning standard assignment.}
 }
 \value{

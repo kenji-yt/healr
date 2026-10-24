@@ -8,6 +8,7 @@
 #' @param average_list A named list with one element per sample each containing a named list with one element per subgenome with values used to assign copy numbers.
 #' @param full_output Logical: Do you want to also get the full DNAcopy output ('FALSE' by default).
 #' @param manual_scale Manually set the value of multiples of average x ploidy to use during copy number assignment. The input should be a vector. The values in that vector will be used to set copy numbers going from 0 upwards. 
+#' @param seed Random seed used when running DNAcopy::segment(). This function uses permutations, seed can be set for reproducibility. Set to NULL for unseeded segmentation ('1' by default). 
 #' For a vector of length N, copy numbers above N+1 will be assigned based on their multiple of the average. The function is set to 'FALSE' by default, meaning standard assignment.  
 #' 
 #' @return  A list with one element per progenitor containing the bins and genes elements of the inpiut plus a data table with infered copy number per bin for each sample and GC and mappability for each bin.
@@ -17,7 +18,7 @@
 #' @importFrom foreach %do%
 get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global",
                             average = "median", average_list = FALSE, full_output = FALSE,
-                            manual_scale = FALSE){
+                            manual_scale = FALSE, seed = 1){
   
   
   if (!method %in% c("global", "local", "manual") || length(method) != 1) {
@@ -71,7 +72,8 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
           smooth_not_na_cna <- smooth_not_na_cna[smooth_not_na_cna$chrom!=rm_chr,]
         }
       }
-      sgmnts <- DNAcopy::segment(smooth_not_na_cna)
+      # DNAcopy::segment uses random permutations; a fixed seed makes copy numbers reproducible
+      sgmnts <- if (is.null(seed)) DNAcopy::segment(smooth_not_na_cna) else withr::with_seed(seed, DNAcopy::segment(smooth_not_na_cna))
       
       # Assign copy number
       if(length(manual_scale)==1){
