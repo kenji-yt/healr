@@ -7,7 +7,7 @@
 summarize_cn(heal_list, n_threads = 1)
 }
 \arguments{
-\item{heal_list}{A heal alignment object created with get_heal_alignment().}
+\item{heal_list}{A heal alignment object created with get_heal_aln().}
 
 \item{n_threads}{Number of threads to use ('1' by default).}
 }

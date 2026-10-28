@@ -10,19 +10,22 @@ filter_bins(
   gc_threshold = 2,
   count_threshold = 2,
   replace_by_NA = TRUE,
+  unknown_threshold = FALSE,
   log_file = FALSE
 )
 }
 \arguments{
 \item{heal_list}{List in heal format (such as output from count_heal_data()).}
 
-\item{mappability_threshold}{Threshold average per bin mappability value below which bins are ignored ('0.9' by default).}
+\item{mappability_threshold}{Threshold average per bin mappability value below which bins are ignored. Set to 'FALSE' for no filtering ('0.9' by default).}
 
 \item{gc_threshold}{How many standard deviations away from the GC content median to consider a bin as outlier. Set to 'FALSE' for no filtering ('2' by default).}
 
 \item{count_threshold}{How many standard deviations above the count median to consider a bin as outlier. Set to 'FALSE' for no count filtering ('2' by default).}
 
-\item{replace_by_NA}{Should outliers count values be set to NA ('TRUE' by default). Otherwise outliers are set to the threshold defined by count_threshold.}
+\item{replace_by_NA}{Should bins with outlying read count values be set to NA ('TRUE' by default). Otherwise outliers are set to the threshold defined by count_threshold.}
+
+\item{unknown_threshold}{Threshold number of reads that could not be assigned to a subgenome in a bin, as a fraction of the sample's median read count per bin (e.g. 0.25: with diploid progenitors the median bin likely reflects two copies, so this allows unknown reads worth about half a copy). For each sample, counts in bins above it are set to NA. Requires count_heal_data(..., unknown_reads = TRUE). 'FALSE' (no filtering) by default.}
 
 \item{log_file}{A file to write the filtering statistics to ('FALSE' by default).}
 }

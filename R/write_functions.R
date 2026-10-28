@@ -214,7 +214,7 @@ read_cn_summary <- function(cn_summary_directory, ...){
 
 #' Save a heal alignment as a directory
 #'
-#' @param alignment A heal alignment object created with get_heal_alignment().
+#' @param alignment A heal alignment object created with get_heal_aln().
 #' @param output_dir The name of a directory to write the alignment to. Fails if the directory exists.
 #' @param ... Any argument you wish to pass to fwrite (see data.table::fwrite documentation). Writes as csv by default. /!\ Warning: Changing from default might cause issues in read_alignment() function.
 #'
@@ -222,7 +222,7 @@ read_cn_summary <- function(cn_summary_directory, ...){
 #' @export
 #'
 #' @examples
-write_heal_alignment <- function(alignment, output_dir, ...){
+write_heal_aln <- function(alignment, output_dir, ...){
   
   if(dir.exists(output_dir)) {
     stop(paste("Output directory", output_dir, "already exists!"))
@@ -244,14 +244,14 @@ write_heal_alignment <- function(alignment, output_dir, ...){
 
 #' Read a heal alignment from a directory
 #'
-#' @param alignment_directory A directory structured after a heal alignment (created by write_heal_alignment()).
+#' @param alignment_directory A directory structured after a heal alignment (created by write_heal_aln()).
 #' @param ... Any argument you which to pass to fread (see data.table::fread documentation).
 #'
-#' @returns A heal alignment i.e. A list with one data table per sample. Same as the output of get_heal_alignment().
+#' @returns A heal alignment i.e. A list with one data table per sample. Same as the output of get_heal_aln().
 #' @export
 #'
 #' @examples
-read_heal_alignment <- function(alignment_directory, ...){
+read_heal_aln <- function(alignment_directory, ...){
   
   out_alignment <- list()
   

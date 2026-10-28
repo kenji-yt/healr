@@ -16,7 +16,7 @@
 #'
 #' @importFrom foreach %dopar%
 #' @importFrom foreach %do%
-get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global",
+get_cn <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global",
                             average = "median", average_list = FALSE, full_output = FALSE,
                             manual_scale = FALSE, seed = 1){
   
@@ -124,7 +124,10 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
       colnames(cn_dt) <- c("chr", "start", "end", "gc_content", "mappability", sample_current_prog)
       data.table::setkey(cn_dt, chr, start, end, gc_content, mappability)
       
-      return(list(bins = heal_list[[pr_name]]$bins, CN = cn_dt, DNAcopy = sgmnts_list))
+      out <- heal_list[[pr_name]][intersect(c("bins", "bin_info", "filter_settings"), names(heal_list[[pr_name]]))]
+      out$CN <- cn_dt
+      out$DNAcopy <- sgmnts_list
+      return(out)
       
     } else {
       
@@ -132,7 +135,9 @@ get_copy_number <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = 
       colnames(cn_dt) <- c("chr", "start", "end", "gc_content", "mappability", sample_current_prog)
       data.table::setkey(cn_dt, chr, start, end, gc_content, mappability)
       
-      return(list(bins = heal_list[[pr_name]]$bins, CN = cn_dt))
+      out <- heal_list[[pr_name]][intersect(c("bins", "bin_info", "filter_settings"), names(heal_list[[pr_name]]))]
+      out$CN <- cn_dt
+      return(out)
     }
   }
 

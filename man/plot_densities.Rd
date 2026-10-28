@@ -32,7 +32,7 @@ plot_densities(
 
 \item{heal_list}{Output list in heal format (such as output from count_heal_data()).}
 
-\item{alignment}{A heal alignment object created with get_heal_alignment().}
+\item{alignment}{A heal alignment object created with get_heal_aln().}
 
 \item{corrected_alignment}{A density corrected alignment ('FALSE' by default). If one is given and show_discordant==TRUE then the new state of corrected points is shown above the previous state.}
 
@@ -44,11 +44,11 @@ plot_densities(
 
 \item{n_threads}{Number of threads to use ('1' by default).}
 
-\item{normalize}{Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_copy_number()'.}
+\item{normalize}{Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_cn()'.}
 
 \item{average}{Average measure used normalize each bin count ('median' or 'mean'. 'median' by default).}
 
-\item{average_list}{A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_copy_number()').}
+\item{average_list}{A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_cn()').}
 }
 \value{
 Nothing. Plots are shown and/or saved to output_dir.

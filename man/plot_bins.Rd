@@ -15,6 +15,9 @@ plot_bins(
   add_DNAcopy = FALSE,
   color_map = FALSE,
   specific_chr = FALSE,
+  bin_stats = FALSE,
+  bin_stats_point_size = 0.5,
+  bin_point_size = 1,
   return_list = FALSE,
   method = "global",
   average = "median",
@@ -47,13 +50,19 @@ plot_bins(
 
 \item{specific_chr}{A vector of characters indicating which chromosomes to plot (plots all by default).}
 
+\item{bin_stats}{Add panels showing the bin properties. Should be a vector with any of “gc”, “mappability” and “unknown” ('FALSE' (no panel) by default). Dashed lines show the filter_bins() thresholds.}
+
+\item{bin_stats_point_size}{Size of the points in the bin_stats panels (as ggplot2::geom_point size argument) ('0.5' by default).}
+
+\item{bin_point_size}{Size of the bin count points (normalized if plot_cn = TRUE) (as ggplot2::geom_point size argument) ('1' by default).}
+
 \item{return_list}{Logical: return a list of plots if view_sample.}
 
-\item{method}{Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default).}
+\item{method}{Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('global', 'local' or 'manual'. 'global' by default).}
 
-\item{average}{The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default).}
+\item{average}{The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('median' or 'mean'. 'median' by default).}
 
-\item{average_list}{Same as in get_copy_number().}
+\item{average_list}{Same as in get_cn().}
 
 \item{ylim_max}{Maximum y axis value when plotting copy number.}
 
@@ -65,7 +74,7 @@ plot_bins(
 
 \item{units}{Units of the plot output (as argument to ggplot2::ggsave) ('in' by default).}
 
-\item{...}{Any arguments you wish to pass to ggplot2::geom_point()}
+\item{...}{Any arguments you wish to pass to ggplot2::geom_point() to modify the read count/CN plot (for example 'alpha = 0.6' to make the points less transparents).}
 }
 \value{
 Either nothing or a list of plots.

@@ -16,7 +16,7 @@ correct_cn_with_density(
 \arguments{
 \item{densities}{A list of densities for each polyploid sample (output from get_concordant_density()).}
 
-\item{alignment}{A heal alignment object created with get_heal_alignment().}
+\item{alignment}{A heal alignment object created with get_heal_aln().}
 
 \item{heal_list}{Output list in heal format (such as output from count_heal_data()).}
 

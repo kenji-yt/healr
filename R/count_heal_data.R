@@ -39,13 +39,14 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names) {
 #' @param n_threads Number of threads to use with featureCounts ('1' by default)
 #' @param paired_end Logical: Is the data paired end.
 #' @param full_output Logical: Do you want to also get the full featureCounts output ('FALSE' by default). This can be usefull for debugging. 
+#' @param unknown_reads Logical: Also count reads that could not be assigned to a subgenome ('TRUE' by default). Their BAM file must be in a subdirectory 'unknown' of each sample's subgenome directory and finish with ".unk.bam". Adds one column per sample to the ‘bin_info’ table with the number of unknown reads in each bin (column name '<sample>_unknown').
 #'
-#' @return A heal list object i.e. a list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
+#' @return A heal list object i.e. a list with one element per progenitor containing a 'bins' data table with counts in bins for each sample and GC and mappability for each bin, and ‘bin_info’ data table with GC content and mappability (and unknown reads optionally) for all bins, which is kept when bins are filtered.
 #' @export
 #'
 #' @importFrom foreach %do%
 #' @importFrom utils write.table
-count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = FALSE) {
+count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = FALSE, unknown_reads = TRUE) {
   
   prog_dir <- list.files(path = input_dir, pattern = "progenitors", full.names = TRUE)
   if(length(prog_dir)==0){
@@ -63,6 +64,22 @@ count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = 
   
   progenitors <- list.files(path = prog_dir)
 
+  # Check that every sample has its BAM file(s) for every subgenome before counting anything
+  sample_dirs <- list.dirs(path = poly_dir, full.names = TRUE, recursive = FALSE)
+  for (prog in progenitors) {
+    bam_names <- basename(dirname(dirname(list.files(file.path(sample_dirs, prog), pattern = "\\.bam$", full.names = TRUE))))
+    if (anyDuplicated(bam_names) || length(bam_names) != length(sample_dirs)) {
+      stop(paste0("Each sample directory in ", poly_dir, " must contain exactly one .bam file in a subdirectory named ", prog, "."))
+    }
+    if (unknown_reads == TRUE) {
+      unk_names <- basename(dirname(dirname(dirname(list.files(file.path(sample_dirs, prog, "unknown"), pattern = "\\.unk\\.bam$", full.names = TRUE)))))
+      if (anyDuplicated(unk_names) || length(unk_names) != length(sample_dirs)) {
+        stop(paste0("Each sample directory in ", poly_dir, " must contain exactly one '.unk.bam' file in ", file.path(prog, "unknown"), ".\n",
+                    "If you don't have the 'unk.bam' files from EAGLE-RC or do not wish to consider unknown reads, pass 'unknown_reads = FALSE' as argument."))
+      }
+    }
+  }
+  
   counts <- foreach::foreach(prog = progenitors) %do% {
     # get paths ----------------
 
@@ -114,23 +131,28 @@ count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = 
 
     # count in bins --------------
 
-    sample_dirs <- list.dirs(path = poly_dir, full.names = TRUE, recursive = FALSE)
     bam_paths <- list.files(file.path(sample_dirs, prog), pattern = "\\.bam$", full.names = TRUE)
     sample_names <- basename(dirname(dirname(bam_paths)))
-    
-    if (anyDuplicated(sample_names) || length(sample_names) != length(sample_dirs)) {
-      stop(paste0("Each sample directory in ", poly_dir, "must contain exactly one .bam file in a subdirectory named ", prog, "."))
-    }
-    
     feature_count_list <- Rsubread::featureCounts(bam_paths, annot.ext = anno_bins, isPairedEnd = paired_end, nthreads = n_threads, allowMultiOverlap = TRUE)
-
     count_dt <- parse_counts_bins(feature_count_list = feature_count_list, gc_dt = gc_dt, map_dt = map_dt, sample_names = sample_names)
     
-    if(full_output==FALSE){
-      return(list(bins = count_dt))
-    }else if(full_output==TRUE){
-      return(list(bins = count_dt, feature_counts_output=feature_count_list))
+    out <- list(bins = count_dt, bin_info = count_dt[, c("chr", "start", "end", "gc_content", "mappability"), with = FALSE])
+    
+    # count unknown reads -----------
+    if (unknown_reads == TRUE) {
+      unk_paths <- list.files(file.path(sample_dirs, prog, "unknown"), pattern = "\\.unk\\.bam$", full.names = TRUE)
+      unk_names <- basename(dirname(dirname(dirname(unk_paths))))
+      unk_count_list <- Rsubread::featureCounts(unk_paths, annot.ext = anno_bins, isPairedEnd = paired_end, nthreads = n_threads, allowMultiOverlap = TRUE)
+      unk_dt <- parse_counts_bins(feature_count_list = unk_count_list, gc_dt = gc_dt, map_dt = map_dt, sample_names = unk_names)
+      unk_dt <- unk_dt[, c("chr", "start", unk_names), with = FALSE]
+      data.table::setnames(unk_dt, unk_names, paste0(unk_names, "_unknown"))
+      out$bin_info <- merge(out$bin_info, unk_dt, by = c("chr", "start"))
     }
+    
+    if (full_output == TRUE) {
+      out$feature_counts_output <- feature_count_list
+    }
+    return(out)
     
   }
 

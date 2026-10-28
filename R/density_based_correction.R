@@ -2,14 +2,14 @@
 #'
 #' Get the two-dimensional (counts and GC content) kernel density estimation per copy number using bins involved in a uniquely overlapping and concordant anchor
 #'
-#' @param alignment A heal alignment object created with get_heal_alignment().
+#' @param alignment A heal alignment object created with get_heal_aln().
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param n_points The n parameter for MASS::kde2d(). "Number of grid points in each direction. Can be scalar or a length-2 integer vector". Default is 1000.
-#' @param normalize Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_copy_number()'.  
+#' @param normalize Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_cn()'.  
 #' @param average Average measure used normalize each bin count ('median' or 'mean'. 'median' by default).
-#' @param average_list A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_copy_number()').
+#' @param average_list A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_cn()').
 #'
 #' @return A list with one element per polyploid sample. Each sample has a list with one density distribution for each copy number from 0 to the ploidy of the progenitors times the number of progenitors.
 #' @export
@@ -109,7 +109,7 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
 #' Goes over all discordant anchor sets and verifies if some of their overlapping bins can be changed based on density. If a change leads to a concordant combination of copy number for the set of progenitors then it is accepted.
 #'
 #' @param densities A list of densities for each polyploid sample (output from get_concordant_density()).
-#' @param alignment A heal alignment object created with get_heal_alignment().
+#' @param alignment A heal alignment object created with get_heal_aln().
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).

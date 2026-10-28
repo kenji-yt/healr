@@ -23,7 +23,7 @@ plot_cn_heat(
 )
 }
 \arguments{
-\item{heal_list}{List in heal format with CN information (such as output from get_copy_number()).}
+\item{heal_list}{List in heal format with CN information (such as output from get_cn()).}
 
 \item{view_samples}{A vector of sample names to be plotted. Samples will be plotted in the order provided. Default value is "all", which shows all samples.}
 

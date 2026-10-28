@@ -9,9 +9,9 @@
 #' @param plot_cn Logical: plot a line indicating infered copy number ('FALSE' by default in CN has been estimated).
 #' @param add_bins Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using viridis(). 
-#' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default). 
-#' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
-#' @param average_list Same as in get_copy_number(). 
+#' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('global', 'local' or 'manual'. 'global' by default). 
+#' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('median' or 'mean'. 'median' by default). 
+#' @param average_list Same as in get_cn(). 
 #' @param chr_label_size Size of the chromosome labels as input to ggplot2::geom_text size argument ('4' by default).
 #' @param cn_label_size Size of the copy number labels as input to ggplot2::geom_text size argument ('3' by default).
 #' @param size_x_axis_title Size of the x axis title as input to ggplot2::element_text size argument ('14' by default).
@@ -319,7 +319,7 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
 
 #' Plot a heat map of all CN 
 #'
-#' @param heal_list List in heal format with CN information (such as output from get_copy_number()).
+#' @param heal_list List in heal format with CN information (such as output from get_cn()).
 #' @param view_samples A vector of sample names to be plotted. Samples will be plotted in the order provided. Default value is "all", which shows all samples. 
 #' @param output_dir The name of a directory to write the plots to. Will create one if nonexistent.
 #' @param device Plot device (as argument to ggplot2::ggsave) ('pdf' by default).
@@ -401,17 +401,22 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
     values_to = "CN"
   ))
   
-
+  # Discrete copy numbers: blue below prog_ploidy (darker = fewer copies), white at prog_ploidy, red above (darker = more copies).
+  # Copy numbers above the total ploidy are shown with it.
+  max_cn <- length(progenitors) * prog_ploidy
+  dt_long$CN <- factor(pmin(dt_long$CN, max_cn), levels = 0:max_cn)
+  cn_colors <- c(grDevices::colorRampPalette(c("blue", "#9ECAE1"))(prog_ploidy), "white",
+                 grDevices::colorRampPalette(c("#FC9272", "darkred"))(max_cn - prog_ploidy))
+  names(cn_colors) <- 0:max_cn
+  
   # Make the plot
   outplot <- ggplot2::ggplot(dt_long, ggplot2::aes(x = bin_index, y = sample, fill = CN)) +
     ggplot2::geom_tile() +
-    ggplot2::scale_fill_gradient2(
-      low = "blue",
-      mid = "white",
-      high = "red",
-      midpoint = 2,
-      limits = c(0, length(progenitors) * prog_ploidy),
-      oob = scales::squish
+    ggplot2::scale_fill_manual(
+      values = cn_colors,
+      labels = c(0:(max_cn - 1), paste0(max_cn, "+")),
+      drop = FALSE,
+      na.value = "grey80"
     ) +
     ggplot2::theme_minimal() +
     ggplot2::theme(
@@ -431,7 +436,7 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
     # Get position of chr labels 
     rle_chr <- rle(dt_all$chr) 
     end_pos <- c(0, cumsum(rle_chr$lengths))
-    chr_lab_pos <- end_pos + (rle_chr$lengths/2)
+    chr_lab_pos <- end_pos[-length(end_pos)] + rle_chr$lengths / 2
     
     ### Set size at bottom based on chr label length
     k <- 0.035 # k is a small constant converting mm to data units.
@@ -439,7 +444,7 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
     extra_bottom_space <- max_chr_chars * chr_label_size * k  
     
     chr_labels_dt <- data.frame(label = rle_chr$values,
-                                x_pos = chr_lab_pos[1:length(chr_lab_pos)-1],
+                                x_pos = chr_lab_pos,
                                 y_pos = rep( (- extra_bottom_space - 0.5)  / 2, length(rle_chr$values)))
     
     outplot <- outplot + 
@@ -473,7 +478,7 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
       ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
       linetype = "dashed",
       color = "black",
-      size = chr_limit_thickness,
+      linewidth = chr_limit_thickness,
       inherit.aes = FALSE  
     )
   } 
@@ -520,7 +525,7 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
         ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
         linetype = "solid",
         color = "black",
-        size = subgenome_limit_thickness,
+        linewidth = subgenome_limit_thickness,
         inherit.aes = FALSE  
       )
   }
@@ -547,7 +552,7 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
         ggplot2::aes(x = x, xend = xend, y = y, yend = yend),
         linetype = "solid",
         color = "black",
-        size = subgenome_limit_thickness,
+        linewidth = subgenome_limit_thickness,
         inherit.aes = FALSE  
       )
   }
@@ -570,7 +575,62 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
 
 }
 
-
+#' Add panels with bin properties below a plot_bins() plot.
+#'
+#' @param bin_plot The ggplot of the chromosome made in plot_bins().
+#' @param heal_list Heal list with a 'bin_info' table (from count_heal_data()).
+#' @param prog Name of the subgenome.
+#' @param chr Name of the chromosome.
+#' @param smp Name of the sample.
+#' @param bin_stats Vector with any of "gc", "mappability" and "unknown".
+#' @param point_size Size of the points in the panels.
+#'
+#' @return A patchwork object: bin_plot on top (3 units high) and one panel per element of 'bin_stats' below it (1 unit each).
+add_bin_tracks <- function(bin_plot, heal_list, prog, chr, smp, bin_stats, point_size = 0.5) {
+  
+  info_rows <- heal_list[[prog]]$bin_info$chr == chr
+  bin_rows <- heal_list[[prog]]$bins$chr == chr
+  info <- heal_list[[prog]]$bin_info[info_rows, ]
+  bins <- heal_list[[prog]]$bins[bin_rows, ]
+  settings <- heal_list[[prog]]$filter_settings
+  
+  bin_row <- match(info$start, bins$start)
+  status <- ifelse(is.na(bin_row), "Removed (mappability & GC)",
+                   ifelse(is.na(bins[[smp]][bin_row]), "set to NA (counts & unknown reads)", "Kept"))
+  status_colors <- c("Kept" = "grey20", "Removed (mappability & GC)" = "red", "set to NA (counts & unknown reads)" = "goldenrod")
+  
+  values <- list(gc = info$gc_content, mappability = info$mappability)
+  labels <- c(gc = "GC content", mappability = "Mappability", unknown = "Unknown /\nmedian")
+  thresholds <- list(gc = NULL, mappability = NULL, unknown = NULL)
+  if ("unknown" %in% bin_stats) {
+    values$unknown <- info[[paste0(smp, "_unknown")]] / get_sample_stats(heal_list, method = "median")[[smp]][[1]]
+  }
+  if (!is.null(settings)) {
+    if (!is.na(settings$gc_min)) thresholds$gc <- c(settings$gc_min, settings$gc_max)
+    if (!isFALSE(settings$mappability_threshold)) thresholds$mappability <- settings$mappability_threshold
+    if (!isFALSE(settings$unknown_threshold)) thresholds$unknown <- settings$unknown_threshold
+  }
+  
+  track_plots <- lapply(bin_stats, function(tr) {
+    track_df <- data.frame(start = info$start, value = values[[tr]], status = status)
+    p <- ggplot2::ggplot(track_df, ggplot2::aes(x = start, y = value, color = status)) +
+      ggplot2::geom_point(size = point_size) +
+      ggplot2::scale_color_manual(values = status_colors, name = "Bin Statistics & Filtering") +
+      ggplot2::labs(x = "Position", y = labels[[tr]]) +
+      ggplot2::guides(color = ggplot2::guide_legend(order = 1), linetype = ggplot2::guide_legend(order = 2)) +
+      ggplot2::theme_bw()
+    if (!is.null(thresholds[[tr]])) {
+      p <- p + ggplot2::geom_hline(data = data.frame(y = thresholds[[tr]]), ggplot2::aes(yintercept = y, linetype = "Filter threshold")) +
+        ggplot2::scale_linetype_manual(values = c("Filter Threshold" = "dashed"), name = "")
+    }
+    return(p)
+  })
+  
+  combined <- patchwork::wrap_plots(c(list(bin_plot), track_plots), ncol = 1, heights = c(3, rep(1, length(bin_stats)))) +
+    patchwork::plot_layout(guides = "collect", axes = "collect_x")
+  combined <- combined & ggplot2::coord_cartesian(xlim = range(info$start))
+  return(combined)
+}
 
 #' Plotting function for heal_list.
 #'
@@ -583,16 +643,19 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
 #' @param add_bins Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using viridis().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
+#' @param bin_stats Add panels showing the bin properties. Should be a vector with any of “gc”, “mappability” and “unknown” ('FALSE' (no panel) by default). Dashed lines show the filter_bins() thresholds. 
+#' @param bin_stats_point_size Size of the points in the bin_stats panels (as ggplot2::geom_point size argument) ('0.5' by default).
+#' @param bin_point_size Size of the bin count points (normalized if plot_cn = TRUE) (as ggplot2::geom_point size argument) ('1' by default).
 #' @param return_list Logical: return a list of plots if view_sample.
-#' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default). 
-#' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
-#' @param average_list Same as in get_copy_number(). 
+#' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('global', 'local' or 'manual'. 'global' by default). 
+#' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('median' or 'mean'. 'median' by default). 
+#' @param average_list Same as in get_cn(). 
 #' @param ylim_max Maximum y axis value when plotting copy number. 
 #' @param device Plot device (as argument to ggplot2::ggsave) ('png' by default).
 #' @param width Width of the plot output (as argument to ggplot2::ggsave) ('6' by default).
 #' @param height Height of the plot output (as argument to ggplot2::ggsave) ('4' by default).
 #' @param units Units of the plot output (as argument to ggplot2::ggsave) ('in' by default).
-#' @param ... Any arguments you wish to pass to ggplot2::geom_point()
+#' @param ... Any arguments you wish to pass to ggplot2::geom_point() to modify the read count/CN plot (for example 'alpha = 0.6' to make the points less transparents).
 #'
 #' @return Either nothing or a list of plots.
 #' @export
@@ -600,8 +663,9 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
 plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
                       n_threads = 1, prog_ploidy = 2, plot_cn = FALSE, 
                       add_bins = TRUE, add_DNAcopy = FALSE, color_map = FALSE, 
-                      specific_chr = FALSE, return_list = FALSE, method = "global", 
-                      average = "median", average_list = FALSE, linewidth=2, ylim_max=8, 
+                      specific_chr = FALSE, bin_stats = FALSE, bin_stats_point_size = 0.5,
+                      bin_point_size = 1, return_list = FALSE, method = "global", average = "median",
+                      average_list = FALSE, linewidth=2, ylim_max=8, 
                       device = "png", width = 6, height = 4, units = "in", ...) {
   
   # Check input to see if it's appropriate
@@ -611,6 +675,15 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
   
   if(!is.logical(add_DNAcopy)){
     stop("'add_DNAcopy' must be either TRUE or FALSE (logical). Exiting..")
+  }
+  
+  if (!isFALSE(bin_stats)) {
+    if (!all(bin_stats %in% c("gc", "mappability", "unknown"))) {
+      stop("'bin_stats' must be FALSE or any of 'gc', 'mappability' and 'unknown'. Exiting..")
+    }
+    if ("unknown" %in% bin_stats && !any(grepl("_unknown$", colnames(heal_list[[1]]$bin_info)))) {
+      stop("'bin_stats' includes 'unknown' but heal_list has no unknown read counts in 'bin_info'. Run count_heal_data() with unknown_reads = TRUE. Exiting..")
+    }
   }
   
   cn_exist <- unlist(lapply(heal_list, function(list) {
@@ -745,19 +818,25 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
           final_color_map <- color_map
           names(final_color_map)[names(color_map)==prog] <- "Copy Number"
           
-          bin_plot <- ggplot2::ggplot() +
+          bin_plot <- ggplot2::ggplot()
+          if(add_bins == TRUE){
+            bin_plot <- bin_plot +
+              ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = "Normalized Count"), ..., size = bin_point_size, alpha = 0.1)
+          }
+          bin_plot <- bin_plot +
             ggplot2::geom_line(data = plot_df, ggplot2::aes(x = x, y = copy, color = Legend), linewidth = linewidth) +
-            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = Legend), ..., size = 1, alpha = 0.1) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = final_color_map) +
             ggplot2::ylim(0, ylim_max) +
-            ggplot2::labs(title = paste0(chr, "; ", smp, "; ", prog), x = "Position", y = "Copy Number") +
+            ggplot2::labs(title = paste0(chr, "; ", smp, "; ", prog), x = "Position", y = "Copy Number", color = "Legend") +
             ggplot2::theme_bw()
-        
-          if(add_bins == TRUE){
-            bin_plot <- bin_plot +
-              ggplot2::geom_point(ggplot2::aes(x = 0, y = -100, color = "Normalized Count"), shape = 16) 
-          }
+          
+          # Legend keys: a point for the normalized counts (opaque, so it is visible), a line for everything else
+          legend_keys <- sort(c("Copy Number", if (add_bins == TRUE) "Normalized Count", if (add_DNAcopy == TRUE) "Segment Mean"))
+          bin_plot <- bin_plot + ggplot2::guides(color = ggplot2::guide_legend(override.aes = list(
+            linetype = ifelse(legend_keys == "Normalized Count", "blank", "solid"),
+            shape = ifelse(legend_keys == "Normalized Count", 16, NA),
+            alpha = 1)))
           
           if(add_DNAcopy == TRUE){
             bin_plot <- bin_plot + 
@@ -768,6 +847,10 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
               ggplot2::scale_color_manual(values = final_color_map)
           }
 
+          if (!isFALSE(bin_stats)) {
+            bin_plot <- add_bin_tracks(bin_plot, heal_list, prog, chr, smp, bin_stats, bin_stats_point_size)
+          }
+          
           if (output_dir != FALSE) {
             ggplot2::ggsave(filename = out_file, bin_plot, device = device, width = width, height = height, units = units)
           } else {
@@ -779,7 +862,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
           plot_df <- data.frame(start = x, counts = y_vec_pts, progenitor = rep(prog, length(y_vec_pts)))
 
           bin_plot <- ggplot2::ggplot() +
-            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = progenitor), ..., size = 1, alpha = 1) +
+            ggplot2::geom_point(data = plot_df, ggplot2::aes(x = x, y = counts, color = progenitor), ..., , size = bin_point_size, alpha = 1) +
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
             ggplot2::labs(title = paste(chr, smp), x = "Position", y = "Counts") +
@@ -793,7 +876,11 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
                 linewidth = 0.7) +
               ggplot2::scale_color_manual(values = color_map)
           }
-
+          
+          if (!isFALSE(bin_stats)) {
+            bin_plot <- add_bin_tracks(bin_plot, heal_list, prog, chr, smp, bin_stats, bin_stats_point_size)
+          }
+          
           if (output_dir != FALSE) {
             ggplot2::ggsave(filename = out_file, bin_plot, device = device, width = width, height = height, units = units)
           } else {
@@ -821,17 +908,18 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
   }
 }
 
+
 #' Plotting function for heal alignment
 #'
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
-#' @param alignment A heal alignment object created with get_heal_alignment().
+#' @param alignment A heal alignment object created with get_heal_aln().
 #' @param view_sample The name of a sample to plot (as character)('FALSE' by default). If output_dir!=FALSE, the plots will be saved, otherwise they are simply shown. 
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param n_threads Number of threads to use ('1' by default).
 #' @param add_bins Add points for bins ('FALSE' by default). If "ref" the bins normalized copy number (divided by average (median by default)). If "all" the bins overlapping with anchors are also added at the starting position of the reference anchor. If "FALSE" no bins are added.
-#' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default). 
-#' @param average The method to compute average to normalize counts (if add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default). 
-#' @param average_list Same as in get_copy_number(). 
+#' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('global', 'local' or 'manual'. 'global' by default). 
+#' @param average The method to compute average to normalize counts (if add_bins!=FALSE). It should be the same method as the one used in get_cn() ('median' or 'mean'. 'median' by default). 
+#' @param average_list Same as in get_cn(). 
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using viridis().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
@@ -846,7 +934,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
 #' @return Either nothing or a list of plots.
 #' @export
 #'
-plot_alignment <- function(heal_list, alignment, method = "global",
+plot_aln <- function(heal_list, alignment, method = "global",
                            average = "median", average_list=FALSE, view_sample = FALSE,
                            output_dir = FALSE, n_threads = 1, add_bins = FALSE,
                            prog_ploidy = 2, color_map = FALSE, specific_chr = FALSE,
@@ -1084,15 +1172,15 @@ plot_alignment <- function(heal_list, alignment, method = "global",
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param show_discordant Logical defining if bins involved in a discordant anchor set should be added on the plot.
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
-#' @param alignment A heal alignment object created with get_heal_alignment().
+#' @param alignment A heal alignment object created with get_heal_aln().
 #' @param corrected_alignment A density corrected alignment ('FALSE' by default). If one is given and show_discordant==TRUE then the new state of corrected points is shown above the previous state.
 #' @param ylim_max Maximum ylim value ('FALSE' by default). If FALSE then the value is set for each sample as 3 times the standard deviation above the mean.
 #' @param color_vec A vector of colors for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colors are choosen using viridis().
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default)
 #' @param n_threads Number of threads to use ('1' by default).
-#' @param normalize Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_copy_number()'.  
+#' @param normalize Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_cn()'.  
 #' @param average Average measure used normalize each bin count ('median' or 'mean'. 'median' by default).
-#' @param average_list A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_copy_number()').
+#' @param average_list A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_cn()').
 
 #'
 #' @return Nothing. Plots are shown and/or saved to output_dir.
@@ -1318,7 +1406,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
 
 #' Plot pairwise heatmap
 #'
-#' @param alignment A heal alignment object created with get_heal_alignment().
+#' @param alignment A heal alignment object created with get_heal_aln().
 #' @param view_samples A vector of sample names to plot (as character)('FALSE' by default).
 #' @param output_dir The name of a directory to write all plots to. Will create one if nonexistent.
 #' @param xrange A sequence of value to show for the x axis, such as start:finish (example 1:5) ('FALSE' by default). Make sure to set both xrange and yrange.
@@ -1329,7 +1417,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
 #' @return Nothing. Plots are shown and/or saved to output_dir.
 #' @export
 #'
-plot_heal_heat_map <- function(alignment, view_samples = FALSE,
+plot_aln_heat <- function(alignment, view_samples = FALSE,
                                output_dir = FALSE, xrange = FALSE,
                                yrange = FALSE, device = "pdf", ...) {
   

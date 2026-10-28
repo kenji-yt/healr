@@ -49,7 +49,6 @@ correct_gc(
 }
 \value{
 A heal list with the counts in the 'bins' data tables corrected based on GC content effect.
-Also returns a list of lots of corrected and uncorrected counts in the 'gc_correction_plots' list item.
 }
 \description{
 Correct GC content using loess method

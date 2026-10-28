@@ -1,6 +1,6 @@
 #' Summary of the copy number analysis
 #'
-#' @param heal_list A heal alignment object created with get_heal_alignment().
+#' @param heal_list A heal alignment object created with get_heal_aln().
 #' @param n_threads Number of threads to use ('1' by default).
 #'
 #' @return A list with one entry per sample. Each sample in turn contains a list with information about per progenitor and per chromosome. 
@@ -73,7 +73,7 @@ summarize_cn <- function(heal_list, n_threads=1){
 
 #' Summary of the alignment outcome for each polyploid sample
 #'
-#' @param alignment A heal alignment object created with get_heal_alignment().
+#' @param alignment A heal alignment object created with get_heal_aln().
 #' @param n_threads Number of threads to use ('1' by default).
 #'
 #' @return A list with one entry per polyploid sample. Each sample in turn contains a list with information about per progenitor and per chromosome.

@@ -48,11 +48,11 @@ plot_all_bins(
 
 \item{color_map}{A vector of colors for each progenitor. If "FALSE" the colors are choosen using viridis().}
 
-\item{method}{Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('global', 'local' or 'manual'. 'global' by default).}
+\item{method}{Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('global', 'local' or 'manual'. 'global' by default).}
 
-\item{average}{The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_copy_number() ('median' or 'mean'. 'median' by default).}
+\item{average}{The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('median' or 'mean'. 'median' by default).}
 
-\item{average_list}{Same as in get_copy_number().}
+\item{average_list}{Same as in get_cn().}
 
 \item{chr_label_size}{Size of the chromosome labels as input to ggplot2::geom_text size argument ('4' by default).}
 

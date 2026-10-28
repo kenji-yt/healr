@@ -4,7 +4,13 @@
 \alias{count_heal_data}
 \title{Counts reads and combines results with GC and mappability information.}
 \usage{
-count_heal_data(input_dir, n_threads = 1, paired_end, full_output = FALSE)
+count_heal_data(
+  input_dir,
+  n_threads = 1,
+  paired_end,
+  full_output = FALSE,
+  unknown_reads = TRUE
+)
 }
 \arguments{
 \item{input_dir}{A healr input directory (see details).}
@@ -14,9 +20,11 @@ count_heal_data(input_dir, n_threads = 1, paired_end, full_output = FALSE)
 \item{paired_end}{Logical: Is the data paired end.}
 
 \item{full_output}{Logical: Do you want to also get the full featureCounts output ('FALSE' by default). This can be usefull for debugging.}
+
+\item{unknown_reads}{Logical: Also count reads that could not be assigned to a subgenome ('TRUE' by default). Their BAM file must be in a subdirectory 'unknown' of each sample's subgenome directory and finish with ".unk.bam". Adds one column per sample to the ‘bin_info’ table with the number of unknown reads in each bin (column name '\if{html}{\out{<sample>}}_unknown').}
 }
 \value{
-A heal list object i.e. a list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
+A heal list object i.e. a list with one element per progenitor containing a 'bins' data table with counts in bins for each sample and GC and mappability for each bin, and ‘bin_info’ data table with GC content and mappability (and unknown reads optionally) for all bins, which is kept when bins are filtered.
 }
 \description{
 Counts reads and combines results with GC and mappability information.

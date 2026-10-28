@@ -161,15 +161,15 @@ Here we see that there is a visible trend in count vs GC content. The correction
 
 We can now perform copy number analysis using the Circular Binary Segmentation (CBS) algorithm (Olshen et al., 2004) implemented in the DNAcopy package (Seshan & Olshen, 2010). CBS segments the genome into regimes (successions of bins) inferred to have different underlying mean read counts. **healr** then assigns to each regime a copy number based on the mean per bin count of each regime. This is done by estimating the read count under normal ploidy, usually by taking the genome wide (global) median. If we assume (1) that the median count is obtained when copy number is normal (for example 2 on each subgenome in tetraploids) and (2) that each copy contributes the same amount of reads (2), then we can estimate the number of reads contributed by one copy, $C_{copy}$, by diving the median by the expected normal ploidy (over each subgenome). We can then divide the mean read count in each regime by $C_{copy}$, giving us a multiple of many copies are contributing to read counts in this regime. We then round this value to the nearest integer to get a estimate of the copy number in that regime.<br>
 
-You can infer copy number using 'get_copy_number()'. Here we specify that the genome wide median should be used and that the normal ploidy of the progenitors is 2. 
+You can infer copy number using 'get_cn()'. Here we specify that the genome wide median should be used and that the normal ploidy of the progenitors is 2. 
 ```{r copy number analysis}
 num_threads=1
-cn_list <- get_copy_number(heal_list = filtered_list,
+cn_list <- get_cn(heal_list = filtered_list,
                            n_threads = num_threads,
                            method = "global",
                            prog_ploidy = 2)
 ```
-The get_copy_number() function returns the input heal list with a new CN item for each subgenome. We can now plot the inferred copy number as a line and show normalized count values of the bins as points, again using plot_bins(). This time, let's look at chromosome 5: 
+The get_cn() function returns the input heal list with a new CN item for each subgenome. We can now plot the inferred copy number as a line and show normalized count values of the bins as points, again using plot_bins(). This time, let's look at chromosome 5: 
 ```{r plot cn, fig.width=7, fig.height=5, warning=FALSE, message=FALSE}
 plot_bins(heal_list = cn_list,
           view_sample = "HM_RS7_G1_1",
@@ -210,7 +210,7 @@ Sometimes your data might require slightly more complicated operations for copy 
 # Read in, filter and get copy number:
 local_med_list <- read_heal_list("example_heal_list_A.suecica")
 filt_loc_med_list <- filter_bins(local_med_list)
-cn_loc_med_list <- get_copy_number(filt_loc_med_list)
+cn_loc_med_list <- get_cn(filt_loc_med_list)
 
 # Plot all
 plot_all_bins(cn_loc_med_list, 
@@ -251,7 +251,7 @@ wilcox.test(cn_loc_med_list$A.arenosa$bins$mappability, cn_loc_med_list$A.thalia
 ```
 It seems better to use the local medians to assign a copy number. Let's do this and plot the results, normalizing the plotted points with local medians as well:
 ```{r local CN, fig.width=10, fig.height=7, warning=FALSE}
-cn_loc_med_list <- get_copy_number(filt_loc_med_list,
+cn_loc_med_list <- get_cn(filt_loc_med_list,
                                    method = "local")
 
 # Plot all
@@ -288,7 +288,7 @@ In some situations the gain/loss in read count from a gain/loss in copy number m
 # Read in, filter and get copy number:
 wheat_list <- read_heal_list("example_heal_list_Wheat/")
 filt_wheat_list <- filter_bins(wheat_list)
-cn_wheat_list <- get_copy_number(filt_wheat_list,
+cn_wheat_list <- get_cn(filt_wheat_list,
                                  full_output = TRUE)
 
 # Plot 
@@ -310,7 +310,7 @@ _**Figure 9:** Copy number inferred over chromosomes of "group 3" in synthetic t
 Here we specify that we want the full DNAcopy output ("full_output == TRUE") returned when estimating copy number. This adds DNAcopy objects in the heal list. We can then plot specific chromosomes and show the mean of each regime identified by DNAcopy, along with the inferred copy number. What we see here is that the highest regimes don't center around 4 and the lowest are higher than 0, but some regimes center around 2. This suggests that the median represents normal copy number, but that gains and losses don't go as high or low as expected. To resolve such an issue one can manually set the value around which read counts are expected to center for each copy number. Here we can try, starting from copy number of zero upwards: "c(0.5, 1.25, 2, 2.75, 3.5)". 
 ```{r Manual scale, fig.width=6, fig.height=5, warning=FALSE}
 # Assign copy number to regimes using manual scale:
-cn_wheat_list <- get_copy_number(filt_wheat_list,
+cn_wheat_list <- get_cn(filt_wheat_list,
                                  manual_scale = c(0.5, 1.25, 2, 2.75, 3.5),
                                  full_output = TRUE)
 
@@ -345,18 +345,18 @@ We now find ourselves in a situation where copy number is inferred at the level 
 
 The decision to take the combination closest to concordance is ultimately based on an assumption that copy number changes are primarily driven by HE. This might not be the case and could potential inflate concordance. **healr** records which method was used to assign copy numbers to anchor sets to allow for further verification.<br>
 
-You should have a directory containing the syntenicHits directory produced as an output of GENESPACE. You can use the function get_heal_alignment() to extract the anchor sets and assign them copy numbers:
+You should have a directory containing the syntenicHits directory produced as an output of GENESPACE. You can use the function get_heal_aln() to extract the anchor sets and assign them copy numbers:
 ```{r alignment} 
-alignment_list <- get_heal_alignment(heal_list = cn_list,
+alignment_list <- get_heal_aln(heal_list = cn_list,
                                      genespace_dir = "example_genespace_dir",
                                      n_threads = num_threads)
 head(as.data.frame(alignment_list[[1]]))
 ```
 The output is a list with one item per polyploid sample. Each item is a data table with one row per anchor set and the copy number, anchor ID and location for each subgenome. It also has a column called method and a column called status. Method gives information regarding how the copy number was assigned to the anchors. The possible values are "unique", if the genes overlapped only one copy number; "multiple", if there was overlap with multiple copy number values and the longest overlapp was either already concordant or there was no concordant combination posible; and "multiple_concordant", if a copy number was set to maximize concordance instead of overlap length. Status is whether the copy numbers at the set of anchors is "concordant" or "discordant".<br> 
 
-You can plot the anchor sets along a reference subgenome using plot_alignment(). This takes each subgenome independently and plots copy number along that subgenome. Then, the copy number from the orthologous anchors of the other subgenome(s) are added at the position of the reference subgenomes' anchor. In other words, it will plot the syntenic anchors according to one progenitors gene order. 
+You can plot the anchor sets along a reference subgenome using plot_aln(). This takes each subgenome independently and plots copy number along that subgenome. Then, the copy number from the orthologous anchors of the other subgenome(s) are added at the position of the reference subgenomes' anchor. In other words, it will plot the syntenic anchors according to one progenitors gene order. 
 ```{r plot align, fig.width=7, fig.height=5}
-plot_alignment(heal_list = cn_list,
+plot_aln(heal_list = cn_list,
                alignment = alignment_list,
                view_sample = "HM_RS7_G1_1",
                specific_chr = c("chr5"),
@@ -366,9 +366,9 @@ _**Figure 11:** Copy number for anchor gene pairs along the two subgenomes. Colo
 
 It appears that in this sample and at this chromosome the copy number changes are reciprocal between the subgenomes.<br>
 
-If there are only two progenitors we can visualize the distribution of copy numbers of all anchor sets as a heat map using plot_heal_heat_map().
+If there are only two progenitors we can visualize the distribution of copy numbers of all anchor sets as a heat map using plot_aln_heat().
 ```{r heatmap, fig.width=7, fig.height=7}
-plot_heal_heat_map(alignment_list,
+plot_aln_heat(alignment_list,
                    view_samples = "HM_RS7_G1_1")
 ```
 _**Figure 12:** Heat map showing the number of anchor sets in each observed combination of copy numbers._<br><br>
@@ -444,13 +444,13 @@ _**Figure 15:** Contour plots showing the estimated densities with discordant an
 
 We see that some bins have read counts well within the density of another copy number and that changing the inferred copy number of these bins lead to a concordant set. It might therefore be sensible to change the assigned copy number for these bins. Let's see how these corrections look like along the genomes.
 ```{r plot correct, fig.width=7, fig.height=5, warning=FALSE}
-plot_alignment(heal_list = cn_list,
+plot_aln(heal_list = cn_list,
                alignment = alignment_list,
                view_sample = "HM_RS7_G1_1",
                specific_chr = c("chr4"),
                add_bins = "all",
                color_map = c("purple3", "goldenrod3"))
-plot_alignment(heal_list = cn_list,
+plot_aln(heal_list = cn_list,
                alignment = corrected_alignment_list,
                view_sample = "HM_RS7_G1_1",
                specific_chr = c("chr4"),

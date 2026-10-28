@@ -1,22 +1,32 @@
 #' Filter bins based on average per base mappability, read count and GC content.
 #'
 #' @param heal_list List in heal format (such as output from count_heal_data()).
-#' @param mappability_threshold Threshold average per bin mappability value below which bins are ignored ('0.9' by default).
+#' @param mappability_threshold Threshold average per bin mappability value below which bins are ignored. Set to 'FALSE' for no filtering ('0.9' by default).
 #' @param gc_threshold How many standard deviations away from the GC content median to consider a bin as outlier. Set to 'FALSE' for no filtering ('2' by default).
 #' @param count_threshold How many standard deviations above the count median to consider a bin as outlier. Set to 'FALSE' for no count filtering ('2' by default).
-#' @param replace_by_NA Should outliers count values be set to NA ('TRUE' by default). Otherwise outliers are set to the threshold defined by count_threshold.
+#' @param replace_by_NA Should bins with outlying read count values be set to NA ('TRUE' by default). Otherwise outliers are set to the threshold defined by count_threshold.
+#' @param unknown_threshold Threshold number of reads that could not be assigned to a subgenome in a bin, as a fraction of the sample's median read count per bin (e.g. 0.25: with diploid progenitors the median bin likely reflects two copies, so this allows unknown reads worth about half a copy). For each sample, counts in bins above it are set to NA. Requires count_heal_data(..., unknown_reads = TRUE). 'FALSE' (no filtering) by default.
 #' @param log_file A file to write the filtering statistics to ('FALSE' by default).
 #'
 #' @return A list with one filtered bins data table for each progenitor & the genes data tables if present (any full featureCounts outputs dropped).
 #' @export
 filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2,
-                        count_threshold = 2, replace_by_NA = TRUE, log_file = FALSE) {
+                        count_threshold = 2, replace_by_NA = TRUE, unknown_threshold = FALSE, log_file = FALSE) {
   
   if(log_file!=FALSE){
     sink(log_file, append = TRUE, split = TRUE)
   }
   
+  if (isTRUE(mappability_threshold) || isTRUE(gc_threshold) || isTRUE(count_threshold) || isTRUE(unknown_threshold)) {
+    stop("'mappability_threshold', 'gc_threshold', 'count_threshold' and 'unknown_threshold' must be a number or FALSE. Exiting..")
+  }
+  
+  if (!isFALSE(unknown_threshold) && !any(grepl("_unknown$", colnames(heal_list[[1]]$bin_info)))) {
+    stop("'unknown_threshold' is set but heal_list has no unknown read counts in 'bin_info'. Run count_heal_data() with unknown_reads = TRUE. Exiting..")
+  }
+  
   # Filtering the data
+                          
   if (count_threshold != FALSE) {
     smp_medians <- get_sample_stats(heal_list, method = "median")
     smp_sd <- get_sample_stats(heal_list, method = "sd")
@@ -31,7 +41,7 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2
           df$bins[[smp]][df$bins[[smp]] > threshold_value] <- threshold_value
         }
       }
-      return(list(bins = df$bins))
+      return(df[intersect(c("bins", "bin_info"), names(df))])
     })
     names(filtered_list) <- names(heal_list)
     heal_list <- filtered_list
@@ -54,8 +64,14 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2
   filtered_list <- foreach::foreach(pr_name = names(heal_list)) %do% {
     prog <- heal_list[[pr_name]]
 
-    mappa_keep <- prog$bins$mappability >= mappability_threshold
-
+    if (isFALSE(mappability_threshold)) {
+      mappa_keep <- rep(TRUE, nrow(prog$bins))
+      mappa_msg <- "no mappability filter. \n"
+    } else {
+      mappa_keep <- prog$bins$mappability >= mappability_threshold & !is.na(prog$bins$mappability)
+      mappa_msg <- paste0(round(sum(mappa_keep) / nrow(prog$bins), 2) * 100, "% passed ", mappability_threshold, " mappability filter. \n")
+    }
+    
     if (gc_threshold != FALSE) {
       gc_min <- gc_median - gc_threshold * gc_sd
       gc_max <- gc_median + gc_threshold * gc_sd
@@ -63,35 +79,37 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2
 
       which_keep <- gc_keep & mappa_keep
 
-      mappa_perc <- round(sum(mappa_keep) / nrow(prog$bins), 2)
       gc_perc <- round(sum(gc_keep) / nrow(prog$bins), 2)
       total_perc <- round(sum(which_keep) / nrow(prog$bins), 2)
       cat(
         paste0(pr_name, " filtering:  ", total_perc * 100, "% passed filters. \n"),
         paste0("                ", gc_perc * 100, "% passed ", gc_threshold, " standard deviation away from median GC filter. \n"),
-        paste0("                ", mappa_perc * 100, "% passed ", mappability_threshold, " mappability filter. \n")
+        paste0("                ", mappa_msg)
       )
       cat("\n")
     } else {
-      mappa_perc <- round(sum(mappa_keep) / nrow(prog$bins), 2)
-
-      cat(paste0(pr_name, " filtering:  ", mappa_perc * 100, "% passed ", mappability_threshold, " mappability filter. \n"))
-
       which_keep <- mappa_keep
+      total_perc <- round(sum(which_keep) / nrow(prog$bins), 2)
+      cat(
+        paste0(pr_name, " filtering:  ", total_perc * 100, "% passed filters. \n"),
+        paste0("                no GC filter. \n"),
+        paste0("                ", mappa_msg)
+      )
       cat("\n")
     }
 
     filtered_df <- prog$bins[which_keep, ]
 
-    return(list(bins = filtered_df))
+    prog$bins <- filtered_df
+    return(prog[intersect(c("bins", "bin_info"), names(prog))])
   }
 
   if (count_threshold != FALSE) {
     
     if (replace_by_NA == TRUE) {
-      cat(paste0("Replacing bins with counts ", count_threshold, " standard deviations above the mean: \n"))
+      cat(paste0("Replacing bins with counts ", count_threshold, " standard deviations above the median: \n"))
     }else{
-      cat(paste0("Smoothing bins with counts ", count_threshold, " standard deviations above the mean: \n"))
+      cat(paste0("Smoothing bins with counts ", count_threshold, " standard deviations above the median: \n"))
     }
       
     smp_na <- get_sample_stats(filtered_list, method = "is.na")
@@ -101,22 +119,71 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2
     })
     names(na_freq) <- names(smp_na)
 
-
     for (i in 1:length(na_freq)) {
       smp_name <- names(na_freq)[i]
+      threshold_value <- smp_medians[[smp_name]][[1]] + count_threshold * smp_sd[[smp_name]]
+      threshold_msg <- paste0(" (threshold: ", round(threshold_value), " reads, ", round(threshold_value / smp_medians[[smp_name]][[1]], 2), " times the median)")
       if (replace_by_NA == TRUE) {
-        cat(paste0("                -", smp_name, " count outlier filtering:  ", na_freq[[smp_name]], "% of remaining bins set to NA.\n"))
+        cat(paste0("                -", smp_name, " count outlier filtering:  ", na_freq[[smp_name]], "% of remaining bins set to NA", threshold_msg, ".\n"))
       }else{
-        cat(paste0("                -", smp_name, " count outlier filtering:  ", na_freq[[smp_name]], "% of remaining bins set to threshold. \n"))
+        capped <- unlist(lapply(filtered_list, function(x) x$bins[[smp_name]] >= threshold_value))
+        capped_freq <- round(sum(capped, na.rm = TRUE) / length(capped) * 100, 2)
+        cat(paste0("                -", smp_name, " count outlier filtering:  ", capped_freq, "% of remaining bins set to threshold", threshold_msg, ". \n"))
       }
     }
+    
+  } else {
+    cat("No read count outlier filtering. \n")
   }
 
+  # Set counts to NA in bins with too many unknown reads (per sample)
+  if (!isFALSE(unknown_threshold)) {
+    cat(paste0("Replacing bins with unknown reads above ", unknown_threshold, " times the median count: \n"))
+    n_na <- list()
+    n_bins <- list()
+    # median read count per bin of each sample, over the remaining bins of all subgenomes
+    unk_medians <- get_sample_stats(filtered_list, method = "median")
+    
+    for (i in seq_along(filtered_list)) {
+      bins <- filtered_list[[i]]$bins
+      unk <- filtered_list[[i]]$bin_info
+      unk_row <- match(paste(bins$chr, bins$start), paste(unk$chr, unk$start)) # Get the row index of bins rows remaining after the above filtering. 
+      current_samples <- setdiff(colnames(bins), c("chr", "start", "mappability", "gc_content", "end"))
+      for (smp in current_samples) {
+        too_unknown <- which(unk[[paste0(smp, "_unknown")]][unk_row] > unknown_threshold * unk_medians[[smp]][[1]] & !is.na(bins[[smp]]))
+        data.table::set(bins, i = too_unknown, j = smp, value = NA)
+        n_na[[smp]] <- sum(n_na[[smp]], length(too_unknown))
+        n_bins[[smp]] <- sum(n_bins[[smp]], nrow(bins))
+      }
+      filtered_list[[i]]$bins <- bins
+    }
+    for (smp in names(n_na)) {
+      cat(paste0("                -", smp, " unknown read filtering:  ", round(n_na[[smp]] / n_bins[[smp]] * 100, 2), "% of remaining bins set to NA.\n"))
+    }
+  } else {
+    cat("No unknown reads filtering. \n")
+  }
+  
   if(log_file!=FALSE){
     sink()
   }
   
   names(filtered_list) <- names(heal_list)
+  
+  # Record the filtering parameters in each subgenome
+  filter_settings <- data.table::data.table(
+    mappability_threshold = mappability_threshold,
+    gc_threshold = gc_threshold,
+    gc_min = if (gc_threshold != FALSE) gc_median - gc_threshold * gc_sd else NA_real_,
+    gc_max = if (gc_threshold != FALSE) gc_median + gc_threshold * gc_sd else NA_real_,
+    count_threshold = count_threshold,
+    replace_by_NA = replace_by_NA,
+    unknown_threshold = unknown_threshold
+  )
+  for (i in seq_along(filtered_list)) {
+    filtered_list[[i]]$filter_settings <- data.table::copy(filter_settings)
+  }
+  
   return(filtered_list)
   
   
@@ -139,8 +206,7 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2
 #' @param linewidth Width of loess regression line (default = '3'). 
 #' @param device Plot device (as argument to ggplot2::ggsave) ('pdf' by default).
 #'
-#' @returns A heal list with the counts in the 'bins' data tables corrected based on GC content effect. 
-#' Also returns a list of lots of corrected and uncorrected counts in the 'gc_correction_plots' list item.
+#' @returns A heal list with the counts in the 'bins' data tables corrected based on GC content effect.
 #' @export
 #'
 #' @examples
@@ -199,14 +265,16 @@ correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75
   mid_points <- gc_range[1:(length(gc_range)-1)] + (step/2)
   
   loess_model <- loess(median_vec ~ mid_points, span = loess_span)
-  smooth_counts <- predict(loess_model)
+  smooth_counts <- predict(loess_model, newdata = data.frame(mid_points = mid_points))
   
-  # Correct counts
-  offset <- 2 - smooth_counts
+  # Divide by the expected normalized count (relative to prog_ploidy), so the GC effect is removed in proportion to copy number.
+  # Windows with a missing or implausibly low expected value (below a quarter of prog_ploidy) are left uncorrected.
+  gc_factor <- prog_ploidy / smooth_counts
+  gc_factor[is.na(smooth_counts) | smooth_counts < prog_ploidy / 4] <- 1
   gc_and_norm_counts_dt$corrected <- gc_and_norm_counts_dt$count
   
   for(i in 1:(length(gc_range)-1)){
-    gc_and_norm_counts_dt$corrected[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]] <- gc_and_norm_counts_dt$corrected[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]] + offset[i]
+    gc_and_norm_counts_dt$corrected[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]] <- gc_and_norm_counts_dt$corrected[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]] * gc_factor[i]
   }
   
   # Show plots
@@ -226,7 +294,7 @@ correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75
   plot(gc_and_norm_counts_dt$gc, gc_and_norm_counts_dt$count,
        main = "LOESS Fit of Normalized Read Count ~ GC content", ylim = c(0, ymax),
        xlab = "GC content", ylab = "Normalized Count", pch = pch, col = rgb(0, 0, 0, alpha = alpha), cex = cex)
-  abline(h = 2, lty = 2)
+  abline(h = prog_ploidy, lty = 2)
   lines(mid_points, smooth_counts, col = "blue", lwd = linewidth)
   segments(
     x0 = mid_points,
@@ -238,7 +306,7 @@ correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75
   plot(gc_and_norm_counts_dt$gc, gc_and_norm_counts_dt$corrected,
        main = "GC Corrected Read Count ~ GC content", ylim = c(0, ymax),
        xlab = "GC content", ylab = "Corrected Normalized Count", pch = pch, col = rgb(0, 0, 0, alpha = alpha), cex = cex)
-  abline(h = 2, lty = 2)
+  abline(h = prog_ploidy, lty = 2)
   
   if(output_dir != FALSE){
     dev.off()
@@ -250,7 +318,7 @@ correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75
     doParallel::registerDoParallel(n_threads)
     corrected_values <- foreach::foreach(smp = polyploid_samples)%dopar%{
       
-      norm_corrected <- gc_and_norm_counts_dt$count[gc_and_norm_counts_dt$progenitor == prog & gc_and_norm_counts_dt$sample == smp]
+      norm_corrected <- gc_and_norm_counts_dt$corrected[gc_and_norm_counts_dt$progenitor == prog & gc_and_norm_counts_dt$sample == smp]
       corrected_vec <- norm_corrected * smp_medians[[smp]][[prog]] / prog_ploidy
       
       return(corrected_vec)
@@ -344,5 +412,3 @@ remove_short_spans <- function(heal_list, max_length = 1, n_threads = 1){
   
   return(out_list)
 }
-
-
