@@ -53,7 +53,8 @@ parse_genespace_input <- function(genespace_dir) {
 #'
 #' @importFrom data.table .SD
 get_conserved_anchors <- function(genespace_dir) {
-
+  
+  syn_hits_list <- parse_genespace_input(genespace_dir)
   # Pick one genome as reference and keep only data tables containing this genome.
   genomes_per_hits_dt_list <- strsplit(names(syn_hits_list), "_vs_")
   reference_genome <- unlist(genomes_per_hits_dt_list)[1]
@@ -115,8 +116,6 @@ map_bins_to_anchors <- function(anchors_dt, heal_list, n_threads=1) {
     setdiff(colnames(prog$bins), c("chr", "start", "end", "mappability", "gc_content"))
   }))
   polyploid_samples <- sort(unique(sample_names))
-
-  anchors_dt <- get_conserved_anchors(genespace_dir)
 
   progenitors <- names(heal_list)
 
