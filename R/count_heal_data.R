@@ -11,7 +11,6 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names) {
   counts_dt <- data.table::as.data.table(feature_count_list$counts)
   colnames(counts_dt) <- sample_names
 
-  gene_ID <- feature_count_list$annotation$GeneID
   chr <- feature_count_list$annotation$Chr
   start <- feature_count_list$annotation$Start
   end <- feature_count_list$annotation$End

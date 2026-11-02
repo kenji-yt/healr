@@ -18,7 +18,6 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
   
   polyploid_samples <- names(alignment)
   progenitors <- names(heal_list)
-  total_ploidy <- length(progenitors) * prog_ploidy
   
   if(normalize == "local"){
     average_list <- get_sample_stats(heal_list, method = paste0("local_", average))

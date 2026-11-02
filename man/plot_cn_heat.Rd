@@ -54,7 +54,7 @@ plot_cn_heat(
 \item{...}{Any arguments you wish to pass to ggplot2::ggsave().}
 }
 \value{
-Either nothing of a ggplot object showing CN in heat map style for several samples together. The plot is always printed.
+Either nothing or a ggplot object showing CN in heat map style for several samples together. The plot is always printed.
 }
 \description{
 Plot a heat map of all CN

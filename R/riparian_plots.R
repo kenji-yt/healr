@@ -8,8 +8,7 @@
 #' @returns A vector of x axis values to pair with the input y_vec to define the sigmoidal curve.
 #'
 sigmoid <- function(y, x_start, x_end, k=7) {
-  y_min <- min(y)
-  y_max <- max(y)
+
   y0 <- mean(range(y))
   
   x <- x_start + (x_end - x_start) * (1 / (1 + exp(-k * (y - y0))))

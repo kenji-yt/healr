@@ -17,16 +17,15 @@
 #' @param size_x_axis_title Size of the x axis title as input to ggplot2::element_text size argument ('14' by default).
 #' @param size_y_axis_title Size of the x axis title as input to ggplot2::element_text size argument ('14' by default).
 #' @param sample_name_size Size of the sample names as input to ggplot2::geom_text size argument ('3' by default).
-#' @param bin_point_alpha The transparency of the normalized bin count values as input to ggplot2::goem_point alpha argument ('0.4' by default). 
-#' @param bin_point_size Size of the normalized bin count values as input to ggplot2::goem_point size argument ('2' by default).
+#' @param bin_point_alpha The transparency of the normalized bin count values as input to ggplot2::geom_point alpha argument ('0.4' by default). 
+#' @param bin_point_size Size of the normalized bin count values as input to ggplot2::geom_point size argument ('2' by default).
 #' @param cn_line_width Thickness of the line showing the copy number as input to ggplot2::geom_path linewidth argument ('2' by default).
 #' @param y_max Upper limit of the y axis of each sample panel. Bins with normalized counts above y_max + prog_ploidy are not shown, and higher copy numbers are drawn just above that limit. Defaults to the total ploidy (prog_ploidy times the number of subgenomes).
 #' @param ... Any arguments you wish to pass to ggplot2::ggsave().
 #' 
-#' @return Either nothing of a ggplot object showing several samples together. The plot is always printed. 
+#' @return Either nothing or a ggplot object showing several samples together. The plot is always printed. 
 #' @export
 #' 
-#' @examples
 plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  device = "pdf", return_plot = FALSE,
                           prog_ploidy = 2, plot_cn = FALSE, add_bins = TRUE, color_map = FALSE,
                           method = "global", average = "median", average_list = FALSE,
@@ -335,10 +334,9 @@ plot_all_bins <- function(heal_list, view_samples = "all", output_dir = FALSE,  
 #' @param subgenome_label_size Size of subgenome labels ('5' by default).
 #' @param ... Any arguments you wish to pass to ggplot2::ggsave().
 #'
-#' @returns Either nothing of a ggplot object showing CN in heat map style for several samples together. The plot is always printed. 
+#' @returns Either nothing or a ggplot object showing CN in heat map style for several samples together. The plot is always printed. 
 #' @export
 #'
-#' @examples
 plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE, 
                          return_plot = FALSE, device = "pdf", prog_ploidy = 2, sample_label_size = 10,
                          chr_limits = FALSE, chr_limit_thickness = 0.5,
@@ -394,12 +392,8 @@ plot_cn_heat <- function(heal_list, view_samples = "all", output_dir = FALSE,
   dt_all$bin_index <- 1:nrow(dt_all)
   
   # Make in right format for heat map
-  dt_long <- data.table::as.data.table(tidyr::pivot_longer(
-    data = dt_all,
-    cols = -c(bin_index, chr, prog),
-    names_to = "sample",
-    values_to = "CN"
-  ))
+  dt_long <- data.table::melt(dt_all, id.vars = c("bin_index", "chr", "prog"),
+                              variable.name = "sample", value.name = "CN", variable.factor = FALSE)
   
   # Discrete copy numbers: blue below prog_ploidy (darker = fewer copies), white at prog_ploidy, red above (darker = more copies).
   # Copy numbers above the total ploidy are shown with it.

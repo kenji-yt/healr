@@ -53,7 +53,6 @@ parse_genespace_input <- function(genespace_dir) {
 #'
 #' @importFrom data.table .SD
 get_conserved_anchors <- function(genespace_dir) {
-  syn_hits_list <- parse_genespace_input(genespace_dir)
 
   # Pick one genome as reference and keep only data tables containing this genome.
   genomes_per_hits_dt_list <- strsplit(names(syn_hits_list), "_vs_")
@@ -106,14 +105,11 @@ get_conserved_anchors <- function(genespace_dir) {
 #'
 #' @param anchors_dt A data table with one row for each anchor set present in all progenitors (such as output from get_conserved_anchors()).
 #' @param heal_list Output list in heal format (such as output from count_heal_data()).
-#' @param genespace_dir Path to a directory containing the syntenicHits output directory for GENESPACE.
 #' @param n_threads Number of threads to use ('1' by default).
 #'
 #' @return A list containing one data table per progenitor with anchors and overlapping bins.
 #'
-map_bins_to_anchors <- function(anchors_dt, heal_list, genespace_dir, n_threads=1) {
-  
-  syn_hits_list <- parse_genespace_input(genespace_dir)
+map_bins_to_anchors <- function(anchors_dt, heal_list, n_threads=1) {
 
   sample_names <- unlist(lapply(heal_list, function(prog) {
     setdiff(colnames(prog$bins), c("chr", "start", "end", "mappability", "gc_content"))
@@ -204,8 +200,6 @@ get_heal_aln <- function(heal_list, genespace_dir, n_threads = 1, prog_ploidy = 
   if (cn_exist != TRUE) {
     stop("No CN data. Exiting...")
   }
-
-  bin_size <- heal_list$A.arenosa$bins$end[1] - heal_list$A.arenosa$bins$start[1]
   
   sample_names <- unlist(lapply(heal_list, function(prog) {
     setdiff(colnames(prog$bins), c("chr", "start", "end", "mappability", "gc_content"))
@@ -218,7 +212,7 @@ get_heal_aln <- function(heal_list, genespace_dir, n_threads = 1, prog_ploidy = 
   # Get data table of anchors present in all subgenomes
   anchors_dt <- get_conserved_anchors(genespace_dir)
   # Get a list with one data table per subgenome containing anchors and their overlapping bins
-  cn_anchors_and_bins <- map_bins_to_anchors(anchors_dt, heal_list, genespace_dir, n_threads)
+  cn_anchors_and_bins <- map_bins_to_anchors(anchors_dt, heal_list, n_threads)
 
   # Make alignment for each sample
   cn_alignment_list <- foreach::foreach(smp = polyploid_samples) %do% {
@@ -306,8 +300,6 @@ get_heal_aln <- function(heal_list, genespace_dir, n_threads = 1, prog_ploidy = 
       
     doParallel::registerDoParallel(n_threads)
     corrected_cn_list <- foreach::foreach(i = mult_disc_rows)%dopar%{
-   
-      discordant_row <- alignment_draft[i, ]
       
       # Get the CN and overlap at that anchor for each progenitor subgenome 
       cn_list <- list()

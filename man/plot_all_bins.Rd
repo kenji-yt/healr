@@ -64,9 +64,9 @@ plot_all_bins(
 
 \item{sample_name_size}{Size of the sample names as input to ggplot2::geom_text size argument ('3' by default).}
 
-\item{bin_point_alpha}{The transparency of the normalized bin count values as input to ggplot2::goem_point alpha argument ('0.4' by default).}
+\item{bin_point_alpha}{The transparency of the normalized bin count values as input to ggplot2::geom_point alpha argument ('0.4' by default).}
 
-\item{bin_point_size}{Size of the normalized bin count values as input to ggplot2::goem_point size argument ('2' by default).}
+\item{bin_point_size}{Size of the normalized bin count values as input to ggplot2::geom_point size argument ('2' by default).}
 
 \item{cn_line_width}{Thickness of the line showing the copy number as input to ggplot2::geom_path linewidth argument ('2' by default).}
 
@@ -75,7 +75,7 @@ plot_all_bins(
 \item{...}{Any arguments you wish to pass to ggplot2::ggsave().}
 }
 \value{
-Either nothing of a ggplot object showing several samples together. The plot is always printed.
+Either nothing or a ggplot object showing several samples together. The plot is always printed.
 }
 \description{
 Plot counts and copy number for multiple samples together

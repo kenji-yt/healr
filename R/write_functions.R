@@ -60,7 +60,7 @@ read_heal_list <- function(heal_list_directory, ...){
     
     file_names <- list.files(progenitor_dirs[prog], full.names = FALSE)
     file_paths <- paste0(progenitor_dirs[prog],"/",file_names)
-    dt_names <- gsub(".csv","", file_names)
+    dt_names <- sub("\\.csv$", "", file_names)
     names(file_paths) <- dt_names
     
     for(dt_name in dt_names){
@@ -150,6 +150,13 @@ write_cn_summary <- function(cn_summary, output_dir, ...){
 #'
 read_cn_summary <- function(cn_summary_directory, ...){
   
+  # Count tables are written without their row names (counts, percentage): restore them as matrices
+  as_count_matrix <- function(dt) {
+    count_matrix <- as.matrix(dt)
+    rownames(count_matrix) <- c("counts", "percentage")
+    return(count_matrix)
+  }
+  
   out_cn_summary <- list()
   
   samples <- list.dirs(path = cn_summary_directory, full.names = FALSE, recursive = FALSE)
@@ -162,8 +169,6 @@ read_cn_summary <- function(cn_summary_directory, ...){
     
     file_names <- list.files(sample_dirs[smp], full.names = FALSE)
     
-    smp_list$total_count_table <- data.table::fread(file=paste0(sample_dirs[smp], "/total_count_table.csv"), header=TRUE, ...)
-    
     progenitors <- setdiff(file_names, "total_count_table.csv")
     smp_paths <- paste0(sample_dirs[smp], "/", progenitors)
     names(smp_paths) <- progenitors
@@ -174,11 +179,10 @@ read_cn_summary <- function(cn_summary_directory, ...){
       
       prog_file_names <- list.files(smp_paths[prog], full.names = FALSE)
       
-      total_dt_name <- paste0("total_count_table_", prog, ".csv")
+      total_dt_name <- paste0("total_count_table_", prog)
+      total_file_name <- paste0(total_dt_name, ".csv")
       
-      prog_list[[total_dt_name]] <- data.table::fread(file=paste0(smp_paths[prog], "/", total_dt_name), header=TRUE, ...)
-      
-      chromosomes <- setdiff(prog_file_names, total_dt_name)
+      chromosomes <- setdiff(prog_file_names, total_file_name)
       
       chr_paths <- paste0(smp_paths[prog], "/", chromosomes)
       names(chr_paths) <- chromosomes
@@ -187,10 +191,13 @@ read_cn_summary <- function(cn_summary_directory, ...){
         
         chromo_list <- list()
         
-        chromo_list$count_table <- data.table::fread(file=paste0(chr_paths[chromo], "/count_table.csv"), header=TRUE, ...)
+        count_dt <- data.table::fread(file=paste0(chr_paths[chromo], "/count_table.csv"), header=TRUE, ...)
+        count_matrix <- rbind(counts = count_dt$counts, percentage = count_dt$percentages)
+        colnames(count_matrix) <- as.character(count_dt$copy_number)
+        chromo_list$count_table <- count_matrix
         
         rle_dt <- data.table::fread(file = paste0(chr_paths[chromo],"/run_length_encoding.csv"), header=TRUE, ...)
-        run_length_encoding <- list(values=rle_dt$values, lengths=rle_dt$lengths)
+        run_length_encoding <- list(lengths=rle_dt$lengths, values=rle_dt$values)
         class(run_length_encoding) <- "rle"
         
         chromo_list$run_length_encoding <- run_length_encoding
@@ -198,8 +205,12 @@ read_cn_summary <- function(cn_summary_directory, ...){
         prog_list[[chromo]] <- chromo_list
       }
       
+      prog_list[[total_dt_name]] <- as_count_matrix(data.table::fread(file=paste0(smp_paths[prog], "/", total_file_name), header=TRUE, ...))
+      
       smp_list[[prog]] <- prog_list
     }
+    
+    smp_list$total_count_table <- as_count_matrix(data.table::fread(file=paste0(sample_dirs[smp], "/total_count_table.csv"), header=TRUE, ...))
     
     out_cn_summary[[smp]] <- smp_list
     
@@ -251,13 +262,12 @@ read_heal_aln <- function(alignment_directory, ...){
   out_alignment <- list()
   
   sample_files <- list.files(path = alignment_directory, full.names = FALSE, recursive = FALSE)
-  sample_names <- gsub(".csv", "", sample_files)
+  sample_names <- sub("\\.csv$", "", sample_files)
   sample_paths <- paste0(alignment_directory, "/", sample_files)
   names(sample_paths) <- sample_names
   
   for(smp in sample_names){
     
-    out_alignment[[smp]] <- data.table::fread(sample_paths[smp], header=TRUE, ...)
     out_alignment[[smp]] <- data.table::fread(sample_paths[smp], header=TRUE, ...)
     # fwrite writes a missing status as an empty field, which fread reads back as ""
     data.table::set(out_alignment[[smp]], i = which(out_alignment[[smp]]$status == ""), j = "status", value = NA_character_)
