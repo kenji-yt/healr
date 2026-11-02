@@ -208,8 +208,10 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2
 #'
 #' @returns A heal list with the counts in the 'bins' data tables corrected based on GC content effect.
 #' @export
+#' @importFrom stats loess median na.omit predict sd
+#' @importFrom grDevices dev.off pdf png rgb svg
+#' @importFrom graphics abline lines par segments
 #'
-#' @examples
 correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75,
                        prog_ploidy = 2, local_normalize = FALSE, output_dir=FALSE,
                        ymax = 4, cex = 1, pch = 1, alpha = 0.3, linewidth = 3, device = "pdf"){
@@ -353,7 +355,6 @@ correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75
 #' @returns A heal list with short CN spans replaced by neighbouring values if these are identical to each other.
 #' @export
 #'
-#' @examples
 remove_short_spans <- function(heal_list, max_length = 1, n_threads = 1){
   
   samples <- names(get_sample_stats(heal_list = heal_list))

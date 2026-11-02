@@ -1,13 +1,12 @@
 #' Function to  define a sigmoid style curve between two corrresponding block edges.
 #'
-#' @param y_vec Points to define along Y. 
+#' @param y Points to define along Y. 
 #' @param x_start Start point on X.
 #' @param x_end End point on X.
 #' @param k k param of the sigmoidal function
 #'
 #' @returns A vector of x axis values to pair with the input y_vec to define the sigmoidal curve.
 #'
-#' @examples
 sigmoid <- function(y, x_start, x_end, k=7) {
   y_min <- min(y)
   y_max <- max(y)
@@ -27,6 +26,7 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 #' @param colour_scales A list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range. Defaults to red and green colour ranges.
 #' @param theme Background settings. Options are 'dark' or 'light'. Default value is 'light'. 
 #' @param show_legend A logical argument determing if a legend showing each chromosome name should be shown ('TRUE' by default). 
+#' @param legend_spacing Height of each legend key in lines, which sets the spacing between legend entries ('2' by default).
 #' @param legend_text_size Size of the legend text as input to  ggplot2::element_text size argument ('5' by default).
 #' @param legend_title_size Size of the legend title as input to  ggplot2::element_text size argument ('7' by default).
 #' @param title_size Size of the title text as input to ggplot2::element_text size argument ('10' by default).
@@ -39,7 +39,6 @@ sigmoid <- function(y, x_start, x_end, k=7) {
 #' @returns Nothing. Creates riparian style plots with copy number information. 
 #' @export
 #'
-#' @examples
 plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "all", output_dir = FALSE, colour_scales = FALSE,
                           theme = 'light', show_legend = TRUE, legend_text_size = 5, legend_title_size = 7, legend_spacing = 2,
                           title_size = 5, device_vector = c("pdf", "svg"), ...){

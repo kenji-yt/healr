@@ -46,6 +46,8 @@ plot_bins(
 
 \item{add_bins}{Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).}
 
+\item{add_DNAcopy}{Logical: add the segment means from DNAcopy as red lines (requires get_cn(..., full_output = TRUE)) ('FALSE' by default).}
+
 \item{color_map}{A vector of colors for each progenitor. If "FALSE" the colors are choosen using viridis().}
 
 \item{specific_chr}{A vector of characters indicating which chromosomes to plot (plots all by default).}
@@ -63,6 +65,8 @@ plot_bins(
 \item{average}{The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('median' or 'mean'. 'median' by default).}
 
 \item{average_list}{Same as in get_cn().}
+
+\item{linewidth}{Width of the copy number line (if plot_cn = TRUE) ('2' by default).}
 
 \item{ylim_max}{Maximum y axis value when plotting copy number.}
 

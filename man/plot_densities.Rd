@@ -14,11 +14,7 @@ plot_densities(
   corrected_alignment = FALSE,
   ylim_max = FALSE,
   color_vec = FALSE,
-  prog_ploidy = 2,
-  n_threads = 1,
-  normalize = FALSE,
-  average = "median",
-  average_list = FALSE
+  n_threads = 1
 )
 }
 \arguments{
@@ -40,19 +36,14 @@ plot_densities(
 
 \item{color_vec}{A vector of colors for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colors are choosen using viridis().}
 
-\item{prog_ploidy}{Ploidy of the progenitors (Assumed to be equal. '2' by default)}
-
 \item{n_threads}{Number of threads to use ('1' by default).}
-
-\item{normalize}{Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_cn()'.}
-
-\item{average}{Average measure used normalize each bin count ('median' or 'mean'. 'median' by default).}
-
-\item{average_list}{A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_cn()').}
 }
 \value{
 Nothing. Plots are shown and/or saved to output_dir.
 }
 \description{
 Plot empirical concordant densities
+}
+\details{
+Bin counts are normalized the same way as the densities (see 'normalize' in get_concordant_density()).
 }

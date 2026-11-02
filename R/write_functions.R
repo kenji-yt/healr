@@ -46,7 +46,6 @@ write_heal_list <- function(heal_list, output_dir, ...){
 #' @returns A heal list object i.e. a list with one element per progenitor containing at least a data table with counts in bins for each sample and GC and mappability for each bin.
 #' @export
 #'
-#' @examples
 read_heal_list <- function(heal_list_directory, ...){
   
   out_heal_list <- list()
@@ -86,7 +85,6 @@ read_heal_list <- function(heal_list_directory, ...){
 #' @returns Nothing. Writes the data into a directory. 
 #' @export
 #'
-#' @examples
 write_cn_summary <- function(cn_summary, output_dir, ...){
   
   if(dir.exists(output_dir)) {
@@ -150,7 +148,6 @@ write_cn_summary <- function(cn_summary, output_dir, ...){
 #' @returns A CN summary i.e. a list object with information about copy number for each sample. Same as the output of summarize_cn().
 #' @export
 #'
-#' @examples
 read_cn_summary <- function(cn_summary_directory, ...){
   
   out_cn_summary <- list()
@@ -221,7 +218,6 @@ read_cn_summary <- function(cn_summary_directory, ...){
 #' @returns Nothing. Writes the data into a directory. 
 #' @export
 #'
-#' @examples
 write_heal_aln <- function(alignment, output_dir, ...){
   
   if(dir.exists(output_dir)) {
@@ -250,7 +246,6 @@ write_heal_aln <- function(alignment, output_dir, ...){
 #' @returns A heal alignment i.e. A list with one data table per sample. Same as the output of get_heal_aln().
 #' @export
 #'
-#' @examples
 read_heal_aln <- function(alignment_directory, ...){
   
   out_alignment <- list()
@@ -263,6 +258,9 @@ read_heal_aln <- function(alignment_directory, ...){
   for(smp in sample_names){
     
     out_alignment[[smp]] <- data.table::fread(sample_paths[smp], header=TRUE, ...)
+    out_alignment[[smp]] <- data.table::fread(sample_paths[smp], header=TRUE, ...)
+    # fwrite writes a missing status as an empty field, which fread reads back as ""
+    data.table::set(out_alignment[[smp]], i = which(out_alignment[[smp]]$status == ""), j = "status", value = NA_character_)
   }
   return(out_alignment)
 }
@@ -276,7 +274,6 @@ read_heal_aln <- function(alignment_directory, ...){
 #' @returns Nothing. Writes the data into a directory. 
 #' @export
 #'
-#' @examples
 write_aln_summary <- function(alignment_summary, output_dir, ...){
   
   if (dir.exists(output_dir)) {
@@ -325,7 +322,6 @@ write_aln_summary <- function(alignment_summary, output_dir, ...){
 #' @returns A heal alignment summary i.e. A list with one data table per sample. Same as the output of summarize_aln().
 #' @export
 #'
-#' @examples
 read_aln_summary <- function(aln_summary_dir, ...){
   
   out_aln_summary <- list()
@@ -338,11 +334,7 @@ read_aln_summary <- function(aln_summary_dir, ...){
     
     smp_list <- list()
     
-    smp_files <- list.files(path = sample_dirs[smp], full.names = FALSE, recursive = FALSE)
-    progenitors <- setdiff(smp_files, "total_summary.csv")
-    total_summary_path <- paste0(sample_dirs[smp],"/total_summary.csv")
-    total_summary_dt <- data.table::fread(total_summary_path, header = T, ...)
-    smp_list$total_summary_dt <- total_summary_dt
+    progenitors <- list.files(path = sample_dirs[smp], full.names = FALSE, recursive = FALSE)
     
     for(prog in progenitors){
       

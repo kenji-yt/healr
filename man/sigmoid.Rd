@@ -7,13 +7,13 @@
 sigmoid(y, x_start, x_end, k = 7)
 }
 \arguments{
+\item{y}{Points to define along Y.}
+
 \item{x_start}{Start point on X.}
 
 \item{x_end}{End point on X.}
 
 \item{k}{k param of the sigmoidal function}
-
-\item{y_vec}{Points to define along Y.}
 }
 \value{
 A vector of x axis values to pair with the input y_vec to define the sigmoidal curve.

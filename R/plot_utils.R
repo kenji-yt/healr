@@ -641,6 +641,7 @@ add_bin_tracks <- function(bin_plot, heal_list, prog, chr, smp, bin_stats, point
 #' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default).
 #' @param plot_cn Logical: plot a line indicating infered copy number ('FALSE' by default in CN has been estimated).
 #' @param add_bins Logical: plot counts for each bin ('TRUE' by default; normalized in plot_cn=TRUE).
+#' @param add_DNAcopy Logical: add the segment means from DNAcopy as red lines (requires get_cn(..., full_output = TRUE)) ('FALSE' by default).
 #' @param color_map A vector of colors for each progenitor. If "FALSE" the colors are choosen using viridis().
 #' @param specific_chr A vector of characters indicating which chromosomes to plot (plots all by default).
 #' @param bin_stats Add panels showing the bin properties. Should be a vector with any of “gc”, “mappability” and “unknown” ('FALSE' (no panel) by default). Dashed lines show the filter_bins() thresholds. 
@@ -650,6 +651,8 @@ add_bin_tracks <- function(bin_plot, heal_list, prog, chr, smp, bin_stats, point
 #' @param method Which method was used to assign a copy number to each segment (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('global', 'local' or 'manual'. 'global' by default). 
 #' @param average The method to compute average to normalize counts (if plot_cn=TRUE and add_bins!=FALSE). It should be the same method as the one used in get_cn() ('median' or 'mean'. 'median' by default). 
 #' @param average_list Same as in get_cn(). 
+#' @param linewidth Width of the copy number line (if plot_cn = TRUE) ('2' by default).
+
 #' @param ylim_max Maximum y axis value when plotting copy number. 
 #' @param device Plot device (as argument to ggplot2::ggsave) ('png' by default).
 #' @param width Width of the plot output (as argument to ggplot2::ggsave) ('6' by default).
@@ -665,7 +668,7 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
                       add_bins = TRUE, add_DNAcopy = FALSE, color_map = FALSE, 
                       specific_chr = FALSE, bin_stats = FALSE, bin_stats_point_size = 0.5,
                       bin_point_size = 1, return_list = FALSE, method = "global", average = "median",
-                      average_list = FALSE, linewidth=2, ylim_max=8, 
+                      average_list = FALSE, linewidth = 2, ylim_max = 8, 
                       device = "png", width = 6, height = 4, units = "in", ...) {
   
   # Check input to see if it's appropriate
@@ -1176,11 +1179,8 @@ plot_aln <- function(heal_list, alignment, method = "global",
 #' @param corrected_alignment A density corrected alignment ('FALSE' by default). If one is given and show_discordant==TRUE then the new state of corrected points is shown above the previous state.
 #' @param ylim_max Maximum ylim value ('FALSE' by default). If FALSE then the value is set for each sample as 3 times the standard deviation above the mean.
 #' @param color_vec A vector of colors for each copy number class from 0 to the ploidy of the progenitors times the number of progenitors ('FALSE' by default). If "FALSE" the colors are choosen using viridis().
-#' @param prog_ploidy Ploidy of the progenitors (Assumed to be equal. '2' by default)
 #' @param n_threads Number of threads to use ('1' by default).
-#' @param normalize Use normalize count values (either FALSE, 'local' or 'manual'. FALSE by default). The 'local' and 'manual' entries have the same meaning as for 'method' in 'get_cn()'.  
-#' @param average Average measure used normalize each bin count ('median' or 'mean'. 'median' by default).
-#' @param average_list A list with one element per sample with each containing one element per subgenome with values used for normalization (same as in 'get_cn()').
+#' @details Bin counts are normalized the same way as the densities (see 'normalize' in get_concordant_density()).
 
 #'
 #' @return Nothing. Plots are shown and/or saved to output_dir.
@@ -1190,8 +1190,7 @@ plot_aln <- function(heal_list, alignment, method = "global",
 plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
                            show_discordant = FALSE, heal_list = FALSE, alignment = FALSE,
                            corrected_alignment = FALSE, ylim_max = FALSE, color_vec = FALSE,
-                           prog_ploidy = 2, n_threads = 1, normalize = FALSE,
-                           average = "median", average_list = FALSE){
+                           n_threads = 1){
   
   is_align_and_count_data <- is.list(alignment) & is.list(heal_list)
   if (show_discordant == TRUE & !is_align_and_count_data) {
@@ -1202,16 +1201,10 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
   progenitors <- names(heal_list)
 
   
-  if(normalize == "local"){
-    local_averages <- get_sample_stats(heal_list, method = paste0("local_", average))
-    
-  }else if (normalize == "manual" & is.list(average_list)){
-    if (!identical(names(average_list), polyploid_samples)){
-      stop("Invalid average_list input. When method == 'manual' you must provide an average_list with values of median for each sample subgenome.")
-    }
-  }else if (normalize == "manual" & average_list == FALSE){
-    stop("No 'average_list' provided. When method == 'manual' you must provide an 'average_list' with values of median for each sample subgenome.")
-  }
+  # Normalize bin counts the same way as the densities (see get_concordant_density(normalize = ...))
+  normalize <- attr(densities, "normalize")
+  average_list <- attr(densities, "average_list")
+  prog_ploidy <- attr(densities, "prog_ploidy")
   
   
   if (view_sample != FALSE) {
@@ -1244,12 +1237,9 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
       } else {
         
         counts_list <- foreach::foreach(prog = progenitors)%do%{
-          if(normalize == FALSE){
-            counts <- heal_list[[prog]]$bins[[smp]] 
-          } else if(normalize == "local"){
-            counts <- heal_list[[prog]]$bins[[smp]]  / local_averages[[smp]][[prog]] * prog_ploidy
-          }else if(normalize == "manual"){
-            counts <- heal_list[[prog]]$bins[[smp]]  / average_list[[smp]][[prog]] * prog_ploidy
+          counts <- heal_list[[prog]]$bins[[smp]]
+          if (!isFALSE(normalize)) {
+            counts <- counts / average_list[[smp]][[prog]] * prog_ploidy
           }
           return(counts)
         }
@@ -1271,7 +1261,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
 
     names(color_vec) <- cn_labels
     
-    if(normalize == FALSE){
+    if(isFALSE(normalize)){
       graphics::contour(densities[[smp]][[cn_labels[1]]], ylim = c(-5, ylim_max), col = color_vec[cn_labels[1]], main = smp)
     }else{
       graphics::contour(densities[[smp]][[cn_labels[1]]], ylim = c(0, ylim_max), col = color_vec[cn_labels[1]], main = smp)
@@ -1283,7 +1273,8 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
       }
     }
 
-    if (show_discordant == TRUE) {
+    # (only samples with discordant anchors have points to add)
+    if (show_discordant == TRUE && any(alignment[[smp]]$status == "discordant", na.rm = TRUE)) {
       which_discord <- alignment[[smp]]$status == "discordant"
 
       per_prog_dt_list <- foreach::foreach(prog = progenitors) %do% {
@@ -1299,21 +1290,18 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
 
         bin_cn_dt <- unique(data.table::rbindlist(cn_bindex_dt_list))
 
-        merge_dt <- data.table::data.table(chr = heal_list[[prog]]$CN$chr[bin_cn_dt$bin_index], start = heal_list[[prog]]$CN$start[bin_cn_dt$bin_index])
+        # keep the copy number in the table being merged, so it stays with its bin (merge() reorders rows)
+        merge_dt <- data.table::data.table(chr = heal_list[[prog]]$CN$chr[bin_cn_dt$bin_index], start = heal_list[[prog]]$CN$start[bin_cn_dt$bin_index], cn = bin_cn_dt$cn)
 
         merge_dt <- merge(heal_list[[prog]]$bins, merge_dt, by = c("chr", "start"))
 
-        col_keep <- c("gc_content", smp)
+        col_keep <- c("gc_content", smp, "cn")
         
-        if(normalize == "local"){
-          merge_dt[[smp]] <- merge_dt[[smp]] / local_averages[[smp]][[prog]] * prog_ploidy
-          
-        }else if(normalize == "manual"){
+        if (!isFALSE(normalize)) {
           merge_dt[[smp]] <- merge_dt[[smp]] / average_list[[smp]][[prog]] * prog_ploidy
-          
         }
 
-        return(cbind(merge_dt[, ..col_keep], cn = bin_cn_dt$cn))
+        return(merge_dt[, ..col_keep])
       }
 
       points_dt <- data.table::rbindlist(per_prog_dt_list)
@@ -1327,7 +1315,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
 
       graphics::points(points_dt$gc_content, points_dt[[smp]], col = color_vec[points_dt$cn], pch = 16, cex = 0.9)
 
-      if (is.list(corrected_alignment) == TRUE) {
+      if (is.list(corrected_alignment) == TRUE && any(grepl("corrected_", corrected_alignment[[smp]]$status))) {
         which_corrected <- grep("corrected_", corrected_alignment[[smp]]$status)
 
         per_prog_dt_list <- foreach::foreach(prog = progenitors) %do% {
@@ -1343,23 +1331,19 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
 
           bin_cn_dt <- unique(data.table::rbindlist(cn_bindex_dt_list))
 
-          merge_dt <- data.table::data.table(chr = heal_list[[prog]]$CN$chr[bin_cn_dt$bin_index], start = heal_list[[prog]]$CN$start[bin_cn_dt$bin_index])
+          merge_dt <- data.table::data.table(chr = heal_list[[prog]]$CN$chr[bin_cn_dt$bin_index], start = heal_list[[prog]]$CN$start[bin_cn_dt$bin_index], cn_corrected = bin_cn_dt$cn)
           merge_dt <- merge(heal_list[[prog]]$bins, merge_dt, by = c("chr", "start"))
           merge_dt <- merge(heal_list[[prog]]$CN, merge_dt, by = c("chr", "start", "gc_content"), suffixes = c("_CN", "_count"))
-          col_keep <- c("gc_content", paste0(smp, c("_CN", "_count")))
+          col_keep <- c("gc_content", paste0(smp, c("_CN", "_count")), "cn_corrected")
           merge_dt <- merge_dt[, ..col_keep]
-          data.table::setnames(merge_dt, old = col_keep, c("gc_content", "cn_original", "count"))
+          data.table::setnames(merge_dt, old = col_keep, c("gc_content", "cn_original", "count", "cn_corrected"))
           
-          if(normalize == "local"){
-            merge_dt$count <- merge_dt$count / local_averages[[smp]][[prog]] * prog_ploidy
-            
-          }else if(normalize == "manual"){
+          if (!isFALSE(normalize)) {
             merge_dt$count <- merge_dt$count / average_list[[smp]][[prog]] * prog_ploidy
-            
           }
           
           
-          return(cbind(merge_dt, cn_corrected = bin_cn_dt$cn))
+          return(merge_dt)
         }
 
         points_dt <- data.table::rbindlist(per_prog_dt_list)
@@ -1370,7 +1354,7 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
         points_dt <- points_dt[points_dt$cn_corrected != points_dt$cn_original, ]
 
         correction_improved_bin_density <- c()
-        for (i in 1:nrow(points_dt)) {
+        for (i in seq_len(nrow(points_dt))) {
           row <- points_dt[i, ]
 
           original_cn <- row[["cn_original"]]
@@ -1523,3 +1507,5 @@ plot_aln_heat <- function(alignment, view_samples = FALSE,
 }
 
 utils::globalVariables(c("a", "..col_keep", "cn", "i", "status", "..bin_index_col", "..which_relevant", "..cn_col", "bin_start", "anchor_start", "anchor_end", "gene_id", "ref", "copy", "subgenome", "points", "progenitor", "counts", "count", "is_allowed", "x", "y"))
+utils::globalVariables(c("value", "chromo", "method", "label", "y_start", "y_end", "name", "Legend", "x_start", "x_end", "color_legend",
+                         "bin_index", "CN", "xend", "yend", "xmin", "xmax", "Chromosome", "..keep_col", "r", "y_vec"))

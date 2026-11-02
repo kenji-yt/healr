@@ -42,6 +42,8 @@ plot_riparian(
 
 \item{legend_title_size}{Size of the legend title as input to  ggplot2::element_text size argument ('7' by default).}
 
+\item{legend_spacing}{Height of each legend key in lines, which sets the spacing between legend entries ('2' by default).}
+
 \item{title_size}{Size of the title text as input to ggplot2::element_text size argument ('10' by default).}
 
 \item{device_vector}{A vector with the file types you wish to have, as input ggplot2::ggsave device argument (c('pdf', 'svg') by default).}

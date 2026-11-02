@@ -23,11 +23,11 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
   if(normalize == "local"){
     average_list <- get_sample_stats(heal_list, method = paste0("local_", average))
     
-  }else if (normalize == "manual" & average_list != FALSE){
+  }else if (normalize == "manual" && !isFALSE(average_list)){
     if (!identical(names(average_list), polyploid_samples)){
       stop("Invalid average_list input. When method == 'manual' you must provide an average_list with values of median for each sample subgenome.")
     }
-  }else if (normalize == "manual" & average_list == FALSE){
+  }else if (normalize == "manual" && isFALSE(average_list)){
     stop("No 'average_list' provided. When method == 'manual' you must provide an 'average_list' with values of median for each sample subgenome.")
   }
   
@@ -92,8 +92,26 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
     density_by_cn_list <- foreach::foreach(cn = cn_groups) %do% {
       which_rows <- cn_count_type_dt_list[[smp]]$cn == cn & !is.na(cn_count_type_dt_list[[smp]]$cn)
 
-      density <- MASS::kde2d(cn_count_type_dt_list[[smp]]$gc_content[which_rows], cn_count_type_dt_list[[smp]]$count[which_rows], n = n_points)
-
+      gc_vec <- cn_count_type_dt_list[[smp]]$gc_content[which_rows]
+      count_vec <- cn_count_type_dt_list[[smp]]$count[which_rows]
+      
+      # MASS::kde2d's default bandwidth is 0 when most values are identical (e.g. zero reads in most copy number 0 bins), which fails.
+      # Then use the standard deviation instead of the interquartile range, and a small positive value if all values are identical.
+      bandwidths <- sapply(list(gc_vec, count_vec), function(v) {
+        h <- MASS::bandwidth.nrd(v)
+        if (is.na(h) || h <= 0) h <- 4 * 1.06 * stats::sd(v) * length(v)^(-1/5)
+        if (is.na(h) || h <= 0) h <- 1e-3 * max(1, abs(mean(v)))
+        return(h)
+      })
+      
+      # Grid limits: the range of the values, widened by the bandwidth where all values are identical (a zero-width grid cannot be plotted)
+      grid_limits <- unlist(lapply(1:2, function(k) {
+        v <- list(gc_vec, count_vec)[[k]]
+        if (diff(range(v)) > 0) range(v) else range(v) + c(-1, 1) * bandwidths[k]
+      }))
+      
+      density <- MASS::kde2d(gc_vec, count_vec, h = bandwidths, n = n_points, lims = grid_limits)
+      
       return(density)
     }
     names(density_by_cn_list) <- paste0("cn_", cn_groups)
@@ -101,8 +119,14 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
   }
   doParallel::stopImplicitCluster()
   names(density_list) <- polyploid_samples
-
+  
+  # Record how counts were normalized, so correct_cn_with_density() can put bin counts on the same scale
+  attr(density_list, "normalize") <- normalize
+  attr(density_list, "average_list") <- if (isFALSE(normalize)) NULL else average_list
+  attr(density_list, "prog_ploidy") <- prog_ploidy
+  
   return(density_list)
+
 }
 
 #' Re-evaluate the copy number at discordant anchors
@@ -123,9 +147,14 @@ correct_cn_with_density <- function(densities, alignment, heal_list, n_threads =
   polyploid_samples <- names(densities)
   progenitors <- names(heal_list)
 
+  # Bin counts must be on the same scale as the densities (see get_concordant_density(normalize = ...))
+  dens_normalize <- attr(densities, "normalize")
+  dens_average_list <- attr(densities, "average_list")
+  dens_prog_ploidy <- attr(densities, "prog_ploidy")
+  
   corrected_alignment <- foreach::foreach(smp = polyploid_samples) %do% {
     
-    corrected_aln_dt <- alignment[[smp]]
+    corrected_aln_dt <- data.table::copy(alignment[[smp]]) # copy, so the input alignment is not modified by reference
     which_discord <- which(corrected_aln_dt$status == "discordant")
 
     if(length(which_discord) == 0){
@@ -149,6 +178,9 @@ correct_cn_with_density <- function(densities, alignment, heal_list, n_threads =
           merged_dt <- merge(heal_list[[prog]]$bins, data.table::data.table(chr = chr_vec, start = start_vec), by = c("chr", "start"))
           col_keep <- c("gc_content", smp)
           merged_dt <- merged_dt[, ..col_keep]
+          if (!isFALSE(dens_normalize)) {
+            merged_dt[[smp]] <- merged_dt[[smp]] / dens_average_list[[smp]][[prog]] * dens_prog_ploidy
+          }
           merged_dt$cn <- rep(row[[cn_col_name]], length(bindex_vec))
   
           valid_cn_list <- foreach::foreach(i = 1:nrow(merged_dt)) %do% {
