@@ -28,8 +28,12 @@ write_heal_list <- function(heal_list, output_dir, ...){
         
         dt <- heal_list[[prog]][[dt_t]]
         
-        file_path <- paste0(prog_dir, "/", dt_t,".csv")
-        data.table::fwrite(dt, file=file_path, ...)
+        if (is.data.frame(dt)) {
+          data.table::fwrite(dt, file = paste0(prog_dir, "/", dt_t, ".csv"), ...)
+        } else {
+          # Items that are not tables (e.g. 'feature_counts_output', 'DNAcopy') are saved as R objects
+          saveRDS(dt, file = paste0(prog_dir, "/", dt_t, ".rds"))
+        }
         
       }
       cat(paste0("Done for ",prog,".\n"))
@@ -60,11 +64,15 @@ read_heal_list <- function(heal_list_directory, ...){
     
     file_names <- list.files(progenitor_dirs[prog], full.names = FALSE)
     file_paths <- paste0(progenitor_dirs[prog],"/",file_names)
-    dt_names <- sub("\\.csv$", "", file_names)
+    dt_names <- sub("\\.(csv|rds)$", "", file_names)
     names(file_paths) <- dt_names
     
     for(dt_name in dt_names){
-      prog_list[[dt_name]] <- data.table::fread(file=file_paths[dt_name], ...)
+      if (grepl("\\.rds$", file_paths[dt_name])) {
+        prog_list[[dt_name]] <- readRDS(file_paths[dt_name])
+      } else {
+        prog_list[[dt_name]] <- data.table::fread(file=file_paths[dt_name], ...)
+      }
     }
     
     out_heal_list[[prog]] <- prog_list
@@ -354,8 +362,6 @@ read_aln_summary <- function(aln_summary_dir, ...){
       prog_files <- list.files(path = prog_path, full.names = FALSE, recursive = FALSE)
       
       total_dt_name <- paste0("total_", prog, ".csv")
-      prog_total_dt <- data.table::fread(paste0(prog_path, "/", total_dt_name), header=T, ...)
-      prog_list[[paste0("total_",prog)]] <- prog_total_dt
       
       chromosomes <- setdiff(prog_files, total_dt_name)
       
@@ -369,6 +375,10 @@ read_aln_summary <- function(aln_summary_dir, ...){
         
         prog_list[[chromo]] <- chromo_list
       }
+      
+      prog_total_dt <- data.table::fread(paste0(prog_path, "/", total_dt_name), header=T, ...)
+      prog_list[[paste0("total_",prog)]] <- prog_total_dt
+      
       smp_list[[prog]] <- prog_list
     }
     out_aln_summary[[smp]] <- smp_list

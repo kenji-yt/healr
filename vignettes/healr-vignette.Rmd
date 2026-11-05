@@ -19,21 +19,22 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
-  Homoeologous exchange (HE) leads to reciprocal copy number variation between the subgenomes of an allopolyploid (Mason & Wendel, 2020). The **healr** package offers a suite of functions to extract HE related metrics from allopolyploid whole-genome sequencing data. It does this using copy number and synteny analysis. **healr** takes as input bam files sorted by subgenome (for example using EAGLE-RC (Kuo et al., 2020)), synteny information between the subgenomes obtained using GENESPACE (Lovell et al., 2022), measures of mappability averaged within bins and GC content within the same bins. <br>
+Homoeologous exchanges (HE) can lead to matching copy number variation between the subgenomes of an allopolyploid (Mason & Wendel, 2020). The **healr** package offers a suite of functions to extract HE related metrics from allopolyploid whole-genome sequencing data. It does this through copy number and synteny analysis. **healr** takes as input one bam file per subgenome per sample. These are often obtained using read classification tools (for example using EAGLE-RC (Kuo et al., 2020)). **healr** can also input bam files containing only reads which could not be classified to only one subgenome (such as the ".unk." bam files from EAGLE-RC). This input is optional.<br>
+ It also inputs synteny information between the subgenomes, obtained through GENESPACE (Lovell et al., 2022). **healr** also requires binned measures of mappability and GC content within bins. 
 
-  **healr** is part of the HEAL (Homoeologous Exchange Automated Labelling) workflow (link here soon). HEAL strings together automated workflows for read-sorting ([snake-EAGLE-RC](https://github.com/kenji-yt/snake-EAGLE-RC)) and synteny analysis ([snake-GENESPACE](https://github.com/kenji-yt/snake-GENESPACE)), tools for mappability and GC content calculation and **healr** into a single overarching HE analysis.<br>
+**healr** is part of the [HEAL (Homoeologous Exchange Automated Labeller)](https://github.com/kenji-yt/HEAL) workflow. HEAL strings together automated workflows for read-sorting ([snake-EAGLE-RC](https://github.com/kenji-yt/snake-EAGLE-RC)) and synteny analysis ([snake-GENESPACE](https://github.com/kenji-yt/snake-GENESPACE)) and tools to compute mappability and GC content. It then sends the results to **healr** for HE analysis.The simplest way to obtain input data for **healr** is therefore to run HEAL. You can then manually repeat and modify the final steps of the workflow in R using the **healr** functions shown below.<br>
 
-  To make your analysis easier and more reproducible we suggest using **healr** within HEAL. You can then manually repeat and modify the final steps of the workflow in R using the **healr** functions shown below.<br>
-
-You can install **healr** from bioconductor. Then you load and attach it normally.  
+The first step is to install **healr** from github and load it.
 ```{r setup}
+# install.packages("devtools")
+# devtools::install_github("kenji-yt/healr", build_vignettes = TRUE)
 library(healr)
 ```
 
 
 ## Input Data 
 
-**healr** requires an input directory structured in a specific way. If you used HEAL you can skip this part. If not, you must create an input directory structured in the following manner: 
+**healr** requires an input directory structured in a specific way. If you used HEAL you can [skip this part](parsing-the-input-directory). If not, you must create an input directory structured in the following manner: 
 ```
 input_directory/
 ├── progenitors/
@@ -51,31 +52,44 @@ input_directory/
 └── polyploids/
     ├── sample_1/
     │   ├── progenitor_1/
-    │   │   └── progenitor_1_assigned_reads.bam
+    │   │   ├── progenitor_1_assigned_reads.ref.bam
+    │   │   └── unknown
+    |   |       └── progenitor_1_unknown_reads.unk.bam
     │   ├── progenitor_2/
-    │   │   └── progenitor_2_assigned_reads.bam
-    │   └── etc...
+    │   │   ├── progenitor_2_assigned_reads.ref.bam
+            └── unknown
+                └── progenitor_2_unknown_reads.unk.bam
+    │   └── unknown
+    |       ├── progenitor_1
+    |       │   └── progenitor_1_unknown_reads.unk.bam
+    |       └── progenitor_2
+    |           └── progenitor_2_unknown_reads.unk.bam
     ├── sample_2/
     │   ├── progenitor_1/
     │   │   └── progenitor_1_assigned_reads.bam
     │   ├── progenitor_2/
     │   │   └── progenitor_2_assigned_reads.bam
-    │   └── etc...
+    │   └── unknown
+    |       ├── progenitor_1
+    |       │   └── progenitor_1_unknown_reads.unk.bam
+    |       └── progenitor_2
+    |           └── progenitor_2_unknown_reads.unk.bam
     └── etc...
 ```
+The input directory must contain two directories called "polyploids" and "progenitors". These contain subdirectories. The "polyploids" directory contains one directory per sample while the "progenitors" directory contains one directory per subgenome/progenitor.  
+You can name these sub directories as you wish, but note that the names you give to these directories will be used to name variables related to the samples and progenitors within the R objects and plots. It is therefore a good idea to name them appropriately. Ideally these should reflect the sample ID and name of the subgenomes/progenitor species.<br>
 
-  The input directory must contain two directories called "polyploids" and "progenitors". These contain subdirectories. The "polyploids" directory contains one directory per sample while the "progenitors" directory contains one directory per subgenome/progenitor.  
-You can name these sub directories as you wish, but note that the names you give to these directories will be used to name variables related to the samples and progenitors within the R objects and plots. It is therefore a good idea to name them appropriately. Ideally thess should reflect the sample ID and name of the subgenomes/progenitor species. N<br>
+Each progenitor subdirectory must contain a file ending in "bins.bed". These are bed files defining the start and stop coordinates of each bin. A file with GC content within the defined bins and ending in "gc.bed" should also be present in each progenitor directory. Average mappability within bins must also be computed within the bins defined in "bins.bed" files. The file with mappability in bins must end with "mappability.bed".<br>
 
-  Each progenitor directories must contain a file ending in "bins.bed". These are bed files defining the start and stop coordinates of each bin. A file with GC content into the defined bins and ending in "gc.bed" should also be present in each progenitor directory. Average mappability within bins must also be computed within the bins defined in "bins.bed" files. The file with mappability in bins must end with "mappability.bed".<br>
+In HEAL, the "bins.bed" files are created with "bedtools makewindow" (Quinlan & Hall, 2010). GC content is then counted in these bins using "bedtools nuc". Average per base pair mappability must also be computed in these bins. Per base mappability is first obtained using genmap (Pockrandt et al., 2020). Then, it is averaged within bins using a custom awk script on genmap outputs.<br>
 
-  In HEAL, the "bins.bed" files are created with "bedtools makewindow" (Quinlan & Hall, 2010). GC content is then counted in these bins using "bedtools nuc". Average per base pair mappability must also be computed in these bins. Per base mappability is first obtained using genmap (Pockrandt et al., 2020). Then, it is averaged within bins using a custom awk script on genmap outputs.<br>
+Each polyploid sample directory must contain at least one subdirectory per subgenome/progenitor, each containing a bam file of reads mapped and classified to that subgenome. Optionally, there can also be a subdirectory called "unknown" in each of the subgenome/progenitor subdirectories. These "unknown" directories should be present for all samples and have one bam file ending in ".unk.bam" containing reads which cannot be classified to a single subgenome, mapped to the reference for that subgenome.<br>
 
-If you use HEAL, one of the outputs will be a *healr* input directory which you can then manually re-analyse, but it is more efficient to directly start with the pre-counted data (see below). You might want to count the reads again if you want to inspect the featureCounts (Liao et al., 2014) outputs. <br>
+If you use HEAL, one of the outputs will be a *healr* input directory which you can then manually re-analyse. The first step in *healr* is to count reads in bins using featureCounts (Liao et al., 2014) to create a "heal list" object. HEAL also gives you this pre-counted heal list. It is therefore faster to directly start with the pre-counted data (see below). You might want to count the reads again if you want to inspect the featureCounts outputs.<br>
 
 ## Parsing the input directory
 
-  The first step in a **healr** analysis is to create a "heal list" object. This is done using 'count_heal_data()'. This function parses the input directory and counts reads in bins for each bam file using featureCounts (Liao et al., 2014). The heal-list object is just a standard list with one item for each subgenome. These items are themselves lists containing at least a "bins" item. The "bins" item is a data table (Barrett et al., 2025) containing the genomic position, GC content, average mappability and read count for each sample in bins. Later there will also be a "CN" item which is a data table with inferred copy number instead of read counts. Additional elements, such as the raw outputs of certain internal packages, might also be included. <br>
+The first step in a **healr** analysis is to create a "heal list" object. This is done using 'count_heal_data()'. This function parses the input directory and counts reads in bins for each bam file using featureCounts (Liao et al., 2014). The heal-list object is just a standard list with one item for each subgenome. These items are themselves lists containing at least a "bins" and "bin_info" item. The "bins" item is a data table (Barrett et al., 2025) containing the genomic position, GC content, average mappability and read count for each sample in bins. The "bin_info" item is also a data table with the same information, except that it can optionally hold the unknown read counts per bin per sample, if unknown reads are provided. Otherwise it contains only GC and mappability info. Later there will also be additional items describing filter settings, copy number and optionaly the raw outputs of certain internal packages.<br>
 
 Normally the first step would be to parse the input directory and count reads in bins. You can do this with the count_heal_data():
 ```{r count data, message=FALSE, warning=FALSE, eval=FALSE}
@@ -88,7 +102,7 @@ count_list <- count_heal_data(input_dir = input_directory,
 ```
 The reads have now been counted in the bins defined in the "*bins.bed" file. We can specify that the example data is paired-end and that we don't want the full featureCounts results, just the parsed count tables (by setting "full_output = FALSE"). If 'full_output' was set to true, the featureCounts outputs would be added as an element to the heal list.<br>
 
-You can also read in a directory describing already parsed and counted reads using 'read_heal_list()'. Such a directory can be produced by 'write_heal_list()'. HEAL produces such a directory (in "results/healr/healr_list"), enabling users to read in pre-counted data directly.  
+You can also read in a directory containing already parsed and counted reads using 'read_heal_list()'. Such a directory can be produced by 'write_heal_list()'. HEAL produces this directory (in "results/healr/healr_list"), enabling users to read-in pre-counted data directly. Instead of using *healr* read and write functions you can also read and write R objects with the base R functions saveRDS() and writeRDS(). The only difference is that the *healr* functions write '.csv' files for the data tables. 
 ```{r read in counts, message=FALSE, warning=FALSE}
 count_list <- read_heal_list("example_heal_list_A.kam")
 ```
@@ -97,14 +111,14 @@ Here you can see the structure of the heal-list object:
 ```{r list summary}
 summary(count_list)
 ```
-You can visualize the read counts using the 'plot_bins()' function. Here we specify that we only wish to see the counts for the sample called "HM_RS7_G1_1" and at every chromosome called "chr3" (multiple subgenomes might have a chromosome called "chr3"). We also manually set a vector of colors with which to plot each subgenome (here only two).<br>
+You can visualize the read counts using the 'plot_bins()' function. Here we specify that we only wish to see the counts for the sample called "sample1" and at every chromosome called "chr3" (multiple subgenomes might have a chromosome called "chr3"). We also manually set a vector of colors with which to plot each subgenome (here only two).<br>
 ```{r plot raw counts, fig.width=7, fig.height=5}
 plot_bins(heal_list = count_list,
-          view_sample = "HM_RS7_G1_1",
+          view_sample = "sample1",
           specific_chr = "chr3",
           color_map = c("purple3", "goldenrod3"))
 ```
-_**Figure 1:** Raw read counts within 10kb bins over chromosome "chr1"._<br><br>
+_**Figure 1:** Raw read counts within 10kb bins over chromosome "chr3"._<br><br>
 
 There are two subgenomes with a chromosome labelled "chr3" which is why two plots are shown. In fact our example data is that of a synthetic allotetraploid with diploid progenitors (Arabidopsis kamchatica, progenitors are A.lyrata and A.halleri) so there are only two subgenomes in total.<br>
 
@@ -112,27 +126,29 @@ Notice that counts at "chr3" of the "A.halleri" subgenome are very variable with
  
 ## Filtering
 
-Region with low mappability, like the centromeres, will have abnormal read counts even if their copy number is normal. In other bins, the count might be "abnormally" high, due to small scale duplications not captured by the assemblies, or other factors. Extrem GC content values can also affect read counts.<br>
+Region with low mappability, like the centromeres, can have abnormal read counts even if their copy number is normal. In other bins, the count might be "abnormally" high, due to small scale duplications not captured by the assemblies, or other factors. Extreme GC content values can also affect read counts. Finally, some regions might be hard to distinguish between subgenomes such that many reads are discarded by read classification tools at the those regions. This also affects read counts.<br>
 
-It is therefore a good idea to exclude bins with average mappability below a certain threshold, extreme values of GC content and with counts above a certain threshold. You can do this with the 'filter_bins()' function.
+It is therefore a good idea to ignore bins with average mappability below a certain threshold, extreme values of GC content and with counts above a certain threshold. You might also want to ignore bins with too high unknown reads. You can do this with the 'filter_bins()' function.
 ```{r filtering}
 filtered_list <- filter_bins(heal_list = count_list,
                              mappability_threshold = 0.9,
                              gc_threshold = 2,
                              count_threshold = 1.5,
+                             unknown_threshold = 0.25,
                              replace_by_NA = TRUE,
                              log_file = FALSE)
 ```
-Here we removed bins with average per base mappability below 0.9 and with GC content 2 standard deviations away from the median. We also replace any count values 2 times the standard deviation above the median with NA. This is the default behavior of this function. You can also set replace_by_NA to FALSE, in which case the value is set to that of the threshold. We also set 'log_file' to FALSE which means we don't write the filtering message to a file. If you wish to save filtering statistics, just pass a path to a file in which the message should be written.<br>
+This function returns a heal list where the 'bins' items have been filtered. The 'bin_info' items stay unchanged. Additonally, a 'filter_settings' items is added to describe filtering thresholds. Here we removed bins with average per base mappability below 0.9 and with GC content 2 standard deviations away from the median. We also replace any count values 2 times the standard deviation above the median with NA. This is the default behavior of this function. You can also set replace_by_NA to FALSE, in which case the value is set to that of the threshold. We also specify that bins with unknown counts above 25% of the median read count for the uniquely classified read counts should be set to NA. 'log_file' is set to FALSE which means we don't write the filtering message to a file. If you wish to save filtering statistics, just give a path to a file in which the message should be written.<br>
 
-Let's plot the filtered data: 
+Let's plot the filtered data, and let's add panels showing the bin proprieties and how filtering was applied: 
 ```{r plot filtered counts, fig.width=7, fig.height=5, warning=FALSE}
 plot_bins(heal_list = filtered_list,
-          view_sample = "HM_RS7_G1_1",
+          view_sample = "sample_1",
           specific_chr = "chr3",
-          color_map = c("purple3", "goldenrod3"))
+          color_map = c("purple3", "goldenrod3"),
+          bin_stats = TRUE)
 ```
-_**Figure 2:** Filtered read counts within 10kb bins over chromosome "chr1"._<br><br>
+_**Figure 2:** Filtered read counts within 10kb bins over chromosome "chr3"._<br><br>
 
 Notice how there are gaps in the center of both chromosomes. These are probably the centromeres which have been filtered out. Some other parts of chromosome 3 of the "A.halleri" subgenome have also been filtered out. We can see in figure 1 how the regions filtered out seemed to have systematically high read count values. This might be due to mappability and GC effects or copy number changes, or both. One can vary the filtering stringency to explore these regions. Nevertheless, the results in figure 2 seem sensible. The filtering removed the extremely high count bins. It is now evident that the A.lyrata subgenome also displays strong signs of copy number variation. In fact, the patterns of count between A.halleri chromosome 3 and A.lyrata chromosome 3 are symmetrical. This suggests that the shared chromosome name ("chr3") of the two progenitor species reflects some equivalence in genetic information and that HE is likely to be the main driver of these copy number changes.<br>
 

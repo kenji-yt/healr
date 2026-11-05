@@ -41,7 +41,7 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2
           df$bins[[smp]][df$bins[[smp]] > threshold_value] <- threshold_value
         }
       }
-      return(df[intersect(c("bins", "bin_info"), names(df))])
+      return(df[setdiff(names(df), c("CN", "DNAcopy"))])
     })
     names(filtered_list) <- names(heal_list)
     heal_list <- filtered_list
@@ -101,7 +101,7 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2
     filtered_df <- prog$bins[which_keep, ]
 
     prog$bins <- filtered_df
-    return(prog[intersect(c("bins", "bin_info"), names(prog))])
+    return(prog[setdiff(names(prog), c("CN", "DNAcopy"))])
   }
 
   if (count_threshold != FALSE) {

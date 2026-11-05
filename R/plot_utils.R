@@ -614,7 +614,7 @@ add_bin_tracks <- function(bin_plot, heal_list, prog, chr, smp, bin_stats, point
       ggplot2::guides(color = ggplot2::guide_legend(order = 1), linetype = ggplot2::guide_legend(order = 2)) +
       ggplot2::theme_bw()
     if (!is.null(thresholds[[tr]])) {
-      p <- p + ggplot2::geom_hline(data = data.frame(y = thresholds[[tr]]), ggplot2::aes(yintercept = y, linetype = "Filter threshold")) +
+      p <- p + ggplot2::geom_hline(data = data.frame(y = thresholds[[tr]]), ggplot2::aes(yintercept = y, linetype = "Filter Threshold")) +
         ggplot2::scale_linetype_manual(values = c("Filter Threshold" = "dashed"), name = "")
     }
     return(p)

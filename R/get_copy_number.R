@@ -124,7 +124,7 @@ get_cn <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global",
       colnames(cn_dt) <- c("chr", "start", "end", "gc_content", "mappability", sample_current_prog)
       data.table::setkey(cn_dt, chr, start, end, gc_content, mappability)
       
-      out <- heal_list[[pr_name]][intersect(c("bins", "bin_info", "filter_settings"), names(heal_list[[pr_name]]))]
+      out <- heal_list[[pr_name]][setdiff(names(heal_list[[pr_name]]), c("CN", "DNAcopy"))]
       out$CN <- cn_dt
       out$DNAcopy <- sgmnts_list
       return(out)
@@ -135,7 +135,7 @@ get_cn <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global",
       colnames(cn_dt) <- c("chr", "start", "end", "gc_content", "mappability", sample_current_prog)
       data.table::setkey(cn_dt, chr, start, end, gc_content, mappability)
       
-      out <- heal_list[[pr_name]][intersect(c("bins", "bin_info", "filter_settings"), names(heal_list[[pr_name]]))]
+      out <- heal_list[[pr_name]][setdiff(names(heal_list[[pr_name]]), c("CN", "DNAcopy"))]
       out$CN <- cn_dt
       return(out)
     }

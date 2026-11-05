@@ -47,11 +47,15 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names) {
 #' @importFrom utils write.table
 count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = FALSE, unknown_reads = TRUE) {
   
-  prog_dir <- list.files(path = input_dir, pattern = "progenitors", full.names = TRUE)
+  # Subgenome directory: "subgenomes" ("progenitors", its name before healr 2.0.0, is still accepted)
+  prog_dir <- file.path(input_dir, c("subgenomes", "progenitors"))
+  prog_dir <- prog_dir[dir.exists(prog_dir)]
   if(length(prog_dir)==0){
-    stop("No directory named progenitors in the input directory.")
+    stop("No directory named 'subgenomes' in the input directory.")
   }else if(length(prog_dir)>1){
-    stop("More than one directory named progenitors in the input directory.")
+    stop("The input directory contains both 'subgenomes' and 'progenitors'. Keep only 'subgenomes'.")
+  }else if(basename(prog_dir) == "progenitors"){
+    message("Note: the input directory 'progenitors' is now called 'subgenomes'. 'progenitors' is still accepted for now.")
   }
   
   poly_dir <- list.files(path = input_dir, pattern = "polyploids", full.names = TRUE)
