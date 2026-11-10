@@ -58,7 +58,7 @@ get_cn <- function(heal_list, n_threads = 1, prog_ploidy = 2, method = "global",
     doParallel::registerDoParallel(n_threads)
     sample_CN <- foreach::foreach(smp = sample_current_prog) %dopar% {
       
-      cna.object <- DNAcopy::CNA(chrom = prog$chr, maploc = prog$start, genomdat = prog[[smp]])
+      cna.object <- DNAcopy::CNA(chrom = prog$chr, maploc = prog$start, genomdat = prog[[smp]], presorted = TRUE)
       smooth_cna <- DNAcopy::smooth.CNA(cna.object)
       # Remove any chromosome with only NA (happens with plastids for example):
       only_na_chromo_list <- foreach::foreach(chromo=unique(smooth_cna$chrom)) %do% {

@@ -15,8 +15,9 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2
   
   if(log_file!=FALSE){
     sink(log_file, append = TRUE, split = TRUE)
+    on.exit(sink(), add = TRUE) # also closes the log if the function stops with an error
   }
-  
+
   if (isTRUE(mappability_threshold) || isTRUE(gc_threshold) || isTRUE(count_threshold) || isTRUE(unknown_threshold)) {
     stop("'mappability_threshold', 'gc_threshold', 'count_threshold' and 'unknown_threshold' must be a number or FALSE. Exiting..")
   }
@@ -164,10 +165,6 @@ filter_bins <- function(heal_list, mappability_threshold = 0.9, gc_threshold = 2
     cat("No unknown reads filtering. \n")
   }
   
-  if(log_file!=FALSE){
-    sink()
-  }
-  
   names(filtered_list) <- names(heal_list)
   
   # Record the filtering parameters in each subgenome
@@ -255,12 +252,14 @@ correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75
   end <- max(gc_and_norm_counts_dt$gc)
   
   total_range <- end - start
-  step <- total_range / (n_windows + 1)
+  step <- total_range / n_windows
   
-  gc_range <- seq(from = start, to = end, by = step)
+  gc_range <- seq(from = start, to = end, length.out = n_windows + 1)
+  # Interval of each bin: (lower, upper], the first one including its lower boundary (the minimum GC content)
+  gc_interval <- cut(gc_and_norm_counts_dt$gc, breaks = gc_range, include.lowest = TRUE, labels = FALSE)
   
   median_list <- foreach::foreach(i = 1:(length(gc_range)-1))%do%{
-    return(median(gc_and_norm_counts_dt$count[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]], na.rm = TRUE))
+    return(median(gc_and_norm_counts_dt$count[which(gc_interval == i)], na.rm = TRUE))
   }
   median_vec <- unlist(median_list)
   
@@ -276,17 +275,18 @@ correct_gc <- function(heal_list, n_threads=1, n_windows = 10, loess_span = 0.75
   gc_and_norm_counts_dt$corrected <- gc_and_norm_counts_dt$count
   
   for(i in 1:(length(gc_range)-1)){
-    gc_and_norm_counts_dt$corrected[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]] <- gc_and_norm_counts_dt$corrected[gc_vec>gc_range[i] & gc_vec<=gc_range[i+1]] * gc_factor[i]
+    gc_and_norm_counts_dt$corrected[which(gc_interval == i)] <- gc_and_norm_counts_dt$corrected[which(gc_interval == i)] * gc_factor[i]
   }
   
   # Show plots
   if(output_dir != FALSE){
+    dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
     if(device == "svg"){
       svg(paste0(output_dir, "/gc_correction.", device), width = 14, height = 7)
     }else if(device == "pdf"){
       pdf(paste0(output_dir, "/gc_correction.", device), width = 14, height = 7)
     }else if(device == "png"){
-      png(paste0(output_dir, "/gc_correction.", device), width = 14, height = 7)
+      png(paste0(output_dir, "/gc_correction.", device), width = 14, height = 7, units = "in", res = 300)
     }else{
       stop("Device not valid. Choose from 'pdf', 'png' or 'svg'.")
     }
@@ -388,8 +388,9 @@ remove_short_spans <- function(heal_list, max_length = 1, n_threads = 1){
                 rle_smp$values[i] <- rle_smp$values[i - 1]
               }
             }
-            if(rle_smp$lengths[length(rle_smp)] <= max_length && rle_smp$lengths[length(rle_smp)-1] > max_length){
-                rle_smp$values[length(rle_smp)] <- rle_smp$values[length(rle_smp)-1]
+            n_runs <- length(rle_smp$lengths)
+            if(rle_smp$lengths[n_runs] <= max_length && rle_smp$lengths[n_runs - 1] > max_length){
+              rle_smp$values[n_runs] <- rle_smp$values[n_runs - 1]
             }
           }
         }

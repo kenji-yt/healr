@@ -103,11 +103,8 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
         return(h)
       })
       
-      # Grid limits: the range of the values, widened by the bandwidth where all values are identical (a zero-width grid cannot be plotted)
-      grid_limits <- unlist(lapply(1:2, function(k) {
-        v <- list(gc_vec, count_vec)[[k]]
-        if (diff(range(v)) > 0) range(v) else range(v) + c(-1, 1) * bandwidths[k]
-      }))
+      # Grid limits: the range of the values widened by the bandwidth, so the density falls close to zero at the edges
+      grid_limits <- unlist(lapply(1:2, function(k) range(list(gc_vec, count_vec)[[k]]) + c(-1, 1) * bandwidths[k]))
       
       density <- MASS::kde2d(gc_vec, count_vec, h = bandwidths, n = n_points, lims = grid_limits)
       
@@ -126,6 +123,20 @@ get_concordant_density <- function(alignment, heal_list, n_threads = 1, prog_plo
   
   return(density_list)
 
+}
+
+#' Density of a MASS::kde2d() grid at a point: the nearest grid value, or zero outside the grid.
+#'
+#' @param dens A density (output from MASS::kde2d()).
+#' @param x GC content.
+#' @param y Count.
+#'
+#' @return The density, 0 outside the grid, or numeric(0) if x or y is NA.
+#'
+density_at <- function(dens, x, y) {
+  if (is.na(x) || is.na(y)) return(numeric(0))
+  if (x < min(dens$x) || x > max(dens$x) || y < min(dens$y) || y > max(dens$y)) return(0)
+  return(dens$z[which.min(abs(dens$x - x)), which.min(abs(dens$y - y))])
 }
 
 #' Re-evaluate the copy number at discordant anchors
@@ -184,10 +195,7 @@ correct_cn_with_density <- function(densities, alignment, heal_list, n_threads =
   
           valid_cn_list <- foreach::foreach(i = 1:nrow(merged_dt)) %do% {
             density_at_cn_list <- foreach::foreach(cn = names(densities[[smp]])) %do% {
-              x_idx <- which.min(abs(densities[[smp]][[cn]]$x - merged_dt$gc_content[i]))
-              y_idx <- which.min(abs(densities[[smp]][[cn]]$y - merged_dt[[smp]][i]))
-              dens_bin <- densities[[smp]][[cn]]$z[x_idx, y_idx]
-              return(dens_bin)
+              return(density_at(densities[[smp]][[cn]], merged_dt$gc_content[i], merged_dt[[smp]][i]))
             }
             names(density_at_cn_list) <- names(densities[[smp]])
             density_at_cn <- unlist(density_at_cn_list)

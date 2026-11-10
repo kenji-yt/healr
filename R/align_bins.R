@@ -130,7 +130,7 @@ map_bins_to_anchors <- function(anchors_dt, heal_list, n_threads=1) {
     gnm_anchors_ranges <- GenomicRanges::GRanges(
       seqnames = anchors_dt[[chr]],
       ranges = IRanges::IRanges(
-        start = anchors_dt[[start]],
+        start = anchors_dt[[start]] + 1, # 0-based (BED) start from GENESPACE
         end = anchors_dt[[end]]
       ),
       gene_id = anchors_dt[[id]]
@@ -139,7 +139,7 @@ map_bins_to_anchors <- function(anchors_dt, heal_list, n_threads=1) {
     gnm_bin_ranges <- GenomicRanges::GRanges(
       seqnames = heal_list[[prog]]$CN$chr,
       ranges = IRanges::IRanges(
-        start = heal_list[[prog]]$CN$start,
+        start = heal_list[[prog]]$CN$start + 1, # 0-based (BED) start
         end = heal_list[[prog]]$CN$end
       )
     )
@@ -272,12 +272,11 @@ get_heal_aln <- function(heal_list, genespace_dir, n_threads = 1, prog_ploidy = 
       }
       doParallel::stopImplicitCluster()
       
-      assigned_multiple_dt <- data.table::rbindlist(multiple_cn_anchors)
-      
-      assigned_add_on_dt <- merge(assigned_multiple_dt, anchors_dt, by = prog_id_col)
-      
-      assigned_anchors_dt <- data.table::rbindlist(list(assigned_anchors_dt, assigned_add_on_dt), use.names = TRUE)
-
+      if (length(multiple_cn_anchors) > 0) {
+        assigned_multiple_dt <- data.table::rbindlist(multiple_cn_anchors)
+        assigned_add_on_dt <- merge(assigned_multiple_dt, anchors_dt, by = prog_id_col)
+        assigned_anchors_dt <- data.table::rbindlist(list(assigned_anchors_dt, assigned_add_on_dt), use.names = TRUE)
+      }
       return(assigned_anchors_dt)
     }
     

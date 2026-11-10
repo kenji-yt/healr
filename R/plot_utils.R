@@ -612,7 +612,9 @@ add_bin_tracks <- function(bin_plot, heal_list, prog, chr, smp, bin_stats, point
       ggplot2::scale_color_manual(values = status_colors, name = "Bin Statistics & Filtering") +
       ggplot2::labs(x = "Position", y = labels[[tr]]) +
       ggplot2::guides(color = ggplot2::guide_legend(order = 1), linetype = ggplot2::guide_legend(order = 2)) +
-      ggplot2::theme_bw()
+      ggplot2::theme_bw() +
+      ggplot2::theme(axis.title.y = ggplot2::element_text(angle = 0, vjust = 0.5))
+    
     if (!is.null(thresholds[[tr]])) {
       p <- p + ggplot2::geom_hline(data = data.frame(y = thresholds[[tr]]), ggplot2::aes(yintercept = y, linetype = "Filter Threshold")) +
         ggplot2::scale_linetype_manual(values = c("Filter Threshold" = "dashed"), name = "")
@@ -826,7 +828,8 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
             ggplot2::scale_color_manual(values = final_color_map) +
             ggplot2::ylim(0, ylim_max) +
             ggplot2::labs(title = paste0(chr, "; ", smp, "; ", prog), x = "Position", y = "Copy Number", color = "Legend") +
-            ggplot2::theme_bw()
+            ggplot2::theme_bw() +
+            ggplot2::theme(axis.title.y = ggplot2::element_text(angle = 0, vjust = 0.5))
           
           # Legend keys: a point for the normalized counts (opaque, so it is visible), a line for everything else
           legend_keys <- sort(c("Copy Number", if (add_bins == TRUE) "Normalized Count", if (add_DNAcopy == TRUE) "Segment Mean"))
@@ -863,7 +866,8 @@ plot_bins <- function(heal_list, view_sample = FALSE, output_dir = FALSE,
             ggplot2::theme_minimal() +
             ggplot2::scale_color_manual(values = color_map) +
             ggplot2::labs(title = paste(chr, smp), x = "Position", y = "Counts") +
-            ggplot2::theme_bw()
+            ggplot2::theme_bw() +
+            ggplot2::theme(axis.title.y = ggplot2::element_text(angle = 0, vjust = 0.5))
           
           if(add_DNAcopy == TRUE){
             bin_plot <- bin_plot + 
@@ -1118,7 +1122,8 @@ plot_aln <- function(heal_list, alignment, method = "global",
             ggplot2::scale_color_manual(values = color_map) +
             ggplot2::ylim(-0.1, ylim_max) +
             ggplot2::labs(title = paste(chr, "; ", smp, "; ", ref), x = "Position", y = "Copy Number") +
-            ggplot2::theme_bw()
+            ggplot2::theme_bw() +
+            ggplot2::theme(axis.title.y = ggplot2::element_text(angle = 0, vjust = 0.5))
 
           if (output_dir != FALSE) {
             ggplot2::ggsave(filename = out_file, bin_plot, device = device, width = width, height = height, units = units)
@@ -1132,7 +1137,8 @@ plot_aln <- function(heal_list, alignment, method = "global",
             ggplot2::scale_color_manual(values = color_map) +
             ggplot2::ylim(-0.1, ylim_max) +
             ggplot2::labs(title = paste(chr, "; ", smp, "; ", ref), x = "Position", y = "Copy Number") +
-            ggplot2::theme_bw()
+            ggplot2::theme_bw() +
+            ggplot2::theme(axis.title.y = ggplot2::element_text(angle = 0, vjust = 0.5))
 
           if (output_dir != FALSE) {
             ggplot2::ggsave(filename = out_file, aln_plot, device = device, width = width, height = height, units = units)
@@ -1300,8 +1306,8 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
 
       points_dt <- data.table::rbindlist(per_prog_dt_list)
 
-      points_dt$cn <- paste0("cn_", points_dt$cn)
-
+      points_dt$cn <- paste0("cn_", as.numeric(points_dt$cn))
+      
       points_dt[, is_allowed := cn %in% cn_labels]
 
       color_vec[["other"]] <- "black"
@@ -1353,16 +1359,9 @@ plot_densities <- function(densities, view_sample = FALSE, output_dir = FALSE,
 
           original_cn <- row[["cn_original"]]
           if (original_cn %in% cn_labels) {
-            x_idx_orig <- which.min(abs(densities[[smp]][[original_cn]]$x - row[["gc_content"]]))
-            y_idx_orig <- which.min(abs(densities[[smp]][[original_cn]]$y - row[["count"]]))
-            original_density <- densities[[smp]][[original_cn]]$z[x_idx_orig, y_idx_orig]
-
-            corrected_cn <- row[["cn_corrected"]]
-            x_idx_cor <- which.min(abs(densities[[smp]][[corrected_cn]]$x - row[["gc_content"]]))
-            y_idx_cor <- which.min(abs(densities[[smp]][[corrected_cn]]$y - row[["count"]]))
-            corrected_density <- densities[[smp]][[corrected_cn]]$z[x_idx_cor, y_idx_cor]
-
-            correction_improved_bin_density <- c(correction_improved_bin_density, corrected_density > original_density)
+            original_density <- density_at(densities[[smp]][[original_cn]], row[["gc_content"]], row[["count"]])
+            corrected_density <- density_at(densities[[smp]][[row[["cn_corrected"]]]], row[["gc_content"]], row[["count"]])
+            correction_improved_bin_density <- c(correction_improved_bin_density, isTRUE(corrected_density > original_density))
           } else {
             correction_improved_bin_density <- c(correction_improved_bin_density, TRUE)
           }
@@ -1454,8 +1453,8 @@ plot_aln_heat <- function(alignment, view_samples = FALSE,
         }else{
           
           xrange <- as.character(xrange)
-          y_min <- min(as.numeric(count_table$y))
-          y_max <- max(as.numeric(count_table$y))
+          y_min <- min(as.numeric(as.character(count_table$y)))
+          y_max <- max(as.numeric(as.character(count_table$y)))
           yrange <- as.character(y_min:y_max)
           
           full_grid <- expand.grid(x = xrange, y = yrange, stringsAsFactors = FALSE)
@@ -1467,8 +1466,8 @@ plot_aln_heat <- function(alignment, view_samples = FALSE,
         }
       }else if(!is.logical(yrange)){
         
-        x_min <- min(as.numeric(count_table$x))
-        x_max <- max(as.numeric(count_table$x))
+        x_min <- min(as.numeric(as.character(count_table$x)))
+        x_max <- max(as.numeric(as.character(count_table$x)))
         xrange <- as.character(x_min:x_max)
         yrange <- as.character(yrange)
         
@@ -1480,6 +1479,9 @@ plot_aln_heat <- function(alignment, view_samples = FALSE,
         count_table <- count_table_full
       }
       
+      # Order copy numbers numerically (as text, 10 would come before 2)
+      count_table$x <- factor(count_table$x, levels = unique(as.character(sort(as.numeric(as.character(count_table$x))))))
+      count_table$y <- factor(count_table$y, levels = unique(as.character(sort(as.numeric(as.character(count_table$y))))))
     
       plot <- ggplot2::ggplot(count_table, ggplot2::aes(x = x, y = y, fill = count)) +
         ggplot2::geom_tile(color = "black") +

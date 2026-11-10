@@ -58,14 +58,12 @@ count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = 
     message("Note: the input directory 'progenitors' is now called 'subgenomes'. 'progenitors' is still accepted for now.")
   }
   
-  poly_dir <- list.files(path = input_dir, pattern = "polyploids", full.names = TRUE)
-  if(length(poly_dir)==0){
-    stop("No directory named polyploids in the input directory.")
-  }else if(length(poly_dir)>1){
-    stop("More than one directory named polyploids in the input directory.")
+  poly_dir <- file.path(input_dir, "polyploids")
+  if(!dir.exists(poly_dir)){
+    stop("No directory named 'polyploids' in the input directory.")
   }
   
-  progenitors <- list.files(path = prog_dir)
+  progenitors <- list.dirs(path = prog_dir, full.names = FALSE, recursive = FALSE)
 
   # Check that every sample has its BAM file(s) for every subgenome before counting anything
   sample_dirs <- list.dirs(path = poly_dir, full.names = TRUE, recursive = FALSE)

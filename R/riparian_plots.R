@@ -206,7 +206,7 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "a
                 end_loc <- max(end_vec) + offset
                 
                 if(cn > 4){
-                  bloc_center <- mean(start_loc, end_loc)
+                  bloc_center <- mean(c(start_loc, end_loc))
                   y_position <- 2.5 * direction[[prog]]
                   plot <- plot + ggplot2::annotate("text", x = bloc_center, y = y_position, label = "+", size = 6) 
                   cn <- 4
@@ -245,7 +245,11 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "a
       blocks_dt$Chromosome,
       levels = c(sort(unique(blocks_dt$Chromosome[endsWith(blocks_dt$Chromosome, paste0(" ", progenitors[1]))])), sort(unique(blocks_dt$Chromosome[endsWith(blocks_dt$Chromosome, paste0(" ", progenitors[2]))])))
     )
-
+    
+    # Number of chromosomes of each subgenome drawn in this plot (bins may hold more, e.g. unanchored scaffolds)
+    n_levels_1 <- sum(endsWith(levels(blocks_dt$Chromosome), paste0(" ", progenitors[1])))
+    n_levels_2 <- nlevels(blocks_dt$Chromosome) - n_levels_1
+    
     if(is.logical(colour_scales)){
       if(colour_scales==TRUE){
         stop("Invalid entry for 'colour_scales'. Please input a list with one entry per subgenome. Each entry must be named after a subgenome and contain a vector with the starting and ending colour value of the range.")
@@ -267,8 +271,8 @@ plot_riparian <- function(alignment, heal_list, genespace_dir, view_samples = "a
     
     plot <- plot + ggplot2::geom_rect(data = blocks_dt, ggplot2::aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = Chromosome), color = "#272727") +
       ggplot2::scale_fill_manual(values = c(
-        scales::gradient_n_pal(colour_scales[[progenitors[1]]])(seq(0, 1, length.out = n_chromo_by_subgenome[[progenitors[1]]])),
-        scales::gradient_n_pal(colour_scales[[progenitors[2]]])(seq(0, 1, length.out = n_chromo_by_subgenome[[progenitors[2]]])))
+        scales::gradient_n_pal(colour_scales[[progenitors[1]]])(seq(0, 1, length.out = n_levels_1)),
+        scales::gradient_n_pal(colour_scales[[progenitors[2]]])(seq(0, 1, length.out = n_levels_2)))
       ) +
       ggplot2::theme(
         legend.text = ggplot2::element_text(size = legend_text_size),
