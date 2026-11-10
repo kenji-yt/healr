@@ -377,21 +377,21 @@ remove_short_spans <- function(heal_list, max_length = 1, n_threads = 1){
           if(rle_smp$lengths[1] <= max_length && rle_smp$lengths[2] > max_length){
             rle_smp$values[1] <- rle_smp$values[2]}
         
-          if(length(rle_smp$lengths)>2){
-            
-            for (i in 2:(length(rle_smp$lengths) - 1)) {
-              if (rle_smp$lengths[i] <= max_length &&
-                  rle_smp$lengths[i - 1] > max_length &&
-                  rle_smp$lengths[i + 1] > max_length &&
-                  rle_smp$values[i - 1] == rle_smp$values[i + 1]) {
-                
-                rle_smp$values[i] <- rle_smp$values[i - 1]
+            if(length(rle_smp$lengths)>2){
+              
+              for (i in 2:(length(rle_smp$lengths) - 1)) {
+                if (rle_smp$lengths[i] <= max_length &&
+                    rle_smp$lengths[i - 1] > max_length &&
+                    rle_smp$lengths[i + 1] > max_length &&
+                    rle_smp$values[i - 1] == rle_smp$values[i + 1]) {
+                  
+                  rle_smp$values[i] <- rle_smp$values[i - 1]
+                }
               }
             }
-            n_runs <- length(rle_smp$lengths)
-            if(rle_smp$lengths[n_runs] <= max_length && rle_smp$lengths[n_runs - 1] > max_length){
-              rle_smp$values[n_runs] <- rle_smp$values[n_runs - 1]
-            }
+          n_runs <- length(rle_smp$lengths)
+          if(rle_smp$lengths[n_runs] <= max_length && rle_smp$lengths[n_runs - 1] > max_length){
+            rle_smp$values[n_runs] <- rle_smp$values[n_runs - 1]
           }
         }
         corrected_vec <- inverse.rle(rle_smp)
