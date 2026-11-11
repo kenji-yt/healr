@@ -47,7 +47,7 @@ parse_counts_bins <- function(feature_count_list, gc_dt, map_dt, sample_names) {
 #' @importFrom utils write.table
 count_heal_data <- function(input_dir, n_threads = 1, paired_end, full_output = FALSE, unknown_reads = TRUE) {
   
-  # Subgenome directory: "subgenomes" ("progenitors", its name before healr 2.0.0, is still accepted)
+  # Subgenome directory: "subgenomes" ("progenitors", its name before healr 1.1.0, is still accepted)
   prog_dir <- file.path(input_dir, c("subgenomes", "progenitors"))
   prog_dir <- prog_dir[dir.exists(prog_dir)]
   if(length(prog_dir)==0){
